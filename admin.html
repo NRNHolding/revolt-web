@@ -105,6 +105,21 @@
     .tl-when { font-size: 11px; color: #8f8f85; letter-spacing: .3px; }
     .tl-label { font-size: 13px; color: #ececec; margin-top: 2px; word-break: break-word; }
     .tl-badge { display: inline-block; font-size: 10px; font-weight: 700; background: #33332a; color: #e0c79a; padding: 1px 7px; border-radius: 20px; margin-left: 4px; }
+
+    /* ── Warning badge + banner + analisa ── */
+    .warn-badge { display: inline-block; font-size: 10px; font-weight: 700; background: #4a2c12; color: #ffbd6b; border: 1px solid #7a4a1e; padding: 0 6px; border-radius: 20px; cursor: help; }
+    .warn-box { background: #241a10; border: 1px solid #6b4415; border-radius: 12px; padding: 12px 14px; margin: 16px 0 4px; }
+    .warn-h { color: #ffbd6b; font-weight: 800; font-size: 13px; margin-bottom: 8px; }
+    .warn-row { display: block; width: 100%; text-align: left; background: transparent; border: none; border-top: 1px solid #3a2a16; color: #ddd; font-size: 12px; padding: 7px 2px; cursor: pointer; }
+    .warn-row:first-of-type { border-top: none; }
+    .warn-row:hover { color: #fff; }
+    .an-box { border-radius: 10px; padding: 12px 14px; margin: 2px 0 14px; }
+    .an-ok    { background: #14251a; border: 1px solid #26502f; }
+    .an-warn  { background: #241a10; border: 1px solid #6b4415; }
+    .an-alert { background: #2a1414; border: 1px solid #7a2020; }
+    .an-h { font-weight: 800; font-size: 13px; margin-bottom: 5px; color: #f5f4ef; }
+    .an-c { font-size: 13px; line-height: 1.55; color: #ececec; }
+    .an-m { font-size: 11px; color: #9a9a90; margin-top: 7px; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -174,11 +189,13 @@
       kpiCard('Order Selesai (bln ini)', k.monthOrders);
 
     return '<div class="kpis">' + kpis + '</div>' +
+      warnBanner(d.orders) +
       '<div class="section-title">Order Aktif (' + d.orders.length + ')</div>' +
       '<div class="toolbar">' +
         '<input id="q" placeholder="Cari order / customer / produk…" oninput="filterOrders()">' +
         '<select id="fpay" onchange="filterOrders()"><option value="">Semua bayar</option><option>Belum</option><option>DP</option><option>Lunas</option></select>' +
         '<select id="fdl" onchange="filterOrders()"><option value="">Semua deadline</option><option value="near">≤ 3 hari</option><option value="over">Terlewat</option></select>' +
+        '<label style="color:#e0912f;font-size:12px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="fwarn" onchange="filterOrders()"> Cuma yang ⚠</label>' +
       '</div>' +
       '<div class="table-scroll tall"><table id="orders"><thead><tr>' +
         '<th class="sortable" onclick="sortT(this,0)">Order</th>' +
@@ -272,6 +289,21 @@
       '</tr></thead><tbody>' + reportRows(d.completed || []) + '</tbody></table></div>';
   }
 
+  // ── Banner peringatan: order berjalan terlalu lama / lewat deadline ──
+  function warnBanner(orders){
+    var flagged = (orders||[]).filter(function(o){ var w=o.warn||{}; return w.aging || w.overdue; });
+    if (!flagged.length) return '';
+    flagged.sort(function(a,b){ return (b.warn.ageDays||0)-(a.warn.ageDays||0); });
+    var items = flagged.map(function(o){
+      var w=o.warn, tags=[];
+      if (w.aging) tags.push(w.ageDays+' hari sejak inquiry');
+      if (w.overdue) tags.push('lewat deadline '+w.overdueDays+' hari');
+      return '<button class="warn-row" onclick="openTimeline(\''+esc(o.orderId)+'\')" title="Klik lihat riwayat & analisa">'+
+        '<b>'+esc(o.orderId)+'</b> '+esc(o.customer)+' — '+esc(o.status)+' · <span style="color:#ffbd6b">'+tags.join(' · ')+'</span></button>';
+    }).join('');
+    return '<div class="warn-box"><div class="warn-h">⚠ '+flagged.length+' order perlu perhatian (terlalu lama / lewat deadline)</div>'+items+'</div>';
+  }
+
   // ── Order rows ──
   function orderRows(orders){
     if (!orders.length) return '<tr data-no-sort="1"><td colspan="15" style="text-align:center;color:#888">Tidak ada order aktif.</td></tr>';
@@ -286,8 +318,13 @@
       if (o.trackingLink){ link += '<button class="cbtn" data-l="'+esc(o.trackingLink)+'" onclick="copyBtn(this)">salin</button> <a class="link" href="'+esc(o.trackingLink)+'" target="_blank">buka</a>'; }
       if (o.driveLink) link += (link?' · ':'') + '<a class="link" href="'+esc(o.driveLink)+'" target="_blank">drive</a>';
       var search = (o.orderId+' '+o.customer+' '+o.product).toLowerCase();
-      return '<tr data-s="'+esc(search)+'" data-pay="'+esc(o.paymentStatus)+'" data-days="'+(days===null?'':days)+'">' +
-        '<td data-v="'+num+'"><b>'+esc(o.orderId)+'</b></td>' +
+      var w = o.warn||{};
+      var wTip = [];
+      if (w.aging) wTip.push('Sudah '+w.ageDays+' hari sejak inquiry masuk');
+      if (w.overdue) wTip.push('Lewat deadline '+w.overdueDays+' hari');
+      var wBadge = wTip.length ? ' <span class="warn-badge" title="'+esc(wTip.join(' · '))+'">⚠ '+(w.aging?w.ageDays+'h':'lewat')+'</span>' : '';
+      return '<tr data-s="'+esc(search)+'" data-pay="'+esc(o.paymentStatus)+'" data-days="'+(days===null?'':days)+'" data-warn="'+(wTip.length?'1':'')+'">' +
+        '<td data-v="'+num+'"><b>'+esc(o.orderId)+'</b>'+wBadge+'</td>' +
         '<td>'+esc(o.customer)+'</td>' +
         '<td>'+esc(o.product)+'</td>' +
         '<td>'+esc(o.orderType)+'</td>' +
@@ -311,6 +348,7 @@
     var q = (document.getElementById('q').value||'').toLowerCase().trim();
     var pay = document.getElementById('fpay').value;
     var dl = document.getElementById('fdl').value;
+    var wOnly = (document.getElementById('fwarn')||{}).checked;
     var rows = document.querySelectorAll('#orders tbody tr');
     for (var i=0;i<rows.length;i++){
       var r = rows[i];
@@ -320,7 +358,8 @@
       var okD = true;
       if (dl==='near') okD = (days!==null && days>=0 && days<=3);
       else if (dl==='over') okD = (days!==null && days<0);
-      r.style.display = (okQ && okP && okD) ? '' : 'none';
+      var okW = !wOnly || r.getAttribute('data-warn')==='1';
+      r.style.display = (okQ && okP && okD && okW) ? '' : 'none';
     }
   }
 
@@ -618,7 +657,15 @@
         if(!res || res.error){ document.getElementById('tlBody').innerHTML='<div style="padding:24px;color:#e57373">'+esc((res&&res.error)||'Gagal memuat riwayat.')+'</div>'; return; }
         var ev=res.events||[];
         if(!ev.length){ document.getElementById('tlBody').innerHTML='<div style="padding:24px;color:#999">Belum ada riwayat tercatat.</div>'; return; }
-        var h='<div style="padding:2px 2px 12px;color:#bbb;font-size:12px">'+esc(res.customer||'')+' · '+ev.length+' langkah</div><div class="tl">';
+        var a=res.analysis||{};
+        var box='';
+        if(a.conclusion){
+          var lv=a.level||'ok';
+          box='<div class="an-box an-'+lv+'"><div class="an-h">'+(lv==='ok'?'✅ Analisa':'⚠ Analisa — kenapa lama')+'</div>'+
+              '<div class="an-c">'+esc(a.conclusion)+'</div>'+
+              '<div class="an-m">Total '+ (a.totalDays||0) +' hari · sekarang "'+esc(a.currentList||'-')+'" '+(a.daysInCurrent||0)+' hari · '+(a.revisions||0)+'× revisi</div></div>';
+        }
+        var h=box+'<div style="padding:2px 2px 12px;color:#bbb;font-size:12px">'+esc(res.customer||'')+' · '+ev.length+' langkah</div><div class="tl">';
         ev.forEach(function(e){
           var dot = e.type==='inquiry' ? '#8b5cf6' : (e.type==='comment' ? '#e0912f' : '#16a34a');
           h+='<div class="tl-item">'+
