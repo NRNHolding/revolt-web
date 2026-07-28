@@ -214,16 +214,16 @@
         '<th>Link</th><th>Dok</th>' +
       '</tr></thead><tbody>' + orderRows(d.orders) + '</tbody></table></div>' +
 
-      '<div class="section-title">Inquiry Masuk (' + (d.inquiries ? d.inquiries.length : 0) + ') — klik sel Nama/Email/Alamat/Spesifikasi untuk edit</div>' +
+      '<div class="section-title">Inquiry Masuk (' + (d.inquiries ? d.inquiries.length : 0) + ') — klik sel Nama/Email/Alamat/Produk/Spesifikasi untuk edit</div>' +
       '<div class="table-scroll"><table id="inquiries"><thead><tr>' +
         '<th class="sortable" onclick="sortT(this,0)">Waktu</th>' +
         '<th class="sortable" onclick="sortT(this,1)">ID</th>' +
         '<th class="sortable" onclick="sortT(this,2)">Nama</th>' +
         '<th>Phone</th>' +
         '<th class="sortable" onclick="sortT(this,4)">Email</th>' +
-        '<th>Lahir</th><th>Alamat</th><th>Spesifikasi</th><th class="num">Qty</th>' +
+        '<th>Lahir</th><th>Alamat</th><th>Produk</th><th>Spesifikasi</th><th class="num">Qty</th>' +
         '<th>Bhs</th><th>Gambar</th>' +
-        '<th class="sortable" onclick="sortT(this,11)">Status</th><th>Aksi</th>' +
+        '<th class="sortable" onclick="sortT(this,12)">Status</th><th>Aksi</th>' +
       '</tr></thead><tbody>' + inquiryRows(d.inquiries || [], d.inqStatuses || []) + '</tbody></table></div>';
   }
 
@@ -412,7 +412,7 @@
 
   // ── Inquiry rows (editable + sortable) ──
   function inquiryRows(list, statuses){
-    if (!list.length) return '<tr data-no-sort="1"><td colspan="13" style="text-align:center;color:#888">Belum ada inquiry.</td></tr>';
+    if (!list.length) return '<tr data-no-sort="1"><td colspan="14" style="text-align:center;color:#888">Belum ada inquiry.</td></tr>';
     return list.map(function(q){
       var num = parseInt(String(q.id).replace(/\D/g,''),10)||0;
       var waDigits = String(q.phone||'').replace(/[^0-9]/g,'');
@@ -432,6 +432,7 @@
         ed('email', q.email) +
         '<td>'+esc(q.dob)+'</td>' +
         ed('address', q.address) +
+        ed('produk', q.produk) +
         '<td class="edit" contenteditable="true" style="white-space:normal;max-width:240px" data-id="'+esc(q.id)+'" data-field="spec" data-orig="'+esc(q.spec||'')+'" onblur="saveInquiry(this)">'+esc(q.spec||'')+'</td>' +
         ed('qty', q.qty) +
         '<td>'+esc(q.lang)+'</td>' +

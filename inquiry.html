@@ -82,6 +82,9 @@
       <label id="l-address"></label>
       <input id="f-address" type="text">
 
+      <label id="l-produk"></label>
+      <input id="f-produk" type="text">
+
       <label id="l-spec"></label>
       <textarea id="f-spec"></textarea>
 
@@ -116,6 +119,7 @@
     id: {
       title:'Formulir Pesanan Custom', sub:'Ceritakan produk yang ingin kamu buat.',
       nama:'Nama Lengkap', phone:'WhatsApp / No. HP', email:'Email', dob:'Tanggal Lahir', address:'Alamat',
+      produk:'Nama Produk', produkPh:'Contoh: Dompet, Tas Kulit, Belt…',
       spec:'Spesifikasi Produk yang Diinginkan', specPh:'Bahan, warna, ukuran, model, referensi…',
       qty:'Jumlah (Qty)', images:'Gambar Referensi', upload:'📷 Ketuk untuk pilih gambar',
       hint:'Maksimal 8 gambar. Gambar otomatis dikecilkan.', submit:'Kirim Inquiry', sending:'Mengirim…',
@@ -126,6 +130,7 @@
     en: {
       title:'Custom Order Inquiry', sub:'Tell us what you would like to create.',
       nama:'Full Name', phone:'WhatsApp / Phone', email:'Email', dob:'Date of Birth', address:'Address',
+      produk:'Product Name', produkPh:'e.g. Wallet, Leather Bag, Belt…',
       spec:'Desired Product Specification', specPh:'Material, color, size, style, references…',
       qty:'Quantity', images:'Reference Images', upload:'📷 Tap to choose images',
       hint:'Up to 8 images. Images are auto-compressed.', submit:'Submit Inquiry', sending:'Sending…',
@@ -147,6 +152,8 @@
     document.getElementById('l-email').innerHTML = t.email + ' <span class="req">*</span>';
     document.getElementById('l-dob').textContent = t.dob;
     document.getElementById('l-address').textContent = t.address;
+    document.getElementById('l-produk').textContent = t.produk;
+    document.getElementById('f-produk').placeholder = t.produkPh;
     document.getElementById('l-spec').textContent = t.spec;
     document.getElementById('f-spec').placeholder = t.specPh;
     document.getElementById('l-qty').textContent = t.qty;
@@ -213,6 +220,7 @@
     var payload = {
       nama:nama, phone:phone, email:email, dob:dob,
       address:document.getElementById('f-address').value.trim(),
+      produk:document.getElementById('f-produk').value.trim(),
       spec:document.getElementById('f-spec').value.trim(),
       qty:document.getElementById('f-qty').value.trim(),
       lang:LANG,
