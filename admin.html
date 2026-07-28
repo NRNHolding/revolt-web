@@ -72,6 +72,8 @@
     #invPaper { background: #fff; color: #111; width: 820px; margin: 0 auto; padding: 40px 44px; font-family: Arial, Helvetica, sans-serif; }
     #invPaper .ed { border-bottom: 1px dashed #bbb; min-width: 30px; display: inline-block; outline: none; }
     #invPaper .ed:focus { background: #fff7ec; }
+    #invPaper td[contenteditable]:focus, #invPaper span[contenteditable]:focus { background: #fff7ec; outline: 1px solid #e0912f; }
+    #invPaper.exporting .inv-x { display: none !important; }
 
     /* ── Custom Sheet ── */
     #sheetModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
@@ -585,15 +587,8 @@
         '<div style="border:1px solid #111;padding:14px 16px;max-width:300px;font-size:13px">Please make payment to:<br><br><b>BCA account number 7883702788 (Nandhi Adipati Bhumi CV)</b></div>'+
       '</div>'+
       '<table style="width:100%;border-collapse:collapse;margin-top:24px;font-size:13px">'+
-        '<thead><tr style="border-bottom:2px solid #111"><th style="text-align:left;padding:6px 4px">No.</th><th style="text-align:left">Item</th><th>Color</th><th>Size</th><th>Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Item Total</th></tr></thead>'+
-        '<tbody><tr style="border-bottom:1px solid #ddd">'+
-          '<td style="padding:8px 4px">1.</td><td>'+ed('inv-item',o.product||'')+'</td>'+
-          '<td style="text-align:center">'+ed('inv-color','-')+'</td>'+
-          '<td style="text-align:center">'+ed('inv-size','-')+'</td>'+
-          '<td style="text-align:center">'+ed('inv-qty',String(o.qty||1),' oninput="recalcInvoice()"')+'</td>'+
-          '<td style="text-align:right">Rp '+ed('inv-price',String(Number(o.hargaJual)||0),' oninput="recalcInvoice()"')+'</td>'+
-          '<td style="text-align:right" id="inv-itemtotal">Rp 0</td>'+
-        '</tr></tbody>'+
+        '<thead><tr style="border-bottom:2px solid #111"><th style="text-align:left;padding:6px 4px">No.</th><th style="text-align:left">Item</th><th>Color</th><th>Size</th><th>Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Item Total</th><th class="inv-x" style="border:none"></th></tr></thead>'+
+        '<tbody id="invRows">'+ invItemRow({ item:o.product||'', qty:o.qty||1, price:Number(o.hargaJual)||0 }) +'</tbody>'+
       '</table>'+
       '<div style="margin-top:16px;margin-left:auto;width:360px;font-size:13px">'+totals+'</div>'+
       '<div style="clear:both;margin-top:24px;font-size:12px;font-style:italic;text-align:center;border-top:1px solid #111;border-bottom:1px solid #111;padding:10px">* Please note: All orders are final. Once the payment is received, we will no longer accept any changes or additions on the products.</div>'+
@@ -602,11 +597,34 @@
       '<div style="margin-top:28px;text-align:center;font-size:12px;color:#333;border-top:1px solid #ccc;padding-top:10px"><b>REVOLT INDUSTRY</b><br>Jl.tenggilis Bar.I no.21,Kendangsari ,tenggilis Mejoyo Surabaya<br>+62821 3292 2625 / info@revoltindustry.com</div>';
   }
 
+  // Satu baris item invoice (pakai class, bukan id, biar bisa banyak baris)
+  function invItemRow(d){
+    d=d||{};
+    function c(v,cls,st,extra){ return '<td'+(cls?' class="'+cls+'"':'')+(st?' style="'+st+'"':'')+' contenteditable="true"'+(extra||'')+'>'+esc(v==null?'':String(v))+'</td>'; }
+    return '<tr style="border-bottom:1px solid #ddd">'+
+      '<td class="inv-no" style="padding:8px 4px"></td>'+
+      c(d.item||'', 'inv-item')+
+      c(d.color||'-', 'inv-color', 'text-align:center')+
+      c(d.size||'-', 'inv-size', 'text-align:center')+
+      c(String(d.qty||1), 'inv-qty', 'text-align:center', ' oninput="recalcInvoice()"')+
+      '<td style="text-align:right">Rp <span class="inv-price" contenteditable="true" oninput="recalcInvoice()">'+esc(String(Number(d.price)||0))+'</span></td>'+
+      '<td class="inv-line" style="text-align:right">Rp 0</td>'+
+      '<td class="inv-x" style="border:none;padding:0 0 0 6px"><button class="cbtn" style="padding:1px 6px" onclick="var r=this.parentNode.parentNode;r.parentNode.removeChild(r);recalcInvoice()">✕</button></td>'+
+    '</tr>';
+  }
+  function addInvItem(){ document.getElementById('invRows').insertAdjacentHTML('beforeend', invItemRow({})); recalcInvoice(); }
+
   function recalcInvoice(){
-    var itemtotal=invNum('inv-qty')*invNum('inv-price');
-    invSet('inv-itemtotal', rpv(itemtotal));
-    var grand=itemtotal-invNum('inv-disc')+invNum('inv-ship');
-    invSet('inv-subtotal-v', rpv(itemtotal));
+    var rows=document.querySelectorAll('#invRows tr'), sub=0;
+    for(var i=0;i<rows.length;i++){
+      var tr=rows[i];
+      tr.querySelector('.inv-no').textContent=(i+1)+'.';
+      var lt=poNum(tr.querySelector('.inv-qty'))*poNum(tr.querySelector('.inv-price'));
+      tr.querySelector('.inv-line').textContent=rpv(lt);
+      sub+=lt;
+    }
+    var grand=sub-invNum('inv-disc')+invNum('inv-ship');
+    invSet('inv-subtotal-v', rpv(sub));
     invSet('inv-grand-v', rpv(grand));
     var dp=invNum('inv-dp');
     if(INV_TYPE==='dp'){
@@ -620,19 +638,23 @@
 
   function downloadInvoiceJPG(){
     if(typeof html2canvas==='undefined'){ alert('html2canvas belum termuat — cek koneksi internet.'); return; }
-    html2canvas(document.getElementById('invPaper'), {scale:2, backgroundColor:'#ffffff'}).then(function(canvas){
+    var p=document.getElementById('invPaper'); p.classList.add('exporting');
+    html2canvas(p, {scale:2, backgroundColor:'#ffffff'}).then(function(canvas){
+      p.classList.remove('exporting');
       var a=document.createElement('a');
       a.href=canvas.toDataURL('image/jpeg', 0.92);
       a.download='Invoice-'+(INV_TYPE==='dp'?'DP':'Pelunasan')+'-'+INV_ORDERID+'.jpg';
       a.click();
-    }).catch(function(e){ alert('Gagal render JPG: '+e.message); });
+    }).catch(function(e){ p.classList.remove('exporting'); alert('Gagal render JPG: '+e.message); });
   }
 
   // Simpan invoice ke folder Drive client (POST via hidden form → replace file lama tipe sama)
   function saveInvoiceDrive(btn){
     if(typeof html2canvas==='undefined'){ alert('html2canvas belum termuat.'); return; }
     var old=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan…';
-    html2canvas(document.getElementById('invPaper'), {scale:2, backgroundColor:'#ffffff'}).then(function(canvas){
+    var p=document.getElementById('invPaper'); p.classList.add('exporting');
+    html2canvas(p, {scale:2, backgroundColor:'#ffffff'}).then(function(canvas){
+      p.classList.remove('exporting');
       var b64 = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
       var iframe = document.getElementById('saveframe');
       if(!iframe){ iframe=document.createElement('iframe'); iframe.name='saveframe'; iframe.id='saveframe'; iframe.style.display='none'; document.body.appendChild(iframe); }
@@ -643,7 +665,7 @@
       document.body.appendChild(form); form.submit();
       setTimeout(function(){ document.body.removeChild(form); btn.disabled=false; btn.textContent=old;
         alert('Invoice dikirim ke folder Drive client ✅\n(File lama tipe sama otomatis diganti.)'); }, 1500);
-    }).catch(function(e){ btn.disabled=false; btn.textContent=old; alert('Gagal: '+e.message); });
+    }).catch(function(e){ p.classList.remove('exporting'); btn.disabled=false; btn.textContent=old; alert('Gagal: '+e.message); });
   }
 
   // ── Riwayat / Timeline order (dari Trello card actions) ──
@@ -974,6 +996,7 @@
 <div id="invModal">
   <div class="inv-wrap">
     <div class="inv-bar">
+      <button class="cbtn" onclick="addInvItem()">+ Item</button>
       <button class="inv-dl" onclick="downloadInvoiceJPG()">⬇ Download JPG</button>
       <button class="inv-save" onclick="saveInvoiceDrive(this)">💾 Simpan ke Drive</button>
       <button class="inv-cls" onclick="closeInvoice()">Tutup</button>
