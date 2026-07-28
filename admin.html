@@ -94,6 +94,15 @@
     #poPaper table th { font-weight: 700; text-align: center; }
     #poPaper.exporting .po-x { display: none !important; }
 
+    /* ── Draft Card ── */
+    #draftModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
+    #draftModal.show { display: block; }
+    .draft-wrap { max-width: 760px; margin: 0 auto; }
+    .draft-meta { color: #9a9a90; font-size: 12px; margin: 8px 2px; }
+    .draft-meta b { color: #e0c79a; }
+    #draftText { width: 100%; height: 62vh; background: #14140f; color: #ececec; border: 1px solid #33332a; border-radius: 8px; padding: 14px; font-family: 'Consolas','Courier New',monospace; font-size: 13px; line-height: 1.5; resize: vertical; outline: none; }
+    #draftText:focus { border-color: #e0912f; }
+
     /* ── Riwayat / Timeline ── */
     #tlModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
     #tlModal.show { display: block; }
@@ -423,7 +432,7 @@
       var convert = (q.status === 'Jadi Order')
           ? '<span style="color:#16a34a;font-size:11px;font-weight:700">✓ order</span>'
           : (q.status === 'Batal' ? '<span style="color:#cc3333;font-size:11px;font-weight:700">batal</span>'
-          : '<button class="cbtn" onclick="convertInquiry(\''+esc(q.id)+'\', this)">→ Order</button>');
+          : '<button class="cbtn" onclick="openDraft(\''+esc(q.id)+'\')">Draft</button> <button class="cbtn" onclick="convertInquiry(\''+esc(q.id)+'\', this)">→ Order</button>');
       return '<tr>' +
         '<td data-v="'+num+'">'+esc(q.time)+'</td>' +
         '<td data-v="'+num+'"><b>'+esc(q.id)+'</b></td>' +
@@ -534,6 +543,59 @@
         if (res && res.ok){ btn.outerHTML = '<span style="color:#16a34a;font-size:11px;font-weight:700">✓ terbuat</span>'; if (res.cardUrl) window.open(res.cardUrl, '_blank'); }
         else { alert((res && res.error) || 'Gagal convert.'); btn.disabled=false; btn.textContent='→ Order'; }
       });
+  }
+
+  // ── Draft Card (edit deskripsi card sebelum → Order) ──
+  var DRAFT_ID='';
+  function openDraft(id){
+    DRAFT_ID=id;
+    document.getElementById('draftTitle').textContent='Draft Card — '+id;
+    document.getElementById('draftText').value='Memuat…';
+    document.getElementById('draftCardTitle').textContent='';
+    document.getElementById('draftHint').textContent='';
+    document.getElementById('draftModal').classList.add('show');
+    jsonp(WEB_APP_URL+'?page=admin&action=getDraft&id='+encodeURIComponent(id)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(!res || !res.ok){ document.getElementById('draftText').value=''; document.getElementById('draftHint').textContent=(res&&res.error)||'Gagal memuat.'; return; }
+        document.getElementById('draftText').value=res.draft||'';
+        document.getElementById('draftCardTitle').textContent=res.title||'';
+        document.getElementById('draftHint').textContent = res.saved ? '● Draft tersimpan dipakai saat → Order' : '○ Belum disimpan — ini template auto dari data inquiry';
+      });
+  }
+  function closeDraft(){ document.getElementById('draftModal').classList.remove('show'); }
+  function regenDraft(){
+    if(!confirm('Timpa isi editor dengan template auto dari data inquiry terbaru?\n(Draft tersimpan tidak berubah sampai kamu klik Simpan.)')) return;
+    var t=document.getElementById('draftText');
+    jsonp(WEB_APP_URL+'?page=admin&action=getDraft&fresh=1&id='+encodeURIComponent(DRAFT_ID)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ if(res&&res.ok){ t.value=res.draft||''; document.getElementById('draftHint').textContent='○ Template auto dimuat — klik Simpan untuk menyimpan'; } else alert((res&&res.error)||'Gagal.'); });
+  }
+  function postDraft(id, text, done){
+    var iframe=document.getElementById('saveframe');
+    if(!iframe){ iframe=document.createElement('iframe'); iframe.name='saveframe'; iframe.id='saveframe'; iframe.style.display='none'; document.body.appendChild(iframe); }
+    var form=document.createElement('form'); form.method='POST'; form.action=WEB_APP_URL; form.target='saveframe';
+    function add(n,v){ var i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; form.appendChild(i); }
+    add('action','saveDraft'); add('key',ADMIN_KEY); add('id',id); add('draft',text);
+    document.body.appendChild(form); form.submit();
+    setTimeout(function(){ document.body.removeChild(form); if(done) done(); }, 1400);
+  }
+  function saveDraft(btn){
+    var old=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan…';
+    postDraft(DRAFT_ID, document.getElementById('draftText').value, function(){
+      btn.disabled=false; btn.textContent=old;
+      document.getElementById('draftHint').textContent='● Draft tersimpan dipakai saat → Order';
+    });
+  }
+  function saveConvertDraft(btn){
+    if(!confirm('Simpan draft ini lalu buat card Trello untuk '+DRAFT_ID+'?')) return;
+    var old=btn.textContent; btn.disabled=true; btn.textContent='Memproses…';
+    postDraft(DRAFT_ID, document.getElementById('draftText').value, function(){
+      jsonp(WEB_APP_URL+'?page=admin&action=convertInquiry&id='+encodeURIComponent(DRAFT_ID)+'&key='+encodeURIComponent(ADMIN_KEY),
+        function(res){
+          btn.disabled=false; btn.textContent=old;
+          if(res && res.ok){ closeDraft(); if(res.cardUrl) window.open(res.cardUrl,'_blank'); loadData(); }
+          else alert((res && res.error) || 'Gagal convert.');
+        });
+    });
   }
 
   // ── Invoice generator (DP / Pelunasan) → JPG, editable ──
@@ -1023,6 +1085,21 @@
     <div id="sheetPaper"></div>
   </div>
 </div>
+<div id="draftModal">
+  <div class="draft-wrap">
+    <div class="inv-bar" style="justify-content:flex-start;flex-wrap:wrap">
+      <strong id="draftTitle" style="color:#f5f4ef;margin-right:auto">Draft Card</strong>
+      <button class="cbtn" onclick="regenDraft()">↻ Template auto</button>
+      <button class="inv-save" onclick="saveDraft(this)">💾 Simpan</button>
+      <button class="inv-dl" onclick="saveConvertDraft(this)">→ Simpan &amp; Buat Card</button>
+      <button class="inv-cls" onclick="closeDraft()">Tutup</button>
+    </div>
+    <div class="draft-meta">Judul card: <b id="draftCardTitle"></b></div>
+    <textarea id="draftText" spellcheck="false"></textarea>
+    <div class="draft-meta" id="draftHint"></div>
+  </div>
+</div>
+
 <div id="tlModal">
   <div class="tl-wrap">
     <div class="tl-head">
