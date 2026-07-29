@@ -85,14 +85,36 @@
     #sheetPaper .lbl { font-weight: 700; font-size: 12px; }
     #sheetPaper .sec { font-size: 13px; font-weight: 800; letter-spacing: 1px; color: #b5762e; border-bottom: 2px solid #111; padding-bottom: 3px; margin: 16px 0 8px; }
 
-    /* ── Purchase Order ── */
+    /* ── Purchase Order (rich, per-item) ── */
     #poModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
     #poModal.show { display: block; }
-    #poPaper { background: #fff; color: #111; width: 1040px; margin: 0 auto; padding: 26px 30px; font-family: 'Courier New', monospace; }
-    #poPaper td[contenteditable]:focus, #poPaper span[contenteditable]:focus { outline: 1px solid #e0912f; background: #fff7ec; }
-    #poPaper table td, #poPaper table th { border: 1px solid #000; padding: 4px 5px; }
-    #poPaper table th { font-weight: 700; text-align: center; }
+    #poPaper { background: #fff; color: #111; width: 794px; margin: 0 auto; padding: 26px 30px; font-family: 'Courier New', monospace; font-size: 12px; }
+    #poPaper [contenteditable]:focus { outline: 1px solid #e0912f; background: #fff7ec; }
+    #poPaper table td { border: none; }
+    .po-item { border: 1.5px solid #111; border-radius: 4px; padding: 10px 12px; margin-top: 14px; }
+    .po-ihead { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 8px; }
+    .po-inum { font-weight: 700; letter-spacing: 1px; font-size: 12px; }
+    .po-grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
+    .po-f { margin-bottom: 8px; }
+    .po-l { font-size: 10px; font-weight: 700; color: #333; letter-spacing: .3px; margin-bottom: 2px; }
+    .po-hint { font-weight: 400; color: #999; }
+    .po-t { min-height: 15px; border: 1px solid #ddd; border-radius: 3px; padding: 3px 5px; font-size: 12px; background: #fafafa; }
+    .po-t:empty:before { content: '–'; color: #bbb; }
+    .po-spec:empty:before { content: '–'; color: #e0a0a0; }
+    .po-imgs { display: grid; gap: 6px; margin-top: 5px; }
+    .po-imgs2 { grid-template-columns: repeat(2, 1fr); }
+    .po-imgs4 { grid-template-columns: repeat(4, 1fr); }
+    .po-imgcell { display: flex; flex-direction: column; gap: 3px; }
+    #poPaper .imgslot { background: #f0f0f0 center/cover no-repeat; border: 1px dashed #bbb; border-radius: 3px; cursor: grab; }
+    #poPaper .imgslot:not([data-img]):before { content: '＋'; display: flex; align-items: center; justify-content: center; height: 100%; color: #bbb; font-size: 18px; }
+    .po-note { font-size: 10px; border-bottom: 1px solid #ddd; min-height: 13px; padding: 1px 2px; }
+    .po-note:empty:before { content: attr(data-ph); color: #ccc; }
+    /* Export: sembunyikan kontrol & placeholder */
     #poPaper.exporting .po-x { display: none !important; }
+    #poPaper.exporting .imgslot:not([data-img]) { border-color: transparent; background: transparent; }
+    #poPaper.exporting .imgslot:not([data-img]):before { content: ''; }
+    #poPaper.exporting .po-note:empty:before { content: ''; }
+    #poPaper.exporting .po-note:empty { border-bottom: none; }
 
     /* ── Draft Card ── */
     #draftModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
@@ -765,17 +787,17 @@
   }
   function closeTimeline(){ document.getElementById('tlModal').classList.remove('show'); }
 
-  // ── Purchase Order (khusus order MASSAL) → JPG, editable ──
-  var PO_ORDERID='';
+  // ── Purchase Order (rich, per-item + upload gambar) → PDF/JPG, editable ──
+  var PO_ORDERID='', PO_SLOT=null;
   function findOrder(id){
     var o=null, all=((DATA&&DATA.orders)||[]).concat((DATA&&DATA.completed)||[]);
     all.forEach(function(x){ if(String(x.orderId)===String(id)) o=x; });
     return o;
   }
-  // muncul kalau di Trello ada kata "massal"/"masal"/"mass production" (order type / kategori / nama produk)
+  // Tombol PO muncul kalau order mengandung "massal"/"mass production"
   function isMassal(o){ return /mas+al|mass\s*prod|\bmass\b/i.test([o.orderType,o.category,o.product].join(' ')); }
   function poNum(el){ return el ? (Number(String(el.textContent).replace(/[^0-9]/g,''))||0) : 0; }
-  function idr(n){ return n ? 'IDR '+Number(n).toLocaleString('id-ID') : 'IDR  –'; }
+  function idr(n){ return n ? 'IDR '+Number(n).toLocaleString('id-ID') : 'IDR –'; }
 
   function openPO(orderId){
     var o=findOrder(orderId); if(!o){ alert('Order tidak ditemukan.'); return; }
@@ -783,23 +805,53 @@
     document.getElementById('poPaper').innerHTML = buildPOHTML(o);
     document.getElementById('poModal').classList.add('show');
     recalcPO();
+    // Prefill best-effort dari card (material, benang, dimensi, finishing, spesifikasi)
+    jsonp(WEB_APP_URL+'?page=admin&action=sheetData&id='+encodeURIComponent(orderId)+'&key='+encodeURIComponent(ADMIN_KEY),
+      function(res){
+        if(!res || !res.ok) return;
+        var it=document.querySelector('#poItems .po-item'); if(!it) return;
+        function set(sel,v){ var e=it.querySelector(sel); if(e && v && !e.textContent.trim()) e.textContent=v; }
+        set('.po-main', res.mainMaterial); set('[data-f=thread]', res.threadColor);
+        set('[data-f=dim]', res.dimensi); set('[data-f=finish]', res.hardware);
+        set('.po-mp', res.lining); set('.po-spec', res.spesifikasi);
+      });
   }
   function closePO(){ document.getElementById('poModal').classList.remove('show'); }
 
-  function poRow(d){
+  function poItem(d){
     d=d||{};
-    function c(v,st){ return '<td contenteditable="true"'+(st?' style="'+st+'"':'')+'>'+esc(v==null?'–':String(v))+'</td>'; }
-    return '<tr>'+
-      '<td class="po-n" style="text-align:center;width:26px"></td>'+
-      c(d.name||'') + c(d.main||'–') + c('–') + c('–') +
-      c('–','text-align:center;width:58px') +
-      '<td class="po-qty" contenteditable="true" style="text-align:center;width:50px" oninput="recalcPO()">'+esc(String(d.qty||'–'))+'</td>'+
-      '<td class="po-unit" contenteditable="true" style="text-align:right;width:92px" oninput="recalcPO()">'+esc(String(d.unit||'–'))+'</td>'+
-      '<td class="po-tot" style="text-align:right;width:104px">IDR  –</td>'+
-      '<td contenteditable="true" style="color:#c00;width:185px">'+esc(d.remarks||'')+'</td>'+
-      '<td class="po-x" style="border:none;padding:0 0 0 6px"><button class="cbtn" style="padding:1px 6px" onclick="var r=this.parentNode.parentNode; r.parentNode.removeChild(r); recalcPO()">✕</button></td>'+
-    '</tr>';
+    function fld(label, f, val){ return '<div class="po-f"><div class="po-l">'+label+'</div><div class="po-t" data-f="'+f+'" contenteditable="true">'+esc(val==null?'':String(val))+'</div></div>'; }
+    function slot(h){ return '<div class="imgslot po-slot" onmousedown="slotPanStart(event,this)" onwheel="slotWheel(event,this)" ondblclick="poSlotUpload(this)" ondragover="event.preventDefault()" ondrop="poSlotDrop(event,this)" title="Klik 2x = upload · seret = geser · scroll = zoom" style="height:'+h+'"></div>'; }
+    function cellNote(h,ph){ return '<div class="po-imgcell">'+slot(h)+'<div class="po-note" contenteditable="true" data-ph="'+ph+'"></div></div>'; }
+    function cellPlain(h){ return '<div class="po-imgcell">'+slot(h)+'</div>'; }
+    var mu=''; for(var i=0;i<2;i++) mu+=cellNote('66px','nama material');
+    var mp=''; for(var j=0;j<8;j++) mp+=cellNote('58px','nama material');
+    var pv=''; for(var k=0;k<4;k++) pv+=cellPlain('78px');
+    return '<div class="po-item">'+
+      '<div class="po-ihead"><span class="po-inum">Item</span>'+
+        '<button class="cbtn po-x" style="padding:1px 7px" onclick="var it=this.parentNode.parentNode; it.parentNode.removeChild(it); recalcPO()">✕ hapus item</button></div>'+
+      '<div class="po-grid4">'+
+        '<div class="po-f" style="grid-column:span 2"><div class="po-l">Nama Product</div><div class="po-name po-t" contenteditable="true">'+esc(d.name||'')+'</div></div>'+
+        '<div class="po-f"><div class="po-l">Qty</div><div class="po-qty po-t" contenteditable="true" oninput="recalcPO()">'+esc(String(d.qty||''))+'</div></div>'+
+        '<div class="po-f"><div class="po-l">Harga / pcs</div><div class="po-unit po-t" contenteditable="true" oninput="recalcPO()">'+esc(String(d.unit||''))+'</div></div>'+
+      '</div>'+
+      '<div class="po-grid4">'+
+        fld('Warna Benang','thread',d.thread) + fld('Dimensi','dim',d.dim) +
+        fld('Finishing','finish',d.finish) + fld('Logo','logo',d.logo) +
+        fld('Groover','groover',d.groover) + fld('Accessories','acc',d.acc) +
+        '<div class="po-f"><div class="po-l">Customer</div><div class="po-cust po-t" contenteditable="true">'+esc(d.cust||'')+'</div></div>'+
+        '<div class="po-f"><div class="po-l">Total Harga</div><div class="po-tot" style="font-weight:700">IDR –</div></div>'+
+      '</div>'+
+      '<div class="po-f"><div class="po-l">Material Utama <span class="po-hint">(teks + up to 2 foto)</span></div>'+
+        '<div class="po-main po-t" contenteditable="true">'+esc(d.main||'')+'</div><div class="po-imgs po-imgs2">'+mu+'</div></div>'+
+      '<div class="po-f"><div class="po-l">Material Pendukung <span class="po-hint">(teks + up to 8 foto)</span></div>'+
+        '<div class="po-mp po-t" contenteditable="true">'+esc(d.mp||'')+'</div><div class="po-imgs po-imgs4">'+mp+'</div></div>'+
+      '<div class="po-f"><div class="po-l">Preview Gambar Diinginkan <span class="po-hint">(up to 4 foto)</span></div>'+
+        '<div class="po-imgs po-imgs4">'+pv+'</div></div>'+
+      '<div class="po-f"><div class="po-l" style="color:#c00">Spesifikasi</div><div class="po-spec po-t" contenteditable="true" style="color:#c00">'+esc(d.spec||'')+'</div></div>'+
+    '</div>';
   }
+  function addPOItem(){ document.getElementById('poItems').insertAdjacentHTML('beforeend', poItem({})); recalcPO(); }
 
   function buildPOHTML(o){
     var t=new Date();
@@ -810,60 +862,82 @@
     function ed(id,val){ return '<span id="'+id+'" contenteditable="true">'+esc(val)+'</span>'; }
 
     return ''+
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px">'+
-      '<img src="'+LOGO_B64+'" style="height:50px">'+
-      '<div style="font-size:11px;line-height:1.75;flex:1">Jl. Tenggilis Barat I/9 Blok D-21, Kendangsari<br>Kec. Tenggilis Mejoyo, Surabaya, Jawa Timur 60292<br>Telp&nbsp;&nbsp;&nbsp;:&nbsp;&nbsp;&nbsp;0821-3292-2625<br>Email&nbsp;&nbsp;:&nbsp;&nbsp;&nbsp;info@revoltindustry.com</div>'+
-      '<div style="font-size:11px;line-height:1.75;width:210px">To :<br>'+ed('po-to','Supplier')+'</div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px">'+
+      '<img src="'+LOGO_B64+'" style="height:46px">'+
+      '<div style="font-size:10px;line-height:1.7;flex:1">Jl. Tenggilis Barat I/9 Blok D-21, Kendangsari<br>Kec. Tenggilis Mejoyo, Surabaya, Jawa Timur 60292<br>Telp&nbsp;:&nbsp;0821-3292-2625<br>Email&nbsp;:&nbsp;info@revoltindustry.com</div>'+
+      '<div style="font-size:10px;line-height:1.9;width:200px">'+
+        'To (Supplier) : '+ed('po-to','Supplier')+'<br>'+
+        'Customer : '+ed('po-cust','')+'<br>'+
+        'Deadline : '+ed('po-deadline','')+'</div>'+
     '</div>'+
-    '<div style="text-align:center;margin-top:20px">'+
-      '<div style="font-size:22px;font-weight:700;letter-spacing:4px;text-decoration:underline">PURCHASE ORDER</div>'+
-      '<div style="font-size:12px;margin-top:6px">No:&nbsp;&nbsp;'+ed('po-no',noStr)+'</div>'+
+    '<div style="text-align:center;margin-top:16px">'+
+      '<div style="font-size:20px;font-weight:700;letter-spacing:4px;text-decoration:underline">PURCHASE ORDER</div>'+
+      '<div style="font-size:11px;margin-top:5px">No:&nbsp;&nbsp;'+ed('po-no',noStr)+'</div>'+
     '</div>'+
-    '<table style="width:100%;border-collapse:collapse;margin-top:14px;font-size:11px">'+
-      '<thead><tr>'+
-        '<th style="width:26px">No</th><th>Product Name</th><th>Main Color</th><th>Secondary Color</th><th>Thread Color</th>'+
-        '<th style="width:58px">Size</th><th style="width:50px">Total</th><th style="width:92px">Unit Price</th>'+
-        '<th style="width:104px">Total Price</th><th style="width:185px;color:#c00">Remarks</th>'+
-        '<th class="po-x" style="border:none"></th>'+
-      '</tr></thead>'+
-      '<tbody id="poRows">'+ poRow({ name:o.product||'', qty:o.qty||'' }) +'</tbody>'+
-    '</table>'+
+    '<div id="poItems">'+ poItem({ name:o.product||'', qty:o.qty||'', cust:o.customer||'' }) +'</div>'+
     '<div style="display:flex;justify-content:flex-end;margin-top:10px">'+
       '<table style="border-collapse:collapse;font-size:11px">'+
         '<tr><td style="border:none;text-align:right;padding:2px 10px">Total Qty:</td><td id="po-totqty" style="text-align:center;width:64px;font-weight:700">0</td></tr>'+
-        '<tr><td style="border:none;text-align:right;padding:2px 10px">Subtotal:</td><td id="po-sub" style="text-align:right;width:130px;font-weight:700;background:#f5a623">IDR  –</td></tr>'+
+        '<tr><td style="border:none;text-align:right;padding:2px 10px">Subtotal:</td><td id="po-sub" style="text-align:right;width:130px;font-weight:700;background:#f5a623">IDR –</td></tr>'+
         '<tr><td style="border:none;text-align:right;padding:2px 10px">Disc.:</td><td style="text-align:right">IDR <span id="po-disc" contenteditable="true" oninput="recalcPO()">0</span></td></tr>'+
-        '<tr><td style="border:none;text-align:right;padding:2px 10px;font-weight:700">Grand Total:</td><td id="po-grand" style="text-align:right;font-weight:700">IDR  –</td></tr>'+
+        '<tr><td style="border:none;text-align:right;padding:2px 10px;font-weight:700">Grand Total:</td><td id="po-grand" style="text-align:right;font-weight:700">IDR –</td></tr>'+
       '</table>'+
     '</div>'+
-    '<div style="margin-top:36px;font-size:11px">'+
+    '<div style="margin-top:30px;font-size:11px">'+
       '<div>Surabaya, '+ed('po-date',dateStr)+'</div>'+
-      '<div style="width:270px;text-align:center;margin-top:16px">Ordered by,'+
-        '<div style="height:54px;display:flex;align-items:center;justify-content:center"><img src="'+LOGO_B64+'" style="height:40px;opacity:0.45"></div>'+
+      '<div style="width:270px;text-align:center;margin-top:14px">Ordered by,'+
+        '<div style="height:50px;display:flex;align-items:center;justify-content:center"><img src="'+LOGO_B64+'" style="height:38px;opacity:0.45"></div>'+
         'Revolt Industry</div>'+
     '</div>';
   }
 
   function recalcPO(){
-    var trs=document.querySelectorAll('#poRows tr'), tq=0, sub=0;
-    for(var i=0;i<trs.length;i++){
-      var tr=trs[i];
-      tr.querySelector('.po-n').textContent = (i+1);
-      var q=poNum(tr.querySelector('.po-qty')), u=poNum(tr.querySelector('.po-unit')), tot=q*u;
-      tr.querySelector('.po-tot').textContent = idr(tot);
+    var items=document.querySelectorAll('#poItems .po-item'), tq=0, sub=0;
+    for(var i=0;i<items.length;i++){
+      var it=items[i];
+      it.querySelector('.po-inum').textContent = 'Item '+(i+1);
+      var q=poNum(it.querySelector('.po-qty')), u=poNum(it.querySelector('.po-unit')), tot=q*u;
+      it.querySelector('.po-tot').textContent = idr(tot);
       tq+=q; sub+=tot;
     }
     document.getElementById('po-totqty').textContent = tq || 0;
     document.getElementById('po-sub').textContent = idr(sub);
     document.getElementById('po-grand').textContent = idr(sub - poNum(document.getElementById('po-disc')));
   }
-  function addPORow(){ document.getElementById('poRows').insertAdjacentHTML('beforeend', poRow({})); recalcPO(); }
+
+  // Upload gambar ke slot (dari desktop) + drag-drop file
+  function poSlotUpload(el){ PO_SLOT=el; document.getElementById('poImgInput').click(); }
+  function poImgPick(input){ var f=input.files&&input.files[0]; if(!f) return; var r=new FileReader(); r.onload=function(e){ if(PO_SLOT) setSlotImg(PO_SLOT,e.target.result); }; r.readAsDataURL(f); input.value=''; }
+  function poSlotDrop(e,el){ e.preventDefault(); var f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(!f||!/^image\//.test(f.type)) return; var r=new FileReader(); r.onload=function(ev){ setSlotImg(el,ev.target.result); }; r.readAsDataURL(f); }
 
   function poCanvas(){
     var p=document.getElementById('poPaper'); p.classList.add('exporting');
-    return html2canvas(p, {scale:3, backgroundColor:'#ffffff'})
+    return html2canvas(p, {scale:2.5, backgroundColor:'#ffffff', useCORS:true, imageTimeout:0})
       .then(function(c){ p.classList.remove('exporting'); return c; })
       .catch(function(e){ p.classList.remove('exporting'); throw e; });
+  }
+  // Canvas → PDF A4 portrait, multi-halaman (potong per tinggi halaman)
+  function canvasToPdfMulti(canvas){
+    var pdf=new window.jspdf.jsPDF({orientation:'p', unit:'mm', format:'a4', compress:true});
+    var pw=210, ph=297, imgW=pw;
+    var fullH=canvas.height*pw/canvas.width;
+    if(fullH<=ph){ pdf.addImage(canvas.toDataURL('image/jpeg',0.95),'JPEG',0,0,imgW,fullH,undefined,'SLOW'); return pdf; }
+    var pageHpx=Math.floor(canvas.width*ph/pw), y=0, page=0;
+    while(y<canvas.height){
+      var sliceH=Math.min(pageHpx, canvas.height-y);
+      var c=document.createElement('canvas'); c.width=canvas.width; c.height=sliceH;
+      var ctx=c.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,c.width,sliceH);
+      ctx.drawImage(canvas,0,y,canvas.width,sliceH,0,0,canvas.width,sliceH);
+      if(page>0) pdf.addPage();
+      pdf.addImage(c.toDataURL('image/jpeg',0.95),'JPEG',0,0,imgW,sliceH*pw/canvas.width,undefined,'SLOW');
+      y+=sliceH; page++;
+    }
+    return pdf;
+  }
+  function downloadPOPDF(){
+    if(!window.jspdf || typeof html2canvas==='undefined'){ alert('Library belum termuat, cek koneksi.'); return; }
+    poCanvas().then(function(canvas){ canvasToPdfMulti(canvas).save('PO-'+PO_ORDERID+'.pdf'); })
+      .catch(function(e){ alert('Gagal render PDF: '+e.message); });
   }
   function downloadPOJPG(){
     if(typeof html2canvas==='undefined'){ alert('html2canvas belum termuat — cek koneksi internet.'); return; }
@@ -873,11 +947,11 @@
     }).catch(function(e){ alert('Gagal render JPG: '+e.message); });
   }
   function savePODrive(btn){
-    if(typeof html2canvas==='undefined'){ alert('html2canvas belum termuat.'); return; }
+    if(!window.jspdf || typeof html2canvas==='undefined'){ alert('Library belum termuat.'); return; }
     var old=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan…';
     poCanvas().then(function(canvas){
-      var b64=canvas.toDataURL('image/jpeg',0.92).split(',')[1];
-      postFile(PO_ORDERID, 'PO - '+PO_ORDERID+'.jpg', 'image/jpeg', b64, function(){
+      var b64=canvasToPdfMulti(canvas).output('datauristring').split(',')[1];
+      postFile(PO_ORDERID, 'PO - '+PO_ORDERID+'.pdf', 'application/pdf', b64, function(){
         btn.disabled=false; btn.textContent=old;
         alert('PO tersimpan ke folder Drive client ✅\n(File PO lama otomatis diganti.)');
       });
@@ -1111,18 +1185,20 @@
 </div>
 
 <div id="poModal">
-  <div style="max-width:1040px;margin:0 auto">
-    <div class="inv-bar">
-      <button class="cbtn" onclick="addPORow()">+ Baris</button>
-      <button class="inv-dl" onclick="downloadPOJPG()">⬇ Download JPG</button>
+  <div style="max-width:834px;margin:0 auto">
+    <div class="inv-bar" style="flex-wrap:wrap">
+      <button class="cbtn" onclick="addPOItem()">+ Item</button>
+      <button class="inv-dl" onclick="downloadPOPDF()">⬇ PDF</button>
+      <button class="inv-dl" onclick="downloadPOJPG()">⬇ JPG</button>
       <button class="inv-save" onclick="savePODrive(this)">💾 Simpan ke Drive</button>
       <button class="inv-cls" onclick="closePO()">Tutup</button>
-      <span style="color:#777;font-size:10px;margin-left:auto">Semua kolom bisa diklik & diedit · Total Price = Total × Unit Price (otomatis)</span>
+      <span style="color:#777;font-size:10px;margin-left:auto">Semua teks bisa diklik-edit · Foto: klik-2x upload, seret=geser, scroll=zoom · Total otomatis (Qty × Harga)</span>
     </div>
     <div id="poPaper"></div>
   </div>
 </div>
 
+<input type="file" id="poImgInput" accept="image/*" style="display:none" onchange="poImgPick(this)">
 <input type="file" id="sheetImgInput" accept="image/*" style="display:none" onchange="sheetImgPick(this)">
 <input type="color" id="sh-swatchInput" value="#7a3b1a" style="display:none" onchange="setSwatch(this.value)">
 </body>
