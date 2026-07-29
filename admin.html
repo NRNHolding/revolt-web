@@ -957,6 +957,18 @@
       });
     }).catch(function(e){ btn.disabled=false; btn.textContent=old; alert('Gagal: '+e.message); });
   }
+  // Lampirkan PO (PDF) ke card Trello order ini
+  function sendPOToTrello(btn){
+    if(!window.jspdf || typeof html2canvas==='undefined'){ alert('Library belum termuat.'); return; }
+    var old=btn.textContent; btn.disabled=true; btn.textContent='Mengirim…';
+    poCanvas().then(function(canvas){
+      var b64=canvasToPdfMulti(canvas).output('datauristring').split(',')[1];
+      postFile(PO_ORDERID, 'PO - '+PO_ORDERID+'.pdf', 'application/pdf', b64, function(){
+        btn.disabled=false; btn.textContent=old;
+        alert('PO dilampirkan ke card Trello ✅\n(Cek bagian Attachment di card '+PO_ORDERID+'.)');
+      }, 'attachCard');
+    }).catch(function(e){ btn.disabled=false; btn.textContent=old; alert('Gagal: '+e.message); });
+  }
 
   // ── Custom Sheet (editable teks + foto) → PDF/JPG, simpan ke Drive ──
   var SHEET_ORDERID='', SHEET_SLOT=null, SHEET_PHOTOS=[], PAN=null;
@@ -1094,12 +1106,12 @@
       var a=document.createElement('a'); a.href=canvas.toDataURL('image/jpeg',0.98); a.download='Custom-Sheet-'+SHEET_ORDERID+'.jpg'; a.click();
     }).catch(function(e){ alert('Gagal: '+e.message); });
   }
-  function postFile(id, filename, mime, b64, done){
+  function postFile(id, filename, mime, b64, done, action){
     var iframe=document.getElementById('saveframe');
     if(!iframe){ iframe=document.createElement('iframe'); iframe.name='saveframe'; iframe.id='saveframe'; iframe.style.display='none'; document.body.appendChild(iframe); }
     var form=document.createElement('form'); form.method='POST'; form.action=WEB_APP_URL; form.target='saveframe';
     function add(n,v){ var i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; form.appendChild(i); }
-    add('action','saveFile'); add('key',ADMIN_KEY); add('id',id); add('filename',filename); add('mime',mime); add('data',b64);
+    add('action',action||'saveFile'); add('key',ADMIN_KEY); add('id',id); add('filename',filename); add('mime',mime); add('data',b64);
     document.body.appendChild(form); form.submit();
     setTimeout(function(){ document.body.removeChild(form); if(done) done(); }, 1800);
   }
@@ -1190,7 +1202,8 @@
       <button class="cbtn" onclick="addPOItem()">+ Item</button>
       <button class="inv-dl" onclick="downloadPOPDF()">⬇ PDF</button>
       <button class="inv-dl" onclick="downloadPOJPG()">⬇ JPG</button>
-      <button class="inv-save" onclick="savePODrive(this)">💾 Simpan ke Drive</button>
+      <button class="inv-save" onclick="savePODrive(this)">💾 Drive</button>
+      <button class="inv-save" style="background:#0079bf" onclick="sendPOToTrello(this)">📎 Ke Trello</button>
       <button class="inv-cls" onclick="closePO()">Tutup</button>
       <span style="color:#777;font-size:10px;margin-left:auto">Semua teks bisa diklik-edit · Foto: klik-2x upload, seret=geser, scroll=zoom · Total otomatis (Qty × Harga)</span>
     </div>
