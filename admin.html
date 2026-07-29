@@ -372,7 +372,7 @@
         '<td data-v="'+esc(o.status)+'">'+statusBadge(o.status)+'</td>' +
         '<td>'+link+'</td>' +
         '<td><button class="cbtn" onclick="openTimeline(\''+esc(o.orderId)+'\')">Riwayat</button> <button class="cbtn" onclick="openInvoice(\''+esc(o.orderId)+'\',\'dp\')">DP</button> <button class="cbtn" onclick="openInvoice(\''+esc(o.orderId)+'\',\'lunas\')">Lunas</button> <button class="cbtn" onclick="openSheet(\''+esc(o.orderId)+'\')">Sheet</button>' +
-          (isMassal(o) ? ' <button class="cbtn" style="border-color:#e0912f;color:#e0912f" onclick="openPO(\''+esc(o.orderId)+'\')">PO</button>' : '') + '</td>' +
+          ' <button class="cbtn" style="border-color:#e0912f;color:#e0912f" onclick="openPO(\''+esc(o.orderId)+'\')">PO</button></td>' +
       '</tr>';
     }).join('');
   }
