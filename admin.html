@@ -267,6 +267,8 @@
 
   function rp(n){ n = Number(n)||0; return 'Rp ' + n.toLocaleString('id-ID'); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  // Link WA: pakai SATU tab WhatsApp Web (named target "wa") & langsung ke chat, tidak buka tab baru tiap klik
+  function waAnchor(phone, label){ var d=String(phone||'').replace(/[^0-9]/g,''); return d ? '<a class="link" href="https://web.whatsapp.com/send?phone='+d+'" target="wa" rel="noopener">'+(label||'wa')+'</a>' : ''; }
   function payBadge(s){ var t=String(s||'').toLowerCase(); var c=t.indexOf('lunas')>-1?'#16a34a':t.indexOf('dp')>-1?'#c47f00':'#cc3333'; return '<span class="badge" style="background:'+c+'">'+esc(s||'Belum')+'</span>'; }
   function statusBadge(s){ var c=STATUS_COLOR[s]||'#6b7280'; return '<span class="badge" style="background:'+c+'">'+esc(s)+'</span>'; }
   function kpiCard(label,val,cls){ return '<div class="kpi '+(cls||'')+'"><label>'+label+'</label><div class="val '+(cls?'money':'')+'">'+val+'</div></div>'; }
@@ -361,7 +363,7 @@
     if(!list.length) return '<tr data-no-sort="1"><td colspan="7" style="text-align:center;color:#888">Belum ada customer.</td></tr>';
     return list.map(function(c,idx){
       var wa=String(c.phone||'').replace(/[^0-9]/g,'');
-      var kontak=(c.phone?esc(c.phone)+(wa?' <a class="link" href="https://wa.me/'+wa+'" target="_blank">wa</a>':''):'')+(c.email?'<br><span style="color:#999">'+esc(c.email)+'</span>':'');
+      var kontak=(c.phone?esc(c.phone)+(wa?' '+waAnchor(c.phone,'wa'):''):'')+(c.email?'<br><span style="color:#999">'+esc(c.email)+'</span>':'');
       var dobCell = c.inqId
         ? '<span class="edit" contenteditable="true" data-id="'+esc(c.inqId)+'" data-field="dob" data-orig="'+esc(c.dob||'')+'" onblur="saveInquiry(this)" title="dd/mm/yyyy">'+esc(c.dob||'—')+'</span>'
         : esc(c.dob||'—');
@@ -756,8 +758,8 @@
     if (!list.length) return '<tr data-no-sort="1"><td colspan="14" style="text-align:center;color:#888">Belum ada inquiry.</td></tr>';
     return list.map(function(q){
       var num = parseInt(String(q.id).replace(/\D/g,''),10)||0;
-      var waDigits = String(q.phone||'').replace(/[^0-9]/g,'');
-      var waLink = waDigits ? ' <a class="link" href="https://wa.me/'+waDigits+'" target="_blank">wa</a>' : '';
+      var wl = waAnchor(q.phone, 'wa');
+      var waLink = wl ? ' '+wl : '';
       var img = q.folder ? '<a class="link" href="'+esc(q.folder)+'" target="_blank">lihat</a>' : '-';
       var opts = statuses.map(function(st){ return '<option'+(st===q.status?' selected':'')+'>'+esc(st)+'</option>'; }).join('');
       function ed(field, val){ val = val==null?'':val; return '<td class="edit" contenteditable="true" data-id="'+esc(q.id)+'" data-field="'+field+'" data-orig="'+esc(val)+'" onblur="saveInquiry(this)">'+esc(val)+'</td>'; }
@@ -814,7 +816,7 @@
   function birthdayList(list){
     if (!list.length) return '<div style="color:#888;font-size:13px;padding:10px 4px">Tidak ada ulang tahun bulan ini.</div>';
     var body = list.map(function(b){
-      var wa = b.phone ? '<a class="link" href="https://wa.me/'+b.phone.replace(/[^0-9]/g,'')+'" target="_blank">ucapkan 🎉</a>' : '-';
+      var wa = waAnchor(b.phone, 'ucapkan 🎉') || '-';
       return '<tr'+(b.isToday?' style="background:#2a2417"':'')+'><td>'+esc(b.date)+(b.isToday?' 🎂':'')+'</td><td>'+esc(b.name)+'</td><td>'+wa+'</td></tr>';
     }).join('');
     return '<div class="table-scroll"><table class="mini"><thead><tr><th>Tgl</th><th>Nama</th><th>Kontak</th></tr></thead><tbody>'+body+'</tbody></table></div>';
