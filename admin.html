@@ -28,6 +28,17 @@
 
     .section-title { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: #999; margin: 26px 0 10px; }
 
+    /* Seksi lipat/buka */
+    .collap-bar { display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 10px; }
+    .collap { border: 1px solid #24241e; border-radius: 10px; margin: 10px 0; overflow: hidden; }
+    .collap-h { display: flex; align-items: center; gap: 9px; padding: 13px 15px; cursor: pointer; background: #17170f; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: #cfcfc4; font-weight: 700; user-select: none; }
+    .collap-h:hover { color: #e0912f; }
+    .collap-ic { color: #e0912f; font-size: 11px; transition: transform .15s; display: inline-block; }
+    .collap.open .collap-ic { transform: rotate(90deg); }
+    .collap-b { padding: 4px 15px 15px; }
+    .collap:not(.open) .collap-b { display: none; }
+    .collap .section-title { margin-top: 14px; }
+
     .toolbar { margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     .toolbar input, .toolbar select { padding: 9px 12px; background: #1c1c17; border: 1px solid #2a2a22; border-radius: 8px; color: #ececec; font-size: 13px; }
     .toolbar input { flex: 1; min-width: 220px; }
@@ -279,6 +290,20 @@
     labelTables();
   }
 
+  // Seksi yang bisa dilipat/dibuka (klik judul). open=true → terbuka default.
+  function sec(title, body, open){
+    return '<div class="collap'+(open?' open':'')+'">'+
+      '<div class="collap-h" onclick="toggleCollap(this)"><span class="collap-ic">▸</span><span>'+title+'</span></div>'+
+      '<div class="collap-b">'+body+'</div></div>';
+  }
+  function toggleCollap(h){ h.parentNode.classList.toggle('open'); }
+  function collapAll(open){
+    var page = (document.getElementById('page2') && document.getElementById('page2').style.display!=='none') ? '#page2'
+             : (document.getElementById('page1') && document.getElementById('page1').style.display!=='none') ? '#page1' : '';
+    var sel = page ? page+' .collap' : '.collap';
+    document.querySelectorAll(sel).forEach(function(c){ c.classList[open?'add':'remove']('open'); });
+  }
+
   // Untuk mode kartu di HP: isi data-label tiap sel dari header kolomnya
   function labelTables(){
     document.querySelectorAll('table.rtable').forEach(function(t){
@@ -379,9 +404,7 @@
       kpiCard('Profit Bulan Ini', rp(k.monthProfit)) +
       kpiCard('Order Selesai (bln ini)', k.monthOrders);
 
-    return '<div class="kpis">' + kpis + '</div>' +
-      warnBanner(d.orders) +
-      '<div class="section-title">Order Aktif (' + d.orders.length + ')</div>' +
+    var ordersBody =
       '<div class="toolbar">' +
         '<input id="q" placeholder="Cari order / customer / produk…" oninput="filterOrders()">' +
         '<select id="fpay" onchange="filterOrders()"><option value="">Semua bayar</option><option>Belum</option><option>DP</option><option>Lunas</option></select>' +
@@ -401,9 +424,10 @@
         '<th class="sortable" onclick="sortT(this,11)">Deadline</th>' +
         '<th class="sortable" onclick="sortT(this,12)">Status</th>' +
         '<th>Link</th><th>Dok</th>' +
-      '</tr></thead><tbody>' + orderRows(d.orders) + '</tbody></table></div>' +
+      '</tr></thead><tbody>' + orderRows(d.orders) + '</tbody></table></div>';
 
-      '<div class="section-title">Inquiry Masuk (' + (d.inquiries ? d.inquiries.length : 0) + ') — klik sel Nama/Email/Lahir/Alamat/Produk/Spesifikasi untuk edit</div>' +
+    var inquiryBody =
+      '<div style="color:#888;font-size:11px;margin-bottom:8px">Klik sel Nama/Email/Lahir/Alamat/Produk/Spesifikasi untuk edit</div>' +
       '<div class="table-scroll"><table id="inquiries" class="rtable"><thead><tr>' +
         '<th class="sortable" onclick="sortT(this,0)">Waktu</th>' +
         '<th class="sortable" onclick="sortT(this,1)">ID</th>' +
@@ -414,6 +438,11 @@
         '<th>Bhs</th><th>Gambar</th>' +
         '<th class="sortable" onclick="sortT(this,12)">Status</th><th>Aksi</th>' +
       '</tr></thead><tbody>' + inquiryRows(d.inquiries || [], d.inqStatuses || []) + '</tbody></table></div>';
+
+    return '<div class="kpis">' + kpis + '</div>' +
+      warnBanner(d.orders) +
+      sec('Order Aktif (' + d.orders.length + ')', ordersBody, true) +
+      sec('Inquiry Masuk (' + (d.inquiries ? d.inquiries.length : 0) + ')', inquiryBody, false);
   }
 
   // ── PAGE 2: Summary & Laporan ──
@@ -437,8 +466,7 @@
     var evOpts = monthKeys.length
       ? monthKeys.map(function(mk,i){ return '<option value="'+mk+'"'+(i===0?' selected':'')+'>'+esc(months[mk])+'</option>'; }).join('')
       : '<option value="">(belum ada order selesai)</option>';
-    var evalSection =
-      '<div class="section-title">📊 Evaluasi Bulanan</div>' +
+    var evalBody =
       '<div class="toolbar">' +
         '<select id="evmonth" onchange="renderEval()">'+evOpts+'</select>' +
         '<button class="cbtn" onclick="downloadEvalPDF()">⬇ PDF</button>' +
@@ -456,8 +484,7 @@
       }).join('') : '<tr><td colspan="5" style="color:#888">Belum ada order selesai.</td></tr>') +
       '</tbody></table></div>';
 
-    return evalSection +
-      '<div class="section-title">Summary Bulan Ini</div>' +
+    var summaryBody =
       '<div class="kpis">' +
         kpiCard('Uang Masuk Bulan Ini', rp(s.moneyIn), 'accent') +
         kpiCard('Jumlah Pembayaran', s.payments.length) +
@@ -470,11 +497,9 @@
       '<div class="grid2">' +
         '<div><div class="section-title">Produk Terlaris</div>' + miniTable(d.byProduct) + '</div>' +
         '<div><div class="section-title">Kategori Terlaris</div>' + miniTable(d.byCategory) + '</div>' +
-      '</div>' +
+      '</div>';
 
-      '<div class="section-title">Laporan Order Selesai — Ringkasan per Bulan</div>' +
-      monthSummary +
-      '<div class="section-title">Detail Order Selesai</div>' +
+    var detailBody =
       '<div class="toolbar">' +
         '<select id="fmonth" onchange="filterReport()">' + monthOpts + '</select>' +
         '<span id="reptotal" style="color:#bbb;font-size:12px"></span>' +
@@ -491,6 +516,12 @@
         '<th class="sortable" onclick="sortT(this,10)">Selesai</th>' +
         '<th>Link</th><th>Sheet</th>' +
       '</tr></thead><tbody>' + reportRows(d.completed || []) + '</tbody></table></div>';
+
+    return '<div class="collap-bar"><button class="cbtn" onclick="collapAll(true)">Buka semua</button> <button class="cbtn" onclick="collapAll(false)">Tutup semua</button></div>' +
+      sec('📊 Evaluasi Bulanan', evalBody, true) +
+      sec('Summary Bulan Ini', summaryBody, true) +
+      sec('Laporan Order Selesai — Ringkasan per Bulan', monthSummary, false) +
+      sec('Detail Order Selesai ('+ (d.completed||[]).length +')', detailBody, false);
   }
 
   // ── Banner peringatan: order berjalan terlalu lama / lewat deadline ──
