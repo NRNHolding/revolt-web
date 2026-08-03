@@ -173,6 +173,11 @@
     .ev-t td:last-child { text-align: right; white-space: nowrap; }
     .ev-empty { font-size: 11px; color: #aaa; padding: 4px 0; }
     .ev-act { background: #fff8ef; border-color: #e7cfa6; }
+    .ev-bars { display: flex; align-items: flex-end; gap: 6px; height: 120px; padding-top: 6px; }
+    .ev-bar { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+    .ev-barval { font-size: 9px; color: #555; margin-bottom: 2px; white-space: nowrap; }
+    .ev-barfill { width: 70%; max-width: 34px; border-radius: 3px 3px 0 0; }
+    .ev-barlbl { font-size: 9px; color: #777; margin-top: 3px; }
     .ev-act ul { margin: 0; padding-left: 18px; }
     .ev-act li { font-size: 12px; line-height: 1.6; margin-bottom: 4px; }
     @media (max-width: 720px) { .ev-kpis { grid-template-columns: repeat(3, 1fr); } .ev-grid { grid-template-columns: 1fr; } }
@@ -217,19 +222,81 @@
       '<div class="tabs">' +
         '<button class="tab active" onclick="showTab(1,this)">Operasional</button>' +
         '<button class="tab" onclick="showTab(2,this)">Summary &amp; Laporan</button>' +
+        '<button class="tab" onclick="showTab(3,this)">Database Customer</button>' +
       '</div>' +
       '<div id="page1">' + buildOperasional(d) + '</div>' +
-      '<div id="page2" style="display:none">' + buildLaporan(d) + '</div>';
+      '<div id="page2" style="display:none">' + buildLaporan(d) + '</div>' +
+      '<div id="page3" style="display:none">' + buildCustomerDB(d) + '</div>';
     document.getElementById('content').innerHTML = html;
   }
 
   function showTab(n, btn){
     document.getElementById('page1').style.display = n===1 ? '' : 'none';
     document.getElementById('page2').style.display = n===2 ? '' : 'none';
+    var p3=document.getElementById('page3'); if(p3) p3.style.display = n===3 ? '' : 'none';
     var tabs = document.querySelectorAll('.tab');
     for (var i=0;i<tabs.length;i++) tabs[i].classList.remove('active');
     btn.classList.add('active');
     if (n===2) { renderEval(); filterReport(); }
+  }
+
+  // ── PAGE 3: Database Customer ──
+  function buildCustomerDB(d){
+    var map={};
+    function K(n){ return String(n||'').trim().toLowerCase(); }
+    function get(n){ var k=K(n); if(!map[k]) map[k]={name:n,phone:'',email:'',dob:'',address:'',inqId:'',purchases:[],total:0,done:0,active:0}; return map[k]; }
+    (d.inquiries||[]).forEach(function(q){ if(!K(q.nama)) return; var c=get(q.nama);
+      if(!c.phone&&q.phone)c.phone=q.phone; if(!c.email&&q.email)c.email=q.email;
+      if(!c.dob&&q.dob)c.dob=q.dob; if(!c.address&&q.address)c.address=q.address; if(!c.inqId)c.inqId=q.id; });
+    (d.orders||[]).forEach(function(o){ if(!K(o.customer)) return; var c=get(o.customer); var v=Number(o.hargaJual)||0;
+      c.purchases.push({orderId:o.orderId,product:o.product,value:v,date:o.estCompletion||'',status:o.status||'aktif',done:false}); c.total+=v; c.active++; });
+    (d.completed||[]).forEach(function(o){ if(!K(o.customer)) return; var c=get(o.customer); var v=Number(o.hargaJual)||0;
+      c.purchases.push({orderId:o.orderId,product:o.product,value:v,date:o.shipped||'',status:'Selesai',done:true}); c.total+=v; c.done++; });
+    var list=Object.keys(map).map(function(k){return map[k];}).sort(function(a,b){return b.total-a.total;});
+    var grand=list.reduce(function(s,c){return s+c.total;},0);
+    window.__CUST=list;
+
+    return '<div class="section-title">Database Customer ('+list.length+')</div>' +
+      '<div class="kpis">' + kpiCard('Total Customer', list.length) + kpiCard('Total Nilai Order', rp(grand), 'accent') + '</div>' +
+      '<div class="toolbar"><input id="qcust" placeholder="Cari nama / phone / email…" oninput="filterCust()"><span style="color:#888;font-size:11px">Klik “Pembelian” untuk lihat riwayat order · Tgl lahir bisa diedit (jika ada inquiry)</span></div>' +
+      '<div class="table-scroll tall"><table id="custtable"><thead><tr>' +
+        '<th class="sortable" onclick="sortT(this,0)">Nama</th><th>Kontak</th><th>Ulang Tahun</th><th>Alamat</th>' +
+        '<th class="num sortable" onclick="sortT(this,4)">#Order</th><th class="num sortable" onclick="sortT(this,5)">Total Belanja</th><th>Pembelian</th>' +
+      '</tr></thead><tbody>' + custRows(list) + '</tbody></table></div>';
+  }
+  function custRows(list){
+    if(!list.length) return '<tr data-no-sort="1"><td colspan="7" style="text-align:center;color:#888">Belum ada customer.</td></tr>';
+    return list.map(function(c,idx){
+      var wa=String(c.phone||'').replace(/[^0-9]/g,'');
+      var kontak=(c.phone?esc(c.phone)+(wa?' <a class="link" href="https://wa.me/'+wa+'" target="_blank">wa</a>':''):'')+(c.email?'<br><span style="color:#999">'+esc(c.email)+'</span>':'');
+      var dobCell = c.inqId
+        ? '<span class="edit" contenteditable="true" data-id="'+esc(c.inqId)+'" data-field="dob" data-orig="'+esc(c.dob||'')+'" onblur="saveInquiry(this)" title="dd/mm/yyyy">'+esc(c.dob||'—')+'</span>'
+        : esc(c.dob||'—');
+      var search=(c.name+' '+c.phone+' '+c.email).toLowerCase();
+      var pur='<table class="ev-t" style="margin-top:4px"><thead><tr style="color:#888"><td>Order</td><td>Produk</td><td class="num">Nilai</td><td>Tanggal</td><td>Status</td></tr></thead><tbody>'+
+        c.purchases.sort(function(a,b){return (a.done?0:1)-(b.done?0:1);}).map(function(p){
+          return '<tr><td><b>'+esc(p.orderId)+'</b></td><td>'+esc(p.product)+'</td><td class="num">'+rp(p.value)+'</td><td>'+esc(p.date||'-')+'</td><td>'+(p.done?'<span style="color:#16a34a">Selesai</span>':esc(p.status))+'</td></tr>';
+        }).join('')+'</tbody></table>';
+      return '<tr data-s="'+esc(search)+'">'+
+          '<td data-v="'+esc(c.name)+'"><b>'+esc(c.name)+'</b></td>'+
+          '<td>'+(kontak||'—')+'</td>'+
+          '<td>'+dobCell+'</td>'+
+          '<td style="max-width:200px">'+esc(c.address||'—')+'</td>'+
+          '<td class="num" data-v="'+(c.active+c.done)+'">'+(c.active+c.done)+'<div style="font-size:9px;color:#999">'+c.active+' aktif · '+c.done+' selesai</div></td>'+
+          '<td class="num" data-v="'+c.total+'">'+rp(c.total)+'</td>'+
+          '<td><button class="cbtn" onclick="toggleCust('+idx+',this)">Pembelian ('+c.purchases.length+')</button></td>'+
+        '</tr>'+
+        '<tr id="cust-det-'+idx+'" style="display:none"><td colspan="7" style="background:#151510">'+pur+'</td></tr>';
+    }).join('');
+  }
+  function toggleCust(idx,btn){ var r=document.getElementById('cust-det-'+idx); if(!r)return; var show=r.style.display==='none'; r.style.display=show?'':'none'; btn.textContent=(show?'Tutup':'Pembelian ('+((window.__CUST&&window.__CUST[idx])?window.__CUST[idx].purchases.length:0)+')'); }
+  function filterCust(){
+    var q=(document.getElementById('qcust').value||'').toLowerCase().trim();
+    var rows=document.querySelectorAll('#custtable tbody tr');
+    for(var i=0;i<rows.length;i++){ var r=rows[i]; if(r.id&&r.id.indexOf('cust-det-')===0){ continue; }
+      var ok=!q||(r.getAttribute('data-s')||'').indexOf(q)>-1; r.style.display=ok?'':'none';
+      var det=r.nextElementSibling; if(det&&det.id&&det.id.indexOf('cust-det-')===0&&!ok) det.style.display='none';
+    }
   }
 
   // ── PAGE 1: Operasional ──
@@ -268,7 +335,7 @@
         '<th>Link</th><th>Dok</th>' +
       '</tr></thead><tbody>' + orderRows(d.orders) + '</tbody></table></div>' +
 
-      '<div class="section-title">Inquiry Masuk (' + (d.inquiries ? d.inquiries.length : 0) + ') — klik sel Nama/Email/Alamat/Produk/Spesifikasi untuk edit</div>' +
+      '<div class="section-title">Inquiry Masuk (' + (d.inquiries ? d.inquiries.length : 0) + ') — klik sel Nama/Email/Lahir/Alamat/Produk/Spesifikasi untuk edit</div>' +
       '<div class="table-scroll"><table id="inquiries"><thead><tr>' +
         '<th class="sortable" onclick="sortT(this,0)">Waktu</th>' +
         '<th class="sortable" onclick="sortT(this,1)">ID</th>' +
@@ -460,6 +527,28 @@
 
     function ek(lbl,val,sub,col){ return '<div class="ev-k"><div class="ev-kv"'+(col?' style="color:'+col+'"':'')+'>'+val+'</div><div class="ev-kl">'+lbl+'</div>'+(sub?'<div class="ev-ks">'+sub+'</div>':'')+'</div>'; }
 
+    // Tren semua bulan (bukan cuma bulan terpilih)
+    var byM={};
+    all.forEach(function(c){ if(!c.monthKey) return; byM[c.monthKey]=byM[c.monthKey]||{label:c.monthLabel||c.monthKey,omset:0,profit:0,late:0,n:0}; var b=byM[c.monthKey]; b.omset+=Number(c.hargaJual)||0; b.profit+=(Number(c.hargaJual)||0)-(Number(c.hpp)||0); b.n++; if(c.lateDays>0) b.late++; });
+    var mks=Object.keys(byM).sort().slice(-8);
+    function shortM(k){ return (byM[k].label||k).slice(0,3)+"'"+k.slice(2,4); }
+    function fmtJt(v){ return v? (v>=1e6? (v/1e6).toFixed(v>=1e7?0:1)+'jt' : Math.round(v/1e3)+'rb') : ''; }
+    function bars(vals, fmt, color){
+      var max=Math.max.apply(null, vals.map(function(x){return x.v;}).concat([1]));
+      if(!vals.length) return '<div class="ev-empty">— belum ada data —</div>';
+      return '<div class="ev-bars">'+vals.map(function(x){
+        var h=x.v? Math.round(x.v/max*84)+8 : 3;
+        return '<div class="ev-bar"><div class="ev-barval">'+fmt(x.v)+'</div><div class="ev-barfill" style="height:'+h+'px;background:'+color+'"></div><div class="ev-barlbl">'+x.label+'</div></div>';
+      }).join('')+'</div>';
+    }
+    var omsetData=mks.map(function(k){ return {label:shortM(k), v:byM[k].omset}; });
+    var lateData =mks.map(function(k){ return {label:shortM(k), v:byM[k].late}; });
+    var trendHtml=
+      '<div class="ev-grid">'+
+        '<div class="ev-box"><div class="ev-bt">📈 Tren Omset per Bulan</div>'+bars(omsetData, fmtJt, '#1a7a3a')+'</div>'+
+        '<div class="ev-box"><div class="ev-bt">📉 Order Telat per Bulan</div>'+bars(lateData, function(v){return v||'';}, '#c0392b')+'</div>'+
+      '</div>';
+
     // Rekomendasi aksi
     var acts=[];
     if(late.length) acts.push('⚠️ <b>'+late.length+' order selesai TELAT</b> (rata-rata '+avgLate+' hari lewat deadline). Tinjau estimasi deadline & kapasitas produksi.');
@@ -487,6 +576,8 @@
         ek('Tepat Waktu', (withEst.length? onTimePct+'%':'–'), (withEst.length? onTime+'/'+withEst.length+' order':'tanpa data deadline')) +
         ek('Lead Time', (withLead.length? avgLead+' hari':'–'), 'inquiry → selesai') +
       '</div>'+
+
+      trendHtml +
 
       '<div class="ev-grid">'+
         '<div class="ev-box"><div class="ev-bt">⏰ Order Telat Bulan Ini ('+late.length+')</div>'+
@@ -581,7 +672,7 @@
         ed('nama', q.nama) +
         '<td><span class="edit" contenteditable="true" data-id="'+esc(q.id)+'" data-field="phone" data-orig="'+esc(q.phone||'')+'" onblur="saveInquiry(this)">'+esc(q.phone||'')+'</span>'+waLink+'</td>' +
         ed('email', q.email) +
-        '<td>'+esc(q.dob)+'</td>' +
+        '<td class="edit" contenteditable="true" data-id="'+esc(q.id)+'" data-field="dob" data-orig="'+esc(q.dob||'')+'" onblur="saveInquiry(this)" title="Format: dd/mm/yyyy">'+esc(q.dob||'')+'</td>' +
         ed('address', q.address) +
         ed('produk', q.produk) +
         '<td class="edit" contenteditable="true" style="white-space:normal;max-width:240px" data-id="'+esc(q.id)+'" data-field="spec" data-orig="'+esc(q.spec||'')+'" onblur="saveInquiry(this)">'+esc(q.spec||'')+'</td>' +
