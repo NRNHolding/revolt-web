@@ -1281,16 +1281,36 @@
   }
 
   // ── Custom Sheet (editable teks + foto) → PDF/JPG, simpan ke Drive ──
-  var SHEET_ORDERID='', SHEET_SLOT=null, SHEET_PHOTOS=[], PAN=null;
+  var SHEET_ORDERID='', SHEET_SLOT=null, SHEET_PHOTOS=[], PAN=null, SHEET_CACHE={};
   function openSheet(orderId){
-    SHEET_ORDERID = orderId; SHEET_PHOTOS = [];
+    SHEET_ORDERID = orderId;
+    var cached = SHEET_CACHE[orderId];
+    if (cached){   // pakai hasil edit terakhir kali — jangan rebuild / fetch ulang
+      document.getElementById('sheetPaper').innerHTML = cached.html;
+      SHEET_PHOTOS = (cached.photos || []).slice();
+      renderTray();
+      document.getElementById('sheetModal').classList.add('show');
+      return;
+    }
+    SHEET_PHOTOS = [];
     document.getElementById('sheetPaper').innerHTML = buildSheetTemplate();
     renderTray();
     document.getElementById('sheetModal').classList.add('show');
     jsonp(WEB_APP_URL+'?page=admin&action=sheetData&id='+encodeURIComponent(orderId)+'&key='+encodeURIComponent(ADMIN_KEY),
       function(res){ if(res && res.ok) applySheetData(res); });
   }
-  function closeSheet(){ document.getElementById('sheetModal').classList.remove('show'); }
+  // Simpan editan terakhir (teks, gambar+crop, warna benang) supaya tetap saat dibuka lagi
+  function saveSheetState(){
+    if (!SHEET_ORDERID) return;
+    var p = document.getElementById('sheetPaper');
+    if (p && p.innerHTML.trim()) SHEET_CACHE[SHEET_ORDERID] = { html: p.innerHTML, photos: SHEET_PHOTOS.slice() };
+  }
+  function closeSheet(){ saveSheetState(); document.getElementById('sheetModal').classList.remove('show'); }
+  function resetSheet(){
+    if (!confirm('Reset Custom Sheet ke data awal dari card?\nSemua editanmu untuk order '+SHEET_ORDERID+' akan hilang.')) return;
+    delete SHEET_CACHE[SHEET_ORDERID];
+    openSheet(SHEET_ORDERID);
+  }
 
   function buildSheetTemplate(){
     var t=new Date(), dateStr=('0'+t.getDate()).slice(-2)+'-'+('0'+(t.getMonth()+1)).slice(-2)+'-'+t.getFullYear();
@@ -1470,6 +1490,7 @@
       <button class="inv-dl" onclick="downloadSheetPDF()">⬇ PDF</button>
       <button class="inv-dl" onclick="downloadSheetJPG()">⬇ JPG</button>
       <button class="inv-save" onclick="saveSheetDrive(this)">💾 Simpan ke Drive</button>
+      <button class="cbtn" onclick="resetSheet()">↻ Reset</button>
       <button class="inv-cls" onclick="closeSheet()">Tutup</button>
     </div>
     <div id="photoTray" style="background:#1c1c17;border:1px solid #2a2a22;border-radius:8px;padding:8px 10px;margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
