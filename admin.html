@@ -353,36 +353,62 @@
 
     return '<div class="section-title">Database Customer ('+list.length+')</div>' +
       '<div class="kpis">' + kpiCard('Total Customer', list.length) + kpiCard('Total Nilai Order', rp(grand), 'accent') + '</div>' +
-      '<div class="toolbar"><input id="qcust" placeholder="Cari nama / phone / email…" oninput="filterCust()"><span style="color:#888;font-size:11px">Klik “Pembelian” untuk lihat riwayat order · Tgl lahir bisa diedit (jika ada inquiry)</span></div>' +
+      '<div class="toolbar"><input id="qcust" placeholder="Cari nama / phone / email…" oninput="filterCust()"><span style="color:#888;font-size:11px">Klik sel Nama/Phone/Email/Alamat/Lahir untuk edit · “Pembelian” untuk lihat riwayat order</span></div>' +
       '<div class="table-scroll tall"><table id="custtable" class="rtable"><thead><tr>' +
         '<th class="sortable" onclick="sortT(this,0)">Nama</th><th>Kontak</th><th>Ulang Tahun</th><th>Alamat</th>' +
         '<th class="num sortable" onclick="sortT(this,4)">#Order</th><th class="num sortable" onclick="sortT(this,5)">Total Belanja</th><th>Pembelian</th>' +
       '</tr></thead><tbody>' + custRows(list) + '</tbody></table></div>';
   }
+  // sel editable customer → simpan ke inquiry (atau buat baris kontak baru bila belum ada)
+  function ce(idx, field, val, c, extra){
+    return '<span class="custedit edit" contenteditable="true" data-idx="'+idx+'" data-field="'+field+'"'+
+      ' data-id="'+esc(c.inqId||'')+'" data-phone="'+esc(c.phone||'')+'" data-name="'+esc(c.name||'')+'"'+
+      ' data-orig="'+esc(val||'')+'" onblur="saveCust(this)"'+(extra||'')+'>'+esc(val||'')+'</span>';
+  }
   function custRows(list){
     if(!list.length) return '<tr data-no-sort="1"><td colspan="7" style="text-align:center;color:#888">Belum ada customer.</td></tr>';
     return list.map(function(c,idx){
       var wa=String(c.phone||'').replace(/[^0-9]/g,'');
-      var kontak=(c.phone?esc(c.phone)+(wa?' '+waAnchor(c.phone,'wa'):''):'')+(c.email?'<br><span style="color:#999">'+esc(c.email)+'</span>':'');
-      var dobCell = c.inqId
-        ? '<span class="edit" contenteditable="true" data-id="'+esc(c.inqId)+'" data-field="dob" data-orig="'+esc(c.dob||'')+'" onblur="saveInquiry(this)" title="dd/mm/yyyy">'+esc(c.dob||'—')+'</span>'
-        : esc(c.dob||'—');
+      var kontak = ce(idx,'phone',c.phone,c,' data-ph2="1"') + (wa?' '+waAnchor(c.phone,'wa'):'') +
+        '<br><span style="color:#999;font-size:11px">' + ce(idx,'email',c.email,c) + '</span>';
       var search=(c.name+' '+c.phone+' '+c.email).toLowerCase();
       var pur='<table class="ev-t" style="margin-top:4px"><thead><tr style="color:#888"><td>Order</td><td>Produk</td><td class="num">Nilai</td><td>Tanggal</td><td>Status</td></tr></thead><tbody>'+
         c.purchases.sort(function(a,b){return (a.done?0:1)-(b.done?0:1);}).map(function(p){
           return '<tr><td><b>'+esc(p.orderId)+'</b></td><td>'+esc(p.product)+'</td><td class="num">'+rp(p.value)+'</td><td>'+esc(p.date||'-')+'</td><td>'+(p.done?'<span style="color:#16a34a">Selesai</span>':esc(p.status))+'</td></tr>';
         }).join('')+'</tbody></table>';
       return '<tr data-s="'+esc(search)+'">'+
-          '<td data-v="'+esc(c.name)+'"><b>'+esc(c.name)+'</b></td>'+
-          '<td>'+(kontak||'—')+'</td>'+
-          '<td>'+dobCell+'</td>'+
-          '<td style="max-width:200px">'+esc(c.address||'—')+'</td>'+
+          '<td data-v="'+esc(c.name)+'">'+ce(idx,'nama',c.name,c,' style="font-weight:700;color:#e0912f"')+'</td>'+
+          '<td>'+kontak+'</td>'+
+          '<td>'+ce(idx,'dob',c.dob,c,' title="dd/mm/yyyy"')+'</td>'+
+          '<td style="max-width:200px">'+ce(idx,'address',c.address,c)+'</td>'+
           '<td class="num" data-v="'+(c.active+c.done)+'">'+(c.active+c.done)+'<div style="font-size:9px;color:#999">'+c.active+' aktif · '+c.done+' selesai</div></td>'+
           '<td class="num" data-v="'+c.total+'">'+rp(c.total)+'</td>'+
           '<td><button class="cbtn" onclick="toggleCust('+idx+',this)">Pembelian ('+c.purchases.length+')</button></td>'+
         '</tr>'+
         '<tr id="cust-det-'+idx+'" style="display:none"><td colspan="7" style="background:#151510">'+pur+'</td></tr>';
     }).join('');
+  }
+  // Simpan editan sel customer. Ada inqId → update inquiry; belum ada → buat/temukan kontak by HP.
+  function saveCust(el){
+    var v=el.textContent.trim();
+    if(el.getAttribute('data-orig')===v) return;
+    el.setAttribute('data-orig',v);
+    var field=el.getAttribute('data-field'), id=el.getAttribute('data-id');
+    el.style.outline='1px solid #e0912f';
+    function done(res){
+      var ok=res&&res.ok;
+      el.style.outline= ok ? '1px solid #16a34a' : '1px solid #cc3333';
+      setTimeout(function(){ el.style.outline=''; }, 900);
+      if(ok && res.id && !id){   // baris kontak baru dibuat → semua sel customer ini pakai id itu
+        var idx=el.getAttribute('data-idx');
+        document.querySelectorAll('.custedit[data-idx="'+idx+'"]').forEach(function(x){ x.setAttribute('data-id',res.id); });
+      }
+    }
+    if(id){
+      jsonp(WEB_APP_URL+'?page=admin&action=updateInquiry&id='+encodeURIComponent(id)+'&field='+encodeURIComponent(field)+'&value='+encodeURIComponent(v)+'&key='+encodeURIComponent(ADMIN_KEY), done);
+    } else {
+      jsonp(WEB_APP_URL+'?page=admin&action=saveContact&phone='+encodeURIComponent(el.getAttribute('data-phone')||'')+'&name='+encodeURIComponent(el.getAttribute('data-name')||'')+'&field='+encodeURIComponent(field)+'&value='+encodeURIComponent(v)+'&key='+encodeURIComponent(ADMIN_KEY), done);
+    }
   }
   function toggleCust(idx,btn){ var r=document.getElementById('cust-det-'+idx); if(!r)return; var show=r.style.display==='none'; r.style.display=show?'':'none'; btn.textContent=(show?'Tutup':'Pembelian ('+((window.__CUST&&window.__CUST[idx])?window.__CUST[idx].purchases.length:0)+')'); }
   function filterCust(){
