@@ -153,6 +153,29 @@
     .an-h { font-weight: 800; font-size: 13px; margin-bottom: 5px; color: #f5f4ef; }
     .an-c { font-size: 13px; line-height: 1.55; color: #ececec; }
     .an-m { font-size: 11px; color: #9a9a90; margin-top: 7px; }
+
+    /* ── Evaluasi Bulanan (report putih, print-ready) ── */
+    .eval-report { background: #fff; color: #1a1a1a; border-radius: 10px; padding: 20px 22px; margin: 4px 0 8px; font-family: Arial, Helvetica, sans-serif; }
+    .ev-head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 14px; }
+    .ev-title { font-size: 19px; font-weight: 800; }
+    .ev-sub { font-size: 11px; color: #777; margin-top: 2px; }
+    .ev-logo { font-size: 15px; font-weight: 800; letter-spacing: 1px; }
+    .ev-kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 16px; }
+    .ev-k { border: 1px solid #e3e3e3; border-radius: 8px; padding: 10px; text-align: center; background: #fafafa; }
+    .ev-kv { font-size: 17px; font-weight: 800; line-height: 1.1; }
+    .ev-kl { font-size: 10px; color: #555; margin-top: 3px; text-transform: uppercase; letter-spacing: .4px; }
+    .ev-ks { font-size: 10px; color: #999; margin-top: 2px; }
+    .ev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .ev-box { border: 1px solid #e3e3e3; border-radius: 8px; padding: 10px 12px; }
+    .ev-bt { font-size: 12px; font-weight: 800; margin-bottom: 6px; color: #222; }
+    .ev-t { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .ev-t td { padding: 3px 4px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+    .ev-t td:last-child { text-align: right; white-space: nowrap; }
+    .ev-empty { font-size: 11px; color: #aaa; padding: 4px 0; }
+    .ev-act { background: #fff8ef; border-color: #e7cfa6; }
+    .ev-act ul { margin: 0; padding-left: 18px; }
+    .ev-act li { font-size: 12px; line-height: 1.6; margin-bottom: 4px; }
+    @media (max-width: 720px) { .ev-kpis { grid-template-columns: repeat(3, 1fr); } .ev-grid { grid-template-columns: 1fr; } }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -206,7 +229,7 @@
     var tabs = document.querySelectorAll('.tab');
     for (var i=0;i<tabs.length;i++) tabs[i].classList.remove('active');
     btn.classList.add('active');
-    if (n===2) filterReport();
+    if (n===2) { renderEval(); filterReport(); }
   }
 
   // ── PAGE 1: Operasional ──
@@ -276,6 +299,18 @@
       if (!byMonth[mk]) byMonth[mk] = { label: c.monthLabel || '(tanpa tgl)', order:0, omset:0, hpp:0 };
       byMonth[mk].order++; byMonth[mk].omset += Number(c.hargaJual)||0; byMonth[mk].hpp += Number(c.hpp)||0;
     });
+    var evOpts = monthKeys.length
+      ? monthKeys.map(function(mk,i){ return '<option value="'+mk+'"'+(i===0?' selected':'')+'>'+esc(months[mk])+'</option>'; }).join('')
+      : '<option value="">(belum ada order selesai)</option>';
+    var evalSection =
+      '<div class="section-title">📊 Evaluasi Bulanan</div>' +
+      '<div class="toolbar">' +
+        '<select id="evmonth" onchange="renderEval()">'+evOpts+'</select>' +
+        '<button class="cbtn" onclick="downloadEvalPDF()">⬇ PDF</button>' +
+        '<span style="color:#888;font-size:11px">Omset, ketepatan waktu, lead time, & rekomendasi aksi</span>' +
+      '</div>' +
+      '<div id="evalPanel" class="eval-report"></div>';
+
     var mkeys = Object.keys(byMonth).sort().reverse();
     var monthSummary =
       '<div class="table-scroll"><table class="mini"><thead><tr>' +
@@ -286,7 +321,8 @@
       }).join('') : '<tr><td colspan="5" style="color:#888">Belum ada order selesai.</td></tr>') +
       '</tbody></table></div>';
 
-    return '<div class="section-title">Summary Bulan Ini</div>' +
+    return evalSection +
+      '<div class="section-title">Summary Bulan Ini</div>' +
       '<div class="kpis">' +
         kpiCard('Uang Masuk Bulan Ini', rp(s.moneyIn), 'accent') +
         kpiCard('Jumlah Pembayaran', s.payments.length) +
@@ -394,6 +430,90 @@
       var okW = !wOnly || r.getAttribute('data-warn')==='1';
       r.style.display = (okQ && okP && okD && okW) ? '' : 'none';
     }
+  }
+
+  // ── Evaluasi Bulanan ──
+  function renderEval(){
+    var el=document.getElementById('evalPanel'); if(!el) return;
+    var sel=document.getElementById('evmonth'); var mk=sel?sel.value:'';
+    var label= (mk && sel) ? sel.options[sel.selectedIndex].text : 'Semua Bulan';
+    var all=(DATA&&DATA.completed)||[];
+    var comp= mk ? all.filter(function(c){return c.monthKey===mk;}) : all;
+
+    var n=comp.length, omset=0, hpp=0;
+    comp.forEach(function(c){ omset+=Number(c.hargaJual)||0; hpp+=Number(c.hpp)||0; });
+    var profit=omset-hpp, marginPct= omset? Math.round(profit/omset*100):0, avgVal= n? Math.round(omset/n):0;
+
+    var withEst=comp.filter(function(c){ return c.lateDays!=null; });
+    var late=withEst.filter(function(c){ return c.lateDays>0; });
+    var onTime=withEst.length-late.length;
+    var avgLate= late.length? Math.round(late.reduce(function(s,c){return s+c.lateDays;},0)/late.length):0;
+    var onTimePct= withEst.length? Math.round(onTime/withEst.length*100):0;
+
+    var withLead=comp.filter(function(c){ return c.leadDays!=null; });
+    var avgLead= withLead.length? Math.round(withLead.reduce(function(s,c){return s+c.leadDays;},0)/withLead.length):0;
+    var slow=withLead.slice().sort(function(a,b){return b.leadDays-a.leadDays;}).slice(0,5);
+
+    var actives=(DATA&&DATA.orders)||[];
+    var overdue=actives.filter(function(o){ return o.warn&&o.warn.overdue; }).sort(function(a,b){return (b.warn.overdueDays||0)-(a.warn.overdueDays||0);});
+    var agingA=actives.filter(function(o){ return o.warn&&o.warn.aging; }).sort(function(a,b){return (b.warn.ageDays||0)-(a.warn.ageDays||0);});
+
+    function ek(lbl,val,sub,col){ return '<div class="ev-k"><div class="ev-kv"'+(col?' style="color:'+col+'"':'')+'>'+val+'</div><div class="ev-kl">'+lbl+'</div>'+(sub?'<div class="ev-ks">'+sub+'</div>':'')+'</div>'; }
+
+    // Rekomendasi aksi
+    var acts=[];
+    if(late.length) acts.push('⚠️ <b>'+late.length+' order selesai TELAT</b> (rata-rata '+avgLate+' hari lewat deadline). Tinjau estimasi deadline & kapasitas produksi.');
+    else if(withEst.length) acts.push('✅ Semua order yang punya deadline selesai <b>tepat waktu</b>.');
+    if(overdue.length) acts.push('🔴 <b>'+overdue.length+' order AKTIF sudah lewat deadline</b> (terparah '+esc(overdue[0].orderId)+' '+overdue[0].warn.overdueDays+' hari). Prioritaskan sekarang.');
+    if(agingA.length) acts.push('🟠 <b>'+agingA.length+' order aktif berjalan terlalu lama</b> (>30 hari sejak inquiry; terlama '+esc(agingA[0].orderId)+' '+agingA[0].warn.ageDays+' hari). Buka <b>Riwayat</b> untuk lihat penyebab.');
+    if(slow.length && avgLead && slow[0].leadDays> avgLead*1.5) acts.push('🕒 Order dengan siklus terlama bulan ini: <b>'+esc(slow[0].orderId)+'</b> ('+slow[0].leadDays+' hari inquiry→selesai) vs rata-rata '+avgLead+' hari.');
+    if(n && marginPct<30) acts.push('💰 Margin rata-rata '+marginPct+'% — relatif tipis. Cek harga jual vs HPP untuk produk/kategori tertentu.');
+    if(!acts.length) acts.push('👍 Tidak ada isu menonjol. Pertahankan.');
+
+    function orderList(list, cols){
+      if(!list.length) return '<div class="ev-empty">— tidak ada —</div>';
+      return '<table class="ev-t"><tbody>'+list.map(function(r){ return '<tr>'+cols(r).map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>'; }).join('')+'</tbody></table>';
+    }
+
+    var html=
+      '<div class="ev-head"><div><div class="ev-title">Evaluasi — '+esc(label)+'</div>'+
+        '<div class="ev-sub">Revolt Industry · dibuat '+ (DATA&&DATA.generatedAt||'') +'</div></div>'+
+        '<div class="ev-logo">R∃VOLT</div></div>'+
+      '<div class="ev-kpis">'+
+        ek('Order Selesai', n, n? 'rata-rata '+rp(avgVal):'') +
+        ek('Omset', rp(omset), '', '#1a7a3a') +
+        ek('HPP', rp(hpp)) +
+        ek('Profit', rp(profit), 'margin '+marginPct+'%', '#b5762e') +
+        ek('Tepat Waktu', (withEst.length? onTimePct+'%':'–'), (withEst.length? onTime+'/'+withEst.length+' order':'tanpa data deadline')) +
+        ek('Lead Time', (withLead.length? avgLead+' hari':'–'), 'inquiry → selesai') +
+      '</div>'+
+
+      '<div class="ev-grid">'+
+        '<div class="ev-box"><div class="ev-bt">⏰ Order Telat Bulan Ini ('+late.length+')</div>'+
+          orderList(late.sort(function(a,b){return b.lateDays-a.lateDays;}), function(r){ return ['<b>'+esc(r.orderId)+'</b> '+esc(r.customer), esc(r.product), 'est '+esc(r.est)+' → '+esc(r.shipped), '<b style="color:#c0392b">+'+r.lateDays+' hari</b>']; })+'</div>'+
+        '<div class="ev-box"><div class="ev-bt">🕒 Siklus Terlama (inquiry→selesai)</div>'+
+          orderList(slow, function(r){ return ['<b>'+esc(r.orderId)+'</b> '+esc(r.customer), esc(r.product), '<b>'+r.leadDays+' hari</b>']; })+'</div>'+
+      '</div>'+
+
+      '<div class="ev-grid">'+
+        '<div class="ev-box"><div class="ev-bt">🔴 Aktif Lewat Deadline ('+overdue.length+') — kondisi sekarang</div>'+
+          orderList(overdue.slice(0,8), function(o){ return ['<b>'+esc(o.orderId)+'</b> '+esc(o.customer), esc(o.status), '<b style="color:#c0392b">+'+o.warn.overdueDays+' hari</b>']; })+'</div>'+
+        '<div class="ev-box"><div class="ev-bt">🟠 Aktif Terlalu Lama ('+agingA.length+') — kondisi sekarang</div>'+
+          orderList(agingA.slice(0,8), function(o){ return ['<b>'+esc(o.orderId)+'</b> '+esc(o.customer), esc(o.status), '<b>'+o.warn.ageDays+' hari</b>']; })+'</div>'+
+      '</div>'+
+
+      '<div class="ev-box ev-act"><div class="ev-bt">🎯 Rekomendasi Aksi</div>'+
+        '<ul>'+acts.map(function(a){return '<li>'+a+'</li>';}).join('')+'</ul></div>';
+
+    el.innerHTML=html;
+  }
+  function downloadEvalPDF(){
+    if(!window.jspdf || typeof html2canvas==='undefined'){ alert('Library belum termuat, cek koneksi.'); return; }
+    var el=document.getElementById('evalPanel'); if(!el || !el.innerHTML){ alert('Panel evaluasi belum termuat.'); return; }
+    html2canvas(el,{scale:2, backgroundColor:'#ffffff'}).then(function(c){
+      var sel=document.getElementById('evmonth'); var lbl=(sel&&sel.value)?sel.value:'semua';
+      canvasToPdfMulti(c).save('Evaluasi-'+lbl+'.pdf');
+    }).catch(function(e){ alert('Gagal: '+e.message); });
   }
 
   // ── Report rows (order selesai) ──
