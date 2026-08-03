@@ -202,6 +202,20 @@
       .wrap th, .wrap td { padding: 6px 5px; }
       .table-scroll.tall { max-height: none; }
       .grid2 { gap: 12px; }
+
+      /* Tabel lebar → kartu (label + nilai ditumpuk) */
+      .table-scroll:has(table.rtable) { overflow: visible; border: none; border-radius: 0; }
+      table.rtable, table.rtable tbody { display: block; width: 100%; }
+      table.rtable thead { display: none; }
+      table.rtable tr { display: block; background: #1c1c17; border: 1px solid #2a2a22; border-radius: 10px; margin-bottom: 10px; padding: 8px 12px; }
+      table.rtable td { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; text-align: right; border: none; border-bottom: 1px solid #24241e; padding: 6px 0; white-space: normal; word-break: normal; overflow-wrap: anywhere; }
+      table.rtable td:last-child { border-bottom: none; }
+      table.rtable td[data-label]::before { content: attr(data-label); font-weight: 700; color: #8a8a80; text-transform: uppercase; font-size: 10px; letter-spacing: .3px; text-align: left; flex: 0 0 40%; }
+      table.rtable td.num { text-align: right; }
+      table.rtable td:first-child { border-bottom: 1px solid #33332a; padding-bottom: 8px; margin-bottom: 2px; }
+      table.rtable td:first-child b { font-size: 15px; color: #e0912f; }
+      table.rtable td[colspan] { display: block; text-align: left; }
+      table.rtable td[colspan]::before { content: ''; }
       /* Modal & dokumen: bar tombol lengket + kertas bisa digeser */
       #invModal, #poModal, #sheetModal, #tlModal, #draftModal { padding: 8px; }
       .inv-bar { position: sticky; top: 0; background: #12120f; padding: 7px 4px; z-index: 6; border-radius: 8px; }
@@ -262,6 +276,19 @@
       '<div id="page2" style="display:none">' + buildLaporan(d) + '</div>' +
       '<div id="page3" style="display:none">' + buildCustomerDB(d) + '</div>';
     document.getElementById('content').innerHTML = html;
+    labelTables();
+  }
+
+  // Untuk mode kartu di HP: isi data-label tiap sel dari header kolomnya
+  function labelTables(){
+    document.querySelectorAll('table.rtable').forEach(function(t){
+      var heads = Array.prototype.map.call(t.querySelectorAll('thead th'), function(th){ return th.textContent.replace(/[▾▴]/g,'').trim(); });
+      t.querySelectorAll('tbody tr').forEach(function(tr){
+        var tds = tr.children;
+        if (tds.length === 1 && tds[0].hasAttribute('colspan')) return;   // baris kosong / detail
+        for (var i=0;i<tds.length;i++){ if(!tds[i].hasAttribute('colspan') && heads[i]) tds[i].setAttribute('data-label', heads[i]); }
+      });
+    });
   }
 
   function showTab(n, btn){
@@ -300,7 +327,7 @@
     return '<div class="section-title">Database Customer ('+list.length+')</div>' +
       '<div class="kpis">' + kpiCard('Total Customer', list.length) + kpiCard('Total Nilai Order', rp(grand), 'accent') + '</div>' +
       '<div class="toolbar"><input id="qcust" placeholder="Cari nama / phone / email…" oninput="filterCust()"><span style="color:#888;font-size:11px">Klik “Pembelian” untuk lihat riwayat order · Tgl lahir bisa diedit (jika ada inquiry)</span></div>' +
-      '<div class="table-scroll tall"><table id="custtable"><thead><tr>' +
+      '<div class="table-scroll tall"><table id="custtable" class="rtable"><thead><tr>' +
         '<th class="sortable" onclick="sortT(this,0)">Nama</th><th>Kontak</th><th>Ulang Tahun</th><th>Alamat</th>' +
         '<th class="num sortable" onclick="sortT(this,4)">#Order</th><th class="num sortable" onclick="sortT(this,5)">Total Belanja</th><th>Pembelian</th>' +
       '</tr></thead><tbody>' + custRows(list) + '</tbody></table></div>';
@@ -361,7 +388,7 @@
         '<select id="fdl" onchange="filterOrders()"><option value="">Semua deadline</option><option value="near">≤ 3 hari</option><option value="over">Terlewat</option></select>' +
         '<label style="color:#e0912f;font-size:12px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="fwarn" onchange="filterOrders()"> Cuma yang ⚠</label>' +
       '</div>' +
-      '<div class="table-scroll tall"><table id="orders"><thead><tr>' +
+      '<div class="table-scroll tall"><table id="orders" class="rtable"><thead><tr>' +
         '<th class="sortable" onclick="sortT(this,0)">Order</th>' +
         '<th class="sortable" onclick="sortT(this,1)">Customer</th>' +
         '<th>Produk</th><th>Tipe</th><th>Kategori</th>' +
@@ -377,7 +404,7 @@
       '</tr></thead><tbody>' + orderRows(d.orders) + '</tbody></table></div>' +
 
       '<div class="section-title">Inquiry Masuk (' + (d.inquiries ? d.inquiries.length : 0) + ') — klik sel Nama/Email/Lahir/Alamat/Produk/Spesifikasi untuk edit</div>' +
-      '<div class="table-scroll"><table id="inquiries"><thead><tr>' +
+      '<div class="table-scroll"><table id="inquiries" class="rtable"><thead><tr>' +
         '<th class="sortable" onclick="sortT(this,0)">Waktu</th>' +
         '<th class="sortable" onclick="sortT(this,1)">ID</th>' +
         '<th class="sortable" onclick="sortT(this,2)">Nama</th>' +
@@ -452,7 +479,7 @@
         '<select id="fmonth" onchange="filterReport()">' + monthOpts + '</select>' +
         '<span id="reptotal" style="color:#bbb;font-size:12px"></span>' +
       '</div>' +
-      '<div class="table-scroll tall"><table id="report"><thead><tr>' +
+      '<div class="table-scroll tall"><table id="report" class="rtable"><thead><tr>' +
         '<th class="sortable" onclick="sortT(this,0)">Order</th>' +
         '<th class="sortable" onclick="sortT(this,1)">Customer</th>' +
         '<th>Produk</th><th>Kategori</th>' +
