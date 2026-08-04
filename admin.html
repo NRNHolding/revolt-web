@@ -152,7 +152,13 @@
     .pimg img { width: 100%; height: 100%; object-fit: cover; }
     .pimg button { position: absolute; top: 2px; right: 2px; padding: 0 5px; }
     .pmain { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(224,145,47,.9); color: #141414; font-size: 9px; font-weight: 700; text-align: center; }
-    @media (max-width: 640px) { .pgrid { grid-template-columns: 1fr 1fr; } }
+    .vtab { width: 100%; border-collapse: collapse; }
+    .vtab th { font-size: 9px; text-transform: uppercase; color: #8a8a80; text-align: left; padding: 3px 4px; }
+    .vtab td { padding: 3px 4px; font-size: 12px; border-bottom: 1px solid #24241e; }
+    .vtab td:first-child { max-width: 170px; word-break: break-word; }
+    .vin { width: 100%; background: #14140f; border: 1px solid #33332a; border-radius: 5px; color: #ececec; padding: 5px 7px; font-size: 12px; text-align: right; }
+    .vin:focus { outline: none; border-color: #e0912f; }
+    @media (max-width: 640px) { .pgrid { grid-template-columns: 1fr 1fr; } .vtab td:first-child { max-width: 90px; font-size: 10px; } }
 
     /* ── Riwayat / Timeline ── */
     #tlModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
@@ -469,47 +475,34 @@
     if(!items.length) return '<div class="loading">Tidak ada produk.</div>';
     var rows=items.map(function(p){
       var variabel = p.type!=='simple';
-      var priceCell = variabel ? '<button class="cbtn" onclick="loadVars('+p.id+',this)">variasi ▸</button>'
-        : 'Rp <span class="wooedit edit" contenteditable="true" data-id="'+p.id+'" data-field="rprice" data-orig="'+esc(p.regular_price)+'" onblur="saveWoo(this)">'+esc(p.regular_price)+'</span>';
-      var stockCell = variabel ? '<span style="color:#888">—</span>'
-        : '<span class="wooedit edit" contenteditable="true" data-id="'+p.id+'" data-field="stock" data-orig="'+esc(p.stock)+'" onblur="saveWoo(this)">'+esc(p.stock===''?'∞':p.stock)+'</span>';
-      var stat='<select class="istatus" data-id="'+p.id+'" onchange="saveWooStatus(this)"><option value="publish"'+(p.status==='publish'?' selected':'')+'>publish</option><option value="draft"'+(p.status==='draft'?' selected':'')+'>draft</option><option value="private"'+(p.status==='private'?' selected':'')+'>private</option></select>';
+      var priceCell = variabel ? '<span style="color:#888">'+esc(p.price)+' <span style="font-size:9px">(variasi)</span></span>' : esc(p.regular_price||p.price);
+      var stockCell = variabel ? '<span style="color:#888">—</span>' : esc(p.stock===''?'∞':p.stock);
       return '<tr>'+
         '<td><b>'+esc(p.name)+'</b>'+(p.sku?'<div style="font-size:9px;color:#999">'+esc(p.sku)+'</div>':'')+'</td>'+
         '<td>'+esc(p.type)+'</td>'+
         '<td class="num">'+priceCell+'</td>'+
         '<td class="num">'+stockCell+'</td>'+
-        '<td>'+stat+'</td>'+
+        '<td>'+esc(p.status)+'</td>'+
         '<td><button class="cbtn" onclick="openProd('+p.id+')">Edit</button> <a class="link" href="'+esc(p.permalink)+'" target="_blank">buka</a></td>'+
-      '</tr>'+
-      '<tr id="woo-var-'+p.id+'" style="display:none"><td colspan="6" style="background:#151510"></td></tr>';
+      '</tr>';
     }).join('');
-    return '<div class="table-scroll tall"><table class="rtable"><thead><tr><th>Produk</th><th>Tipe</th><th class="num">Harga Reg.</th><th class="num">Stok</th><th>Status</th><th>Web</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
-      '<div style="color:#888;font-size:11px;margin-top:6px">Klik harga/stok untuk edit · produk variable klik “variasi” untuk edit tiap ukuran/warna · perubahan langsung live ke web</div>';
-  }
-  function loadVars(pid, btn){
-    var row=document.getElementById('woo-var-'+pid), cell=row.firstChild;
-    if(row.style.display!=='none'){ row.style.display='none'; btn.textContent='variasi ▸'; return; }
-    row.style.display=''; btn.textContent='variasi ▾'; cell.innerHTML='<div style="padding:8px;color:#999">Memuat variasi…</div>';
-    jsonp(WEB_APP_URL+'?page=admin&action=wooVars&id='+pid+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
-      function(res){
-        if(!res||!res.ok){ cell.innerHTML='<div style="padding:8px;color:#e57373">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
-        function ed(v,f,val){ return '<span class="edit" contenteditable="true" data-pid="'+pid+'" data-vid="'+v.id+'" data-field="'+f+'" data-orig="'+esc(val)+'" onblur="saveVar(this)">'+esc(val===''?'—':val)+'</span>'; }
-        cell.innerHTML='<table class="ev-t" style="margin:4px 0"><thead><tr style="color:#888"><td>Variasi</td><td class="num">Harga Reg.</td><td class="num">Harga Sale</td><td class="num">Stok</td></tr></thead><tbody>'+
-          (res.items||[]).map(function(v){
-            return '<tr><td><b>'+esc(v.name)+'</b></td><td class="num">Rp '+ed(v,'rprice',v.regular_price)+'</td><td class="num">Rp '+ed(v,'sprice',v.sale_price)+'</td><td class="num">'+ed(v,'stock',v.stock)+'</td></tr>';
-          }).join('')+'</tbody></table>';
-      });
+    return '<div class="table-scroll tall"><table class="rtable"><thead><tr><th>Produk</th><th>Tipe</th><th class="num">Harga</th><th class="num">Stok</th><th>Status</th><th>Aksi</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+      '<div style="color:#888;font-size:11px;margin-top:6px">Klik <b>Edit</b> untuk ubah nama, deskripsi, foto, harga, stok & variasi · perubahan langsung live ke web</div>';
   }
   // ── Modal edit produk (nama, deskripsi, harga, stok, foto) ──
   var PROD=null;
   function openProd(id){
     document.getElementById('prodModal').classList.add('show');
+    document.getElementById('prodMsg').textContent='';
     document.getElementById('prodBody').innerHTML='<div class="loading">Memuat produk…</div>';
     jsonp(WEB_APP_URL+'?page=admin&action=wooProduct&id='+id+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
       function(res){
         if(!res||!res.ok){ document.getElementById('prodBody').innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
-        PROD=res.p; renderProd();
+        PROD=res.p; PROD.vars=null; renderProd();
+        if(PROD.type!=='simple'){
+          jsonp(WEB_APP_URL+'?page=admin&action=wooVars&id='+id+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+            function(vr){ PROD.vars=(vr&&vr.ok)?(vr.items||[]):[]; renderProd(); });
+        }
       });
   }
   function closeProd(){ document.getElementById('prodModal').classList.remove('show'); PROD=null; }
@@ -518,15 +511,18 @@
     var imgs=(p.images||[]).map(function(im,i){
       return '<div class="pimg"><img src="'+esc(im.src)+'"><button class="cbtn" onclick="delProdImg('+i+')">✕</button>'+(i===0?'<span class="pmain">utama</span>':'')+'</div>';
     }).join('');
+    var priceBlock = simple
+      ? '<div class="pgrid">'+
+          '<div class="pf"><label>Harga Reguler</label><input id="p-rprice" value="'+esc(p.regular_price)+'"></div>'+
+          '<div class="pf"><label>Harga Sale</label><input id="p-sprice" value="'+esc(p.sale_price)+'"></div>'+
+          '<div class="pf"><label>Stok</label><input id="p-stock" value="'+esc(p.stock)+'"></div>'+
+          '<div class="pf"><label>Status</label>'+statusSel(p)+'</div>'+
+        '</div>'
+      : '<div class="pf" style="max-width:200px"><label>Status</label>'+statusSel(p)+'</div>'+ varBlock(p);
     document.getElementById('prodBody').innerHTML=
       '<div class="pf"><label>Nama Produk</label><input id="p-name" value="'+esc(p.name)+'"></div>'+
       '<div class="pf"><label>SKU</label><input id="p-sku" value="'+esc(p.sku)+'"></div>'+
-      '<div class="pgrid">'+
-        '<div class="pf"><label>Harga Reguler</label><input id="p-rprice" value="'+esc(p.regular_price)+'"'+(simple?'':' disabled title="atur di variasi"')+'></div>'+
-        '<div class="pf"><label>Harga Sale</label><input id="p-sprice" value="'+esc(p.sale_price)+'"'+(simple?'':' disabled')+'></div>'+
-        '<div class="pf"><label>Stok</label><input id="p-stock" value="'+esc(p.stock)+'"'+(simple?'':' disabled')+'></div>'+
-        '<div class="pf"><label>Status</label><select id="p-status"><option value="publish"'+(p.status==='publish'?' selected':'')+'>publish</option><option value="draft"'+(p.status==='draft'?' selected':'')+'>draft</option><option value="private"'+(p.status==='private'?' selected':'')+'>private</option></select></div>'+
-      '</div>'+
+      priceBlock +
       '<div class="pf"><label>Deskripsi Singkat</label><textarea id="p-sdesc" style="height:80px">'+esc(p.short_description.replace(/<[^>]+>/g,'').trim())+'</textarea></div>'+
       '<div class="pf"><label>Deskripsi Lengkap (boleh HTML)</label><textarea id="p-desc" style="height:150px">'+esc(p.description)+'</textarea></div>'+
       '<div class="pf"><label>Foto Produk <span style="color:#888;font-weight:400">(pertama = utama)</span></label>'+
@@ -535,8 +531,42 @@
         '<button class="cbtn" onclick="addProdImgUrl()">＋ dari URL</button></div></div>'+
       '<div style="color:#888;font-size:11px;margin-top:8px">Kategori: '+esc(p.categories||'-')+' · <a class="link" href="'+esc(p.permalink)+'" target="_blank">lihat di web</a></div>';
   }
-  function delProdImg(i){ PROD.images.splice(i,1); renderProd(); }
-  function addProdImgUrl(){ var u=prompt('URL gambar (https://…):'); if(u) { PROD.images.push({src:u}); renderProd(); } }
+  function statusSel(p){
+    return '<select id="p-status"><option value="publish"'+(p.status==='publish'?' selected':'')+'>publish</option><option value="draft"'+(p.status==='draft'?' selected':'')+'>draft</option><option value="private"'+(p.status==='private'?' selected':'')+'>private</option></select>';
+  }
+  function varBlock(p){
+    if(p.vars===null) return '<div class="pf"><label>Variasi</label><div style="color:#888;font-size:12px">Memuat variasi…</div></div>';
+    if(!p.vars.length) return '<div class="pf"><label>Variasi</label><div style="color:#888;font-size:12px">Tidak ada variasi.</div></div>';
+    return '<div class="pf"><label>Variasi — harga & stok per ukuran/warna</label>'+
+      '<table class="vtab"><thead><tr><th>Variasi</th><th>Harga Reg.</th><th>Harga Sale</th><th>Stok</th></tr></thead><tbody>'+
+      p.vars.map(function(v,i){
+        return '<tr><td>'+esc(v.name)+'</td>'+
+          '<td><input class="vin" data-i="'+i+'" data-f="regular_price" value="'+esc(v.regular_price)+'"></td>'+
+          '<td><input class="vin" data-i="'+i+'" data-f="sale_price" value="'+esc(v.sale_price)+'"></td>'+
+          '<td><input class="vin" data-i="'+i+'" data-f="stock" value="'+esc(v.stock)+'"></td></tr>';
+      }).join('')+'</tbody></table></div>';
+  }
+  // simpan isi form ke PROD supaya tidak hilang saat re-render
+  function syncProdForm(){
+    if(!PROD) return;
+    function val(id){ var e=document.getElementById(id); return e?e.value:null; }
+    var n=val('p-name'); if(n!==null) PROD.name=n;
+    var s=val('p-sku');  if(s!==null) PROD.sku=s;
+    var d=val('p-desc'); if(d!==null) PROD.description=d;
+    var sd=val('p-sdesc'); if(sd!==null) PROD.short_description=sd;
+    var st=val('p-status'); if(st!==null) PROD.status=st;
+    if(PROD.type==='simple'){
+      var r=val('p-rprice'); if(r!==null) PROD.regular_price=r;
+      var sp=val('p-sprice'); if(sp!==null) PROD.sale_price=sp;
+      var sk=val('p-stock'); if(sk!==null) PROD.stock=sk;
+    }
+    document.querySelectorAll('.vin').forEach(function(inp){
+      var i=+inp.getAttribute('data-i'), f=inp.getAttribute('data-f');
+      if(PROD.vars && PROD.vars[i]){ PROD.vars[i][f==='stock'?'stock':f]=inp.value; }
+    });
+  }
+  function delProdImg(i){ syncProdForm(); PROD.images.splice(i,1); renderProd(); }
+  function addProdImgUrl(){ var u=prompt('URL gambar (https://…):'); if(u) { syncProdForm(); PROD.images.push({src:u}); renderProd(); } }
   function prodImgPick(input){
     var f=input.files&&input.files[0]; if(!f) return; input.value='';
     var r=new FileReader();
@@ -544,7 +574,7 @@
       var b64=e.target.result.split(',')[1];
       var msg=document.getElementById('prodMsg'); msg.textContent='Upload foto…';
       postFileCb('wooUpload', f.name, f.type, b64, function(res){
-        if(res&&res.ok&&res.src){ PROD.images.push({id:res.id,src:res.src}); renderProd(); msg.textContent='Foto terupload ✓'; }
+        if(res&&res.ok&&res.src){ syncProdForm(); PROD.images.push({id:res.id,src:res.src}); renderProd(); msg.textContent='Foto terupload ✓'; }
         else msg.textContent=(res&&res.error)||'Upload gagal (cek WP Application Password).';
       });
     };
@@ -562,19 +592,25 @@
   }
   function saveProd(btn){
     if(!PROD) return;
+    syncProdForm();
     var old=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan…';
-    var payload={ id:PROD.id,
-      name:document.getElementById('p-name').value,
-      sku:document.getElementById('p-sku').value,
-      desc:document.getElementById('p-desc').value,
-      sdesc:document.getElementById('p-sdesc').value,
-      status:document.getElementById('p-status').value,
+    var payload={ id:PROD.id, name:PROD.name, sku:PROD.sku, desc:PROD.description, sdesc:PROD.short_description,
+      status:PROD.status,
       images:JSON.stringify(PROD.images.map(function(i){ return i.id?{id:i.id}:{src:i.src}; })) };
     if(PROD.type==='simple'){
-      payload.rprice=document.getElementById('p-rprice').value.replace(/[^0-9.]/g,'');
-      payload.sprice=document.getElementById('p-sprice').value.replace(/[^0-9.]/g,'');
-      payload.stock =document.getElementById('p-stock').value.replace(/[^0-9]/g,'');
+      payload.rprice=String(PROD.regular_price).replace(/[^0-9.]/g,'');
+      payload.sprice=String(PROD.sale_price).replace(/[^0-9.]/g,'');
+      payload.stock =String(PROD.stock).replace(/[^0-9]/g,'');
     }
+    // Variasi: kirim yang berubah (GET/JSONP per variasi)
+    var nVar=0;
+    (PROD.vars||[]).forEach(function(v){
+      var q='&rprice='+encodeURIComponent(String(v.regular_price||''))+
+            '&sprice='+encodeURIComponent(String(v.sale_price||''))+
+            '&stock='+encodeURIComponent(String(v.stock||''));
+      nVar++;
+      jsonp(WEB_APP_URL+'?page=admin&action=wooVarUpdate&pid='+PROD.id+'&vid='+v.id+q+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(), function(){});
+    });
     var iframe=document.getElementById('saveframe');
     if(!iframe){ iframe=document.createElement('iframe'); iframe.name='saveframe'; iframe.id='saveframe'; iframe.style.display='none'; document.body.appendChild(iframe); }
     var form=document.createElement('form'); form.method='POST'; form.action=WEB_APP_URL; form.target='saveframe';
@@ -582,7 +618,7 @@
     add('action','wooSave'); add('key',ADMIN_KEY); add('payload',JSON.stringify(payload));
     document.body.appendChild(form); form.submit();
     setTimeout(function(){ document.body.removeChild(form); btn.disabled=false; btn.textContent=old;
-      document.getElementById('prodMsg').textContent='Tersimpan ✓ (cek web)'; loadWoo(); }, 2600);
+      document.getElementById('prodMsg').textContent='Tersimpan ✓'+(nVar?' ('+nVar+' variasi)':'')+' — cek web'; loadWoo(); }, 2600);
   }
 
   function saveVar(el){
