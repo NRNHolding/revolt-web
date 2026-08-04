@@ -284,10 +284,12 @@
         '<button class="tab active" onclick="showTab(1,this)">Operasional</button>' +
         '<button class="tab" onclick="showTab(2,this)">Summary &amp; Laporan</button>' +
         '<button class="tab" onclick="showTab(3,this)">Database Customer</button>' +
+        '<button class="tab" onclick="showTab(4,this)">Katalog Web</button>' +
       '</div>' +
       '<div id="page1">' + buildOperasional(d) + '</div>' +
       '<div id="page2" style="display:none">' + buildLaporan(d) + '</div>' +
-      '<div id="page3" style="display:none">' + buildCustomerDB(d) + '</div>';
+      '<div id="page3" style="display:none">' + buildCustomerDB(d) + '</div>' +
+      '<div id="page4" style="display:none">' + buildCatalog() + '</div>';
     document.getElementById('content').innerHTML = html;
     labelTables();
   }
@@ -322,10 +324,12 @@
     document.getElementById('page1').style.display = n===1 ? '' : 'none';
     document.getElementById('page2').style.display = n===2 ? '' : 'none';
     var p3=document.getElementById('page3'); if(p3) p3.style.display = n===3 ? '' : 'none';
+    var p4=document.getElementById('page4'); if(p4) p4.style.display = n===4 ? '' : 'none';
     var tabs = document.querySelectorAll('.tab');
     for (var i=0;i<tabs.length;i++) tabs[i].classList.remove('active');
     btn.classList.add('active');
     if (n===2) { renderEval(); filterReport(); }
+    if (n===4 && !window.__WOO_LOADED) loadWoo();
   }
 
   // ── PAGE 3: Database Customer ──
@@ -418,6 +422,87 @@
       var ok=!q||(r.getAttribute('data-s')||'').indexOf(q)>-1; r.style.display=ok?'':'none';
       var det=r.nextElementSibling; if(det&&det.id&&det.id.indexOf('cust-det-')===0&&!ok) det.style.display='none';
     }
+  }
+
+  // ── PAGE 4: Katalog Web (WooCommerce) ──
+  function buildCatalog(){
+    return '<div class="section-title">Katalog WooCommerce — revoltindustry.com</div>' +
+      '<div class="toolbar">' +
+        '<input id="qwoo" placeholder="Cari produk…" onkeydown="if(event.key===\'Enter\')loadWoo()">' +
+        '<button class="cbtn" onclick="loadWoo()">Cari / Muat</button>' +
+        '<button class="cbtn" onclick="loadWooShip()">Shipping</button>' +
+        '<span id="woomsg" style="color:#888;font-size:11px"></span>' +
+      '</div>' +
+      '<div id="wooBody"><div class="loading">Buka tab untuk memuat…</div></div>' +
+      '<div id="wooShipBox"></div>';
+  }
+  function loadWoo(){
+    window.__WOO_LOADED = true;
+    var q=(document.getElementById('qwoo')||{}).value||'';
+    document.getElementById('wooBody').innerHTML='<div class="loading">Memuat produk…</div>';
+    jsonp(WEB_APP_URL+'?page=admin&action=wooProducts&search='+encodeURIComponent(q)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(!res||!res.ok){ document.getElementById('wooBody').innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal muat.')+'</div>'; return; }
+        document.getElementById('woomsg').textContent=res.count+' produk';
+        document.getElementById('wooBody').innerHTML=wooRows(res.items);
+        labelTables();
+      });
+  }
+  function wooRows(items){
+    if(!items.length) return '<div class="loading">Tidak ada produk.</div>';
+    var rows=items.map(function(p){
+      var variabel = p.type!=='simple';
+      var priceCell = variabel ? '<span style="color:#888">variasi ('+esc(p.price)+')</span>'
+        : 'Rp <span class="wooedit edit" contenteditable="true" data-id="'+p.id+'" data-field="rprice" data-orig="'+esc(p.regular_price)+'" onblur="saveWoo(this)">'+esc(p.regular_price)+'</span>';
+      var stockCell = variabel ? '<span style="color:#888">—</span>'
+        : '<span class="wooedit edit" contenteditable="true" data-id="'+p.id+'" data-field="stock" data-orig="'+esc(p.stock)+'" onblur="saveWoo(this)">'+esc(p.stock===''?'∞':p.stock)+'</span>';
+      var stat='<select class="istatus" data-id="'+p.id+'" onchange="saveWooStatus(this)"><option value="publish"'+(p.status==='publish'?' selected':'')+'>publish</option><option value="draft"'+(p.status==='draft'?' selected':'')+'>draft</option><option value="private"'+(p.status==='private'?' selected':'')+'>private</option></select>';
+      return '<tr>'+
+        '<td><b>'+esc(p.name)+'</b>'+(p.sku?'<div style="font-size:9px;color:#999">'+esc(p.sku)+'</div>':'')+'</td>'+
+        '<td>'+esc(p.type)+'</td>'+
+        '<td class="num">'+priceCell+'</td>'+
+        '<td class="num">'+stockCell+'</td>'+
+        '<td>'+stat+'</td>'+
+        '<td><a class="link" href="'+esc(p.permalink)+'" target="_blank">buka</a></td>'+
+      '</tr>';
+    }).join('');
+    return '<div class="table-scroll tall"><table class="rtable"><thead><tr><th>Produk</th><th>Tipe</th><th class="num">Harga Reg.</th><th class="num">Stok</th><th>Status</th><th>Web</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+      '<div style="color:#888;font-size:11px;margin-top:6px">Klik harga/stok untuk edit · produk variasi diedit di WooCommerce · perubahan langsung live ke web</div>';
+  }
+  function saveWoo(el){
+    var v=el.textContent.trim().replace(/[^0-9]/g,''); if(el.getAttribute('data-orig')===v) return;
+    el.setAttribute('data-orig',v); el.style.outline='1px solid #e0912f';
+    jsonp(WEB_APP_URL+'?page=admin&action=wooUpdate&id='+el.getAttribute('data-id')+'&'+el.getAttribute('data-field')+'='+encodeURIComponent(v)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ el.style.outline=(res&&res.ok)?'1px solid #16a34a':'1px solid #cc3333'; setTimeout(function(){el.style.outline='';},1000); if(res&&!res.ok)alert(res.error); });
+  }
+  function saveWooStatus(sel){
+    jsonp(WEB_APP_URL+'?page=admin&action=wooUpdate&id='+sel.getAttribute('data-id')+'&status='+encodeURIComponent(sel.value)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ sel.style.outline=(res&&res.ok)?'1px solid #16a34a':'1px solid #cc3333'; setTimeout(function(){sel.style.outline='';},1000); });
+  }
+  function loadWooShip(){
+    document.getElementById('wooShipBox').innerHTML='<div class="section-title">Shipping</div><div class="loading">Memuat…</div>';
+    jsonp(WEB_APP_URL+'?page=admin&action=wooShipping&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(!res||!res.ok){ document.getElementById('wooShipBox').innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
+        var h='<div class="section-title">Shipping Zones</div>';
+        (res.zones||[]).forEach(function(z){
+          h+='<div style="margin-bottom:8px"><b>'+esc(z.name)+'</b><table class="rtable" style="margin-top:4px"><thead><tr><th>Metode</th><th>Ongkos</th><th>Aktif</th></tr></thead><tbody>'+
+            (z.methods.length?z.methods.map(function(m){
+              var costCell = m.method_id==='flat_rate'
+                ? 'Rp <span class="edit" contenteditable="true" data-zone="'+z.id+'" data-instance="'+m.instance_id+'" data-orig="'+esc(m.cost)+'" onblur="saveWooShip(this)">'+esc(m.cost)+'</span>'
+                : '<span style="color:#888">'+esc(m.cost||m.method_id)+'</span>';
+              return '<tr><td>'+esc(m.title)+'</td><td class="num">'+costCell+'</td><td>'+(m.enabled?'✓':'—')+'</td></tr>';
+            }).join(''):'<tr><td colspan="3" style="color:#888">—</td></tr>')+
+          '</tbody></table></div>';
+        });
+        document.getElementById('wooShipBox').innerHTML=h; labelTables();
+      });
+  }
+  function saveWooShip(el){
+    var v=el.textContent.trim().replace(/[^0-9]/g,''); if(el.getAttribute('data-orig')===v) return;
+    el.setAttribute('data-orig',v); el.style.outline='1px solid #e0912f';
+    jsonp(WEB_APP_URL+'?page=admin&action=wooShipUpdate&zone='+el.getAttribute('data-zone')+'&instance='+el.getAttribute('data-instance')+'&cost='+encodeURIComponent(v)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ el.style.outline=(res&&res.ok)?'1px solid #16a34a':'1px solid #cc3333'; setTimeout(function(){el.style.outline='';},1000); if(res&&!res.ok)alert(res.error); });
   }
 
   // ── PAGE 1: Operasional ──
