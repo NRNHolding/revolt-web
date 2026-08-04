@@ -137,6 +137,23 @@
     #draftText { width: 100%; height: 62vh; background: #14140f; color: #ececec; border: 1px solid #33332a; border-radius: 8px; padding: 14px; font-family: 'Consolas','Courier New',monospace; font-size: 13px; line-height: 1.5; resize: vertical; outline: none; }
     #draftText:focus { border-color: #e0912f; }
 
+    /* ── Sub-tab katalog ── */
+    .subtabs { display: flex; gap: 4px; margin: 4px 0 14px; flex-wrap: wrap; }
+    .stab { background: #1c1c17; border: 1px solid #2a2a22; color: #999; font-size: 12px; font-weight: 700; padding: 8px 14px; border-radius: 8px; cursor: pointer; }
+    .stab.active { background: #e0912f; border-color: #e0912f; color: #141414; }
+    /* Kartu pesanan */
+    .ocard { background: #1c1c17; border: 1px solid #2a2a22; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+    .ohead { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; border-bottom: 1px solid #24241e; padding-bottom: 8px; }
+    .osub { font-size: 10.5px; color: #86867c; margin-top: 2px; }
+    .otot { text-align: right; font-size: 16px; font-weight: 800; white-space: nowrap; }
+    .obody { display: grid; grid-template-columns: 1.2fr 1fr; gap: 14px; padding: 9px 0; font-size: 12px; }
+    .oitem { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid #24241e; padding: 3px 0; font-size: 11.5px; }
+    .onote { margin-top: 5px; font-size: 11px; color: #e0c79a; background: #241a10; border-radius: 6px; padding: 5px 7px; }
+    .ofoot { border-top: 1px solid #24241e; padding-top: 8px; font-size: 11px; color: #999; }
+    .catbox { display: flex; flex-wrap: wrap; gap: 4px 12px; max-height: 130px; overflow: auto; background: #14140f; border: 1px solid #33332a; border-radius: 7px; padding: 8px 10px; }
+    .catopt { font-size: 11.5px; color: #ccc; display: flex; align-items: center; gap: 4px; }
+    @media (max-width: 640px) { .obody { grid-template-columns: 1fr; } }
+
     /* ── Katalog grid ── */
     .wgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 13px; }
     .wcard { background: #1c1c17; border: 1px solid #2a2a22; border-radius: 11px; overflow: hidden; display: flex; flex-direction: column; transition: .15s; }
@@ -471,16 +488,44 @@
   // ── PAGE 4: Katalog Web (WooCommerce) ──
   var WOO_RATE = 16000;
   function buildCatalog(){
-    return '<div class="section-title">Katalog WooCommerce — revoltindustry.com</div>' +
-      '<div class="toolbar">' +
-        '<input id="qwoo" placeholder="Cari produk…" onkeydown="if(event.key===\'Enter\')loadWoo()">' +
-        '<select id="wcat" onchange="loadWoo()"><option value="">Semua kategori</option></select>' +
-        '<button class="cbtn" onclick="loadWoo()">Muat</button>' +
-        '<button class="cbtn" onclick="loadWooShip()">Shipping</button>' +
-        '<span id="woomsg" style="color:#888;font-size:11px"></span>' +
+    return '<div class="subtabs">' +
+        '<button class="stab active" onclick="wooTab(1,this)">Produk</button>' +
+        '<button class="stab" onclick="wooTab(2,this)">Pesanan</button>' +
+        '<button class="stab" onclick="wooTab(3,this)">Kupon</button>' +
+        '<button class="stab" onclick="wooTab(4,this)">Laporan Web</button>' +
+        '<button class="stab" onclick="wooTab(5,this)">Shipping</button>' +
       '</div>' +
-      '<div id="wooBody"><div class="loading">Buka tab untuk memuat…</div></div>' +
-      '<div id="wooShipBox"></div>';
+      '<div id="wtab1">' +
+        '<div class="toolbar">' +
+          '<input id="qwoo" placeholder="Cari produk…" onkeydown="if(event.key===\'Enter\')loadWoo()">' +
+          '<select id="wcat" onchange="loadWoo()"><option value="">Semua kategori</option></select>' +
+          '<button class="cbtn" onclick="loadWoo()">Muat</button>' +
+          '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="openNewProd()">＋ Produk Baru</button>' +
+          '<span id="woomsg" style="color:#888;font-size:11px"></span>' +
+        '</div>' +
+        '<div id="wooBody"><div class="loading">Buka tab untuk memuat…</div></div>' +
+      '</div>' +
+      '<div id="wtab2" style="display:none"><div class="toolbar">' +
+          '<input id="qord" placeholder="Cari pesanan / nama…" onkeydown="if(event.key===\'Enter\')loadOrders()">' +
+          '<select id="ostat" onchange="loadOrders()">' +
+            '<option value="">Semua status</option><option value="pending">pending</option><option value="processing">processing</option>' +
+            '<option value="on-hold">on-hold</option><option value="completed">completed</option><option value="cancelled">cancelled</option><option value="refunded">refunded</option>' +
+          '</select><button class="cbtn" onclick="loadOrders()">Muat</button><span id="ordmsg" style="color:#888;font-size:11px"></span>' +
+        '</div><div id="ordBody"></div></div>' +
+      '<div id="wtab3" style="display:none"><div id="cpnBody"></div></div>' +
+      '<div id="wtab4" style="display:none"><div class="toolbar">' +
+          '<select id="rperiod" onchange="loadWooReport()"><option value="month">Bulan ini</option><option value="week">Minggu ini</option><option value="year">Tahun ini</option></select>' +
+          '<button class="cbtn" onclick="loadWooReport()">Muat</button></div><div id="repBody"></div></div>' +
+      '<div id="wtab5" style="display:none"><div id="wooShipBox"></div></div>';
+  }
+  function wooTab(n, btn){
+    for(var i=1;i<=5;i++){ var el=document.getElementById('wtab'+i); if(el) el.style.display=(i===n?'':'none'); }
+    document.querySelectorAll('.stab').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+    if(n===2 && !window.__ORD) { window.__ORD=1; loadOrders(); }
+    if(n===3 && !window.__CPN) { window.__CPN=1; loadCoupons(); }
+    if(n===4 && !window.__REP) { window.__REP=1; loadWooReport(); }
+    if(n===5 && !window.__SHIP){ window.__SHIP=1; loadWooShip(); }
   }
   function usd2rp(v){ var n=parseFloat(String(v).replace(/[^0-9.]/g,'')); return isNaN(n)||!n ? '' : 'Rp '+Math.round(n*WOO_RATE).toLocaleString('id-ID'); }
   function loadWooCats(){
@@ -567,17 +612,142 @@
     document.getElementById('prodBody').innerHTML=
       '<div class="pf"><label>Nama Produk</label><input id="p-name" value="'+esc(p.name)+'"></div>'+
       '<div class="pf"><label>SKU</label><input id="p-sku" value="'+esc(p.sku)+'"></div>'+
-      priceBlock +
+      priceBlock + catPicker() +
       '<div class="pf"><label>Deskripsi Singkat</label><textarea id="p-sdesc" style="height:80px">'+esc(p.short_description.replace(/<[^>]+>/g,'').trim())+'</textarea></div>'+
       '<div class="pf"><label>Deskripsi Lengkap (boleh HTML)</label><textarea id="p-desc" style="height:150px">'+esc(p.description)+'</textarea></div>'+
       '<div class="pf"><label>Foto Produk <span style="color:#888;font-weight:400">(pertama = utama)</span></label>'+
         '<div class="pimgs">'+(imgs||'<span style="color:#888;font-size:11px">belum ada foto</span>')+'</div>'+
         '<div style="margin-top:7px"><button class="cbtn" onclick="document.getElementById(\'prodImgInput\').click()">＋ Upload Foto</button> '+
         '<button class="cbtn" onclick="addProdImgUrl()">＋ dari URL</button></div></div>'+
-      '<div style="color:#888;font-size:11px;margin-top:8px">Kategori: '+esc(p.categories||'-')+' · <a class="link" href="'+esc(p.permalink)+'" target="_blank">lihat di web</a></div>';
+      (p.isNew ? '' : '<div style="color:#888;font-size:11px;margin-top:8px">Kategori: '+esc(p.categories||'-')+' · <a class="link" href="'+esc(p.permalink)+'" target="_blank">lihat di web</a></div>');
   }
   function statusSel(p){
     return '<select id="p-status"><option value="publish"'+(p.status==='publish'?' selected':'')+'>publish</option><option value="draft"'+(p.status==='draft'?' selected':'')+'>draft</option><option value="private"'+(p.status==='private'?' selected':'')+'>private</option></select>';
+  }
+  // ── Pesanan (Orders) ──
+  function loadOrders(){
+    var st=(document.getElementById('ostat')||{}).value||'', q=(document.getElementById('qord')||{}).value||'';
+    document.getElementById('ordBody').innerHTML='<div class="loading">Memuat pesanan…</div>';
+    jsonp(WEB_APP_URL+'?page=admin&action=wooOrders&status='+encodeURIComponent(st)+'&search='+encodeURIComponent(q)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(!res||!res.ok){ document.getElementById('ordBody').innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
+        if(res.rate) WOO_RATE=res.rate;
+        window.__ORDERS=res.items||[];
+        document.getElementById('ordmsg').textContent=(res.items||[]).length+' pesanan';
+        document.getElementById('ordBody').innerHTML=orderCards(res.items||[]);
+      });
+  }
+  function ostatBadge(s){
+    var c={pending:'#c47f00',processing:'#3b82f6','on-hold':'#8b5cf6',completed:'#16a34a',cancelled:'#cc3333',refunded:'#6b7280',failed:'#cc3333'}[s]||'#6b7280';
+    return '<span class="badge" style="background:'+c+'">'+esc(s)+'</span>';
+  }
+  function orderCards(list){
+    if(!list.length) return '<div class="loading">Tidak ada pesanan.</div>';
+    var opts=['pending','processing','on-hold','completed','cancelled','refunded'];
+    return list.map(function(o,i){
+      var items=o.items.map(function(l){ return '<div class="oitem"><span>'+esc(l.name)+' × '+l.qty+'</span><span>$'+esc(l.total)+'</span></div>'; }).join('');
+      var wa=waAnchor(o.phone,'wa');
+      return '<div class="ocard">'+
+        '<div class="ohead"><div><b>#'+esc(o.number)+'</b> '+ostatBadge(o.status)+'<div class="osub">'+esc(o.date)+' · '+esc(o.payment||'-')+'</div></div>'+
+          '<div class="otot">$'+esc(o.total)+'<div class="wrp">≈ '+usd2rp(o.total)+'</div></div></div>'+
+        '<div class="obody">'+
+          '<div><b>'+esc(o.name||'-')+'</b>'+(wa?' '+wa:'')+
+            '<div class="osub">'+esc(o.phone||'')+(o.email?' · '+esc(o.email):'')+'</div>'+
+            '<div class="osub">'+esc(o.address||'-')+'</div>'+
+            (o.note?'<div class="onote">📝 '+esc(o.note)+'</div>':'')+'</div>'+
+          '<div class="oitems">'+items+'</div>'+
+        '</div>'+
+        '<div class="ofoot">Ubah status: <select class="istatus" onchange="saveOrderStatus('+o.id+',this)">'+
+          opts.map(function(s){ return '<option value="'+s+'"'+(s===o.status?' selected':'')+'>'+s+'</option>'; }).join('')+
+        '</select></div>'+
+      '</div>';
+    }).join('');
+  }
+  function saveOrderStatus(id, sel){
+    sel.disabled=true;
+    jsonp(WEB_APP_URL+'?page=admin&action=wooOrderUpdate&id='+id+'&status='+encodeURIComponent(sel.value)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ sel.disabled=false; sel.style.outline=(res&&res.ok)?'1px solid #16a34a':'1px solid #cc3333';
+        setTimeout(function(){ sel.style.outline=''; },1200); if(res&&!res.ok) alert(res.error); });
+  }
+
+  // ── Kupon ──
+  function loadCoupons(){
+    document.getElementById('cpnBody').innerHTML='<div class="loading">Memuat kupon…</div>';
+    jsonp(WEB_APP_URL+'?page=admin&action=wooCoupons&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(!res||!res.ok){ document.getElementById('cpnBody').innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
+        var rows=(res.items||[]).map(function(c){
+          var amt = c.discount_type==='percent' ? c.amount+'%' : '$'+c.amount;
+          return '<tr><td><b>'+esc(String(c.code).toUpperCase())+'</b></td><td>'+esc(amt)+'</td><td>'+esc(c.discount_type)+'</td>'+
+            '<td>'+esc((c.date_expires||'').slice(0,10)||'-')+'</td>'+
+            '<td class="num">'+c.usage_count+(c.usage_limit?'/'+c.usage_limit:'')+'</td>'+
+            '<td><button class="cbtn" onclick="delCoupon('+c.id+')">✕</button></td></tr>';
+        }).join('');
+        document.getElementById('cpnBody').innerHTML=
+          '<div class="toolbar"><button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="newCoupon()">＋ Kupon Baru</button>'+
+          '<span style="color:#888;font-size:11px">Kode promo yang dipakai customer saat checkout</span></div>'+
+          '<div class="table-scroll"><table class="rtable"><thead><tr><th>Kode</th><th>Diskon</th><th>Tipe</th><th>Expired</th><th class="num">Dipakai</th><th>Aksi</th></tr></thead>'+
+          '<tbody>'+(rows||'<tr><td colspan="6" style="color:#888">Belum ada kupon.</td></tr>')+'</tbody></table></div>';
+        labelTables();
+      });
+  }
+  function newCoupon(){
+    var code=prompt('Kode kupon (mis. LEBARAN10):'); if(!code) return;
+    var dt=confirm('OK = diskon PERSEN (%)\nCancel = diskon NOMINAL ($)')?'percent':'fixed_cart';
+    var amt=prompt(dt==='percent'?'Diskon berapa persen? (mis. 10)':'Diskon berapa dolar? (mis. 5)'); if(!amt) return;
+    var exp=prompt('Berlaku sampai (YYYY-MM-DD), kosongkan bila tanpa batas:','');
+    jsonp(WEB_APP_URL+'?page=admin&action=wooCouponSave&code='+encodeURIComponent(code)+'&dtype='+dt+'&amount='+encodeURIComponent(amt)+
+      (exp?'&expires='+encodeURIComponent(exp):'')+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ if(res&&res.ok) loadCoupons(); else alert((res&&res.error)||'Gagal.'); });
+  }
+  function delCoupon(id){
+    if(!confirm('Hapus kupon ini?')) return;
+    jsonp(WEB_APP_URL+'?page=admin&action=wooCouponDel&id='+id+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ if(res&&res.ok) loadCoupons(); else alert((res&&res.error)||'Gagal.'); });
+  }
+
+  // ── Laporan penjualan web ──
+  function loadWooReport(){
+    var per=(document.getElementById('rperiod')||{}).value||'month';
+    document.getElementById('repBody').innerHTML='<div class="loading">Memuat laporan…</div>';
+    jsonp(WEB_APP_URL+'?page=admin&action=wooReport&period='+per+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(!res||!res.ok){ document.getElementById('repBody').innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
+        if(res.rate) WOO_RATE=res.rate;
+        var top=(res.top||[]).map(function(t){ return '<tr><td>'+esc(t.name)+'</td><td class="num">'+t.qty+'</td></tr>'; }).join('');
+        var low=(res.low||[]).map(function(l){ return '<tr><td>'+esc(l.name)+'</td><td class="num" style="color:'+(l.stock<=2?'#cc3333':'#e0912f')+'">'+l.stock+'</td></tr>'; }).join('');
+        document.getElementById('repBody').innerHTML=
+          '<div class="kpis">'+
+            kpiCard('Penjualan Web','$'+esc(res.total_sales),'accent')+
+            kpiCard('≈ Rupiah', usd2rp(res.total_sales))+
+            kpiCard('Jumlah Pesanan', res.total_orders)+
+            kpiCard('Item Terjual', res.total_items)+
+            kpiCard('Customer Baru', res.total_customers)+
+          '</div>'+
+          '<div class="grid2">'+
+            '<div><div class="section-title">Produk Terlaris</div><div class="table-scroll"><table class="mini"><thead><tr><th>Produk</th><th class="num">Qty</th></tr></thead><tbody>'+(top||'<tr><td colspan="2" style="color:#888">-</td></tr>')+'</tbody></table></div></div>'+
+            '<div><div class="section-title">⚠ Stok Menipis (≤5)</div><div class="table-scroll"><table class="mini"><thead><tr><th>Produk</th><th class="num">Stok</th></tr></thead><tbody>'+(low||'<tr><td colspan="2" style="color:#888">Aman semua.</td></tr>')+'</tbody></table></div></div>'+
+          '</div>';
+      });
+  }
+
+  // ── Produk baru ──
+  function openNewProd(){
+    PROD={ id:0, name:'', sku:'', type:'simple', status:'draft', description:'', short_description:'',
+      regular_price:'', sale_price:'', stock:'', categories:'', images:[], vars:null, permalink:'', isNew:true };
+    document.getElementById('prodModal').classList.add('show');
+    document.getElementById('prodMsg').textContent='Produk baru — status draft dulu, publish kalau sudah siap';
+    renderProd();
+    if(!window.__CATS) jsonp(WEB_APP_URL+'?page=admin&action=wooCats&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ if(res&&res.ok){ window.__CATS=res.cats||[]; if(PROD&&PROD.isNew) renderProd(); } });
+  }
+  function catPicker(){
+    if(!PROD.isNew) return '';
+    var cats=window.__CATS||[];
+    if(!cats.length) return '<div class="pf"><label>Kategori</label><div style="color:#888;font-size:12px">Memuat kategori…</div></div>';
+    return '<div class="pf"><label>Kategori (bisa pilih beberapa)</label><div class="catbox">'+
+      cats.map(function(c){ return '<label class="catopt"><input type="checkbox" class="ccat" value="'+c.id+'"> '+esc(String(c.name).replace(/&amp;/g,'&'))+'</label>'; }).join('')+
+      '</div></div>';
   }
   function rpEcho(inp,id){ var e=document.getElementById(id); if(e) e.textContent=usd2rp(inp.value); }
   function varBlock(p){
@@ -626,6 +796,23 @@
     };
     r.readAsDataURL(f);
   }
+  // POST payload JSON + ambil hasil via token
+  function postJson(action, payload, done){
+    var token='t'+Date.now()+Math.floor(Math.random()*9999);
+    var iframe=document.getElementById('saveframe');
+    if(!iframe){ iframe=document.createElement('iframe'); iframe.name='saveframe'; iframe.id='saveframe'; iframe.style.display='none'; document.body.appendChild(iframe); }
+    var form=document.createElement('form'); form.method='POST'; form.action=WEB_APP_URL; form.target='saveframe';
+    function add(n,v){ var i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; form.appendChild(i); }
+    add('action',action); add('key',ADMIN_KEY); add('payload',JSON.stringify(payload)); add('token',token);
+    document.body.appendChild(form); form.submit();
+    setTimeout(function(){ if(form.parentNode) document.body.removeChild(form); }, 1000);
+    var tries=0;
+    (function poll(){
+      tries++; if(tries>20){ done({ok:false,error:'Timeout.'}); return; }
+      jsonp(WEB_APP_URL+'?page=admin&action=pollResult&token='+token+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+        function(res){ if(res && !res.pending) done(res); else setTimeout(poll,1500); });
+    })();
+  }
   // POST (file besar) lalu ambil hasilnya via token + polling JSONP
   function postFileCb(action, filename, mime, b64, done){
     var token='t'+Date.now()+Math.floor(Math.random()*9999);
@@ -651,6 +838,20 @@
     var payload={ id:PROD.id, name:PROD.name, sku:PROD.sku, desc:PROD.description, sdesc:PROD.short_description,
       status:PROD.status,
       images:JSON.stringify(PROD.images.map(function(i){ return i.id?{id:i.id}:{src:i.src}; })) };
+    if(PROD.isNew){
+      if(!String(PROD.name||'').trim()){ alert('Nama produk wajib diisi.'); btn.disabled=false; btn.textContent=old; return; }
+      payload.ptype='simple';
+      payload.rprice=String(PROD.regular_price||'').replace(/[^0-9.]/g,'');
+      payload.stock =String(PROD.stock||'').replace(/[^0-9]/g,'');
+      var picked=[]; document.querySelectorAll('.ccat:checked').forEach(function(c){ picked.push(c.value); });
+      payload.cats=picked.join(',');
+      postJson('wooCreate', payload, function(res){
+        btn.disabled=false; btn.textContent=old;
+        if(res&&res.ok){ document.getElementById('prodMsg').textContent='Produk dibuat ✓ (status draft)'; PROD.isNew=false; PROD.id=res.id; loadWoo(); }
+        else document.getElementById('prodMsg').textContent=(res&&res.error)||'Gagal buat produk.';
+      });
+      return;
+    }
     if(PROD.type==='simple'){
       payload.rprice=String(PROD.regular_price).replace(/[^0-9.]/g,'');
       payload.sprice=String(PROD.sale_price).replace(/[^0-9.]/g,'');
