@@ -150,6 +150,8 @@
     .oitem { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid #24241e; padding: 3px 0; font-size: 11.5px; }
     .onote { margin-top: 5px; font-size: 11px; color: #e0c79a; background: #241a10; border-radius: 6px; padding: 5px 7px; }
     .ofoot { border-top: 1px solid #24241e; padding-top: 8px; font-size: 11px; color: #999; }
+    .zbox { border: 1px solid #2a2a22; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: #1a1a15; }
+    .zhead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
     .catbox { display: flex; flex-wrap: wrap; gap: 4px 12px; max-height: 130px; overflow: auto; background: #14140f; border: 1px solid #33332a; border-radius: 7px; padding: 8px 10px; }
     .catopt { font-size: 11.5px; color: #ccc; display: flex; align-items: center; gap: 4px; }
     @media (max-width: 640px) { .obody { grid-template-columns: 1fr; } }
@@ -494,6 +496,7 @@
         '<button class="stab" onclick="wooTab(3,this)">Kupon</button>' +
         '<button class="stab" onclick="wooTab(4,this)">Laporan Web</button>' +
         '<button class="stab" onclick="wooTab(5,this)">Shipping</button>' +
+        '<button class="stab" onclick="wooTab(6,this)">Pembayaran</button>' +
       '</div>' +
       '<div id="wtab1">' +
         '<div class="toolbar">' +
@@ -516,16 +519,50 @@
       '<div id="wtab4" style="display:none"><div class="toolbar">' +
           '<select id="rperiod" onchange="loadWooReport()"><option value="month">Bulan ini</option><option value="week">Minggu ini</option><option value="year">Tahun ini</option></select>' +
           '<button class="cbtn" onclick="loadWooReport()">Muat</button></div><div id="repBody"></div></div>' +
-      '<div id="wtab5" style="display:none"><div id="wooShipBox"></div></div>';
+      '<div id="wtab5" style="display:none"><div id="wooShipBox"></div></div>' +
+      '<div id="wtab6" style="display:none"><div id="payBody"></div></div>';
   }
   function wooTab(n, btn){
-    for(var i=1;i<=5;i++){ var el=document.getElementById('wtab'+i); if(el) el.style.display=(i===n?'':'none'); }
+    for(var i=1;i<=6;i++){ var el=document.getElementById('wtab'+i); if(el) el.style.display=(i===n?'':'none'); }
     document.querySelectorAll('.stab').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
     if(n===2 && !window.__ORD) { window.__ORD=1; loadOrders(); }
     if(n===3 && !window.__CPN) { window.__CPN=1; loadCoupons(); }
     if(n===4 && !window.__REP) { window.__REP=1; loadWooReport(); }
     if(n===5 && !window.__SHIP){ window.__SHIP=1; loadWooShip(); }
+    if(n===6 && !window.__PAY) { window.__PAY=1; loadGateways(); }
+  }
+
+  // ── Metode pembayaran ──
+  function loadGateways(){
+    document.getElementById('payBody').innerHTML='<div class="loading">Memuat metode bayar…</div>';
+    jsonp(WEB_APP_URL+'?page=admin&action=wooGateways&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(!res||!res.ok){ document.getElementById('payBody').innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
+        var rows=(res.items||[]).map(function(g){
+          return '<tr>'+
+            '<td><b>'+esc(g.method_title||g.id)+'</b><div style="font-size:9px;color:#999">'+esc(g.id)+'</div></td>'+
+            '<td><span class="edit" contenteditable="true" data-id="'+esc(g.id)+'" data-field="title" data-orig="'+esc(g.title||'')+'" onblur="saveGateway(this)">'+esc(g.title||'')+'</span></td>'+
+            '<td>'+(g.enabled?'<span class="badge" style="background:#16a34a">aktif</span>':'<span class="badge" style="background:#6b7280">mati</span>')+'</td>'+
+            '<td><button class="cbtn" onclick="toggleGateway(\''+esc(g.id)+'\','+(g.enabled?0:1)+')">'+(g.enabled?'Matikan':'Aktifkan')+'</button></td>'+
+          '</tr>';
+        }).join('');
+        document.getElementById('payBody').innerHTML=
+          '<div class="section-title">Metode Pembayaran</div>'+
+          '<div class="table-scroll"><table class="rtable"><thead><tr><th>Gateway</th><th>Judul di Checkout</th><th>Status</th><th>Aksi</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+          '<div style="color:#888;font-size:11px;margin-top:6px">Judul bisa diklik-edit · Gateway baru (mis. Midtrans/Xendit) harus dipasang sbg plugin di WordPress</div>';
+        labelTables();
+      });
+  }
+  function toggleGateway(id, on){
+    jsonp(WEB_APP_URL+'?page=admin&action=wooGatewayUpdate&id='+encodeURIComponent(id)+'&enabled='+on+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ if(res&&res.ok) loadGateways(); else alert((res&&res.error)||'Gagal.'); });
+  }
+  function saveGateway(el){
+    var v=el.textContent.trim(); if(el.getAttribute('data-orig')===v) return;
+    el.setAttribute('data-orig',v); el.style.outline='1px solid #e0912f';
+    jsonp(WEB_APP_URL+'?page=admin&action=wooGatewayUpdate&id='+encodeURIComponent(el.getAttribute('data-id'))+'&title='+encodeURIComponent(v)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ el.style.outline=(res&&res.ok)?'1px solid #16a34a':'1px solid #cc3333'; setTimeout(function(){el.style.outline='';},1000); });
   }
   function usd2rp(v){ var n=parseFloat(String(v).replace(/[^0-9.]/g,'')); return isNaN(n)||!n ? '' : 'Rp '+Math.round(n*WOO_RATE).toLocaleString('id-ID'); }
   function loadWooCats(){
@@ -897,19 +934,46 @@
     jsonp(WEB_APP_URL+'?page=admin&action=wooShipping&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
       function(res){
         if(!res||!res.ok){ document.getElementById('wooShipBox').innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
-        var h='<div class="section-title">Shipping Zones</div>';
+        var h='<div class="toolbar"><button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="addZone()">＋ Zona Baru</button>'+
+          '<span style="color:#888;font-size:11px">Ongkos dalam USD (mata uang toko) · klik untuk edit</span></div>';
         (res.zones||[]).forEach(function(z){
-          h+='<div style="margin-bottom:8px"><b>'+esc(z.name)+'</b><table class="rtable" style="margin-top:4px"><thead><tr><th>Metode</th><th>Ongkos</th><th>Aktif</th></tr></thead><tbody>'+
+          h+='<div class="zbox"><div class="zhead"><b>'+esc(z.name)+'</b>'+
+              '<button class="cbtn" onclick="addMethod('+z.id+')">＋ Metode</button></div>'+
+            '<table class="rtable"><thead><tr><th>Metode</th><th>Ongkos ($)</th><th>Aktif</th><th>Aksi</th></tr></thead><tbody>'+
             (z.methods.length?z.methods.map(function(m){
-              var costCell = m.method_id==='flat_rate'
-                ? 'Rp <span class="edit" contenteditable="true" data-zone="'+z.id+'" data-instance="'+m.instance_id+'" data-orig="'+esc(m.cost)+'" onblur="saveWooShip(this)">'+esc(m.cost)+'</span>'
+              var costCell = (m.method_id==='flat_rate'||m.method_id==='local_pickup')
+                ? '$ <span class="edit" contenteditable="true" data-zone="'+z.id+'" data-instance="'+m.instance_id+'" data-orig="'+esc(m.cost)+'" onblur="saveWooShip(this)">'+esc(m.cost||'0')+'</span>'
                 : '<span style="color:#888">'+esc(m.cost||m.method_id)+'</span>';
-              return '<tr><td>'+esc(m.title)+'</td><td class="num">'+costCell+'</td><td>'+(m.enabled?'✓':'—')+'</td></tr>';
-            }).join(''):'<tr><td colspan="3" style="color:#888">—</td></tr>')+
+              return '<tr><td>'+esc(m.title)+'</td><td class="num">'+costCell+'</td>'+
+                '<td><button class="cbtn" onclick="toggleMethod('+z.id+','+m.instance_id+','+(m.enabled?0:1)+')">'+(m.enabled?'✓ aktif':'— mati')+'</button></td>'+
+                '<td><button class="cbtn" onclick="delMethod('+z.id+','+m.instance_id+')">✕</button></td></tr>';
+            }).join(''):'<tr><td colspan="4" style="color:#888">Belum ada metode.</td></tr>')+
           '</tbody></table></div>';
         });
         document.getElementById('wooShipBox').innerHTML=h; labelTables();
       });
+  }
+  function addZone(){
+    var n=prompt('Nama zona (mis. Indonesia, Asia, Worldwide):'); if(!n) return;
+    var c=prompt('Kode negara, pisah koma (mis. ID atau ID,SG,MY). Kosongkan = semua negara:','ID');
+    jsonp(WEB_APP_URL+'?page=admin&action=wooZoneAdd&name='+encodeURIComponent(n)+(c?'&country='+encodeURIComponent(c):'')+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ if(res&&res.ok) loadWooShip(); else alert((res&&res.error)||'Gagal.'); });
+  }
+  function addMethod(zone){
+    var m=prompt('Ketik metode:\nflat_rate = ongkos tetap\nfree_shipping = gratis ongkir\nlocal_pickup = ambil di tempat','flat_rate');
+    if(!m) return;
+    var c=''; if(m!=='free_shipping'){ c=prompt('Ongkos dalam USD (mis. 5):','0')||'0'; }
+    jsonp(WEB_APP_URL+'?page=admin&action=wooMethodAdd&zone='+zone+'&method='+encodeURIComponent(m)+'&cost='+encodeURIComponent(c)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ if(res&&res.ok) loadWooShip(); else alert((res&&res.error)||'Gagal.'); });
+  }
+  function delMethod(zone, inst){
+    if(!confirm('Hapus metode pengiriman ini?')) return;
+    jsonp(WEB_APP_URL+'?page=admin&action=wooMethodDel&zone='+zone+'&instance='+inst+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ if(res&&res.ok) loadWooShip(); else alert((res&&res.error)||'Gagal.'); });
+  }
+  function toggleMethod(zone, inst, on){
+    jsonp(WEB_APP_URL+'?page=admin&action=wooShipUpdate&zone='+zone+'&instance='+inst+'&enabled='+on+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ if(res&&res.ok) loadWooShip(); else alert((res&&res.error)||'Gagal.'); });
   }
   function saveWooShip(el){
     var v=el.textContent.trim().replace(/[^0-9]/g,''); if(el.getAttribute('data-orig')===v) return;
