@@ -137,6 +137,23 @@
     #draftText { width: 100%; height: 62vh; background: #14140f; color: #ececec; border: 1px solid #33332a; border-radius: 8px; padding: 14px; font-family: 'Consolas','Courier New',monospace; font-size: 13px; line-height: 1.5; resize: vertical; outline: none; }
     #draftText:focus { border-color: #e0912f; }
 
+    /* ── Edit Produk (Woo) ── */
+    #prodModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
+    #prodModal.show { display: block; }
+    .prod-wrap { max-width: 720px; margin: 0 auto; background: #1c1c17; border: 1px solid #2a2a22; border-radius: 12px; padding: 16px 18px; }
+    .pf { margin-bottom: 11px; }
+    .pf label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: #8a8a80; font-weight: 700; margin-bottom: 4px; }
+    .pf input, .pf textarea, .pf select { width: 100%; background: #14140f; border: 1px solid #33332a; border-radius: 7px; color: #ececec; padding: 8px 10px; font-size: 13px; font-family: inherit; }
+    .pf input:focus, .pf textarea:focus { outline: none; border-color: #e0912f; }
+    .pf input:disabled { color: #777; }
+    .pgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+    .pimgs { display: flex; flex-wrap: wrap; gap: 8px; }
+    .pimg { position: relative; width: 82px; height: 82px; border: 1px solid #33332a; border-radius: 7px; overflow: hidden; }
+    .pimg img { width: 100%; height: 100%; object-fit: cover; }
+    .pimg button { position: absolute; top: 2px; right: 2px; padding: 0 5px; }
+    .pmain { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(224,145,47,.9); color: #141414; font-size: 9px; font-weight: 700; text-align: center; }
+    @media (max-width: 640px) { .pgrid { grid-template-columns: 1fr 1fr; } }
+
     /* ── Riwayat / Timeline ── */
     #tlModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
     #tlModal.show { display: block; }
@@ -463,7 +480,7 @@
         '<td class="num">'+priceCell+'</td>'+
         '<td class="num">'+stockCell+'</td>'+
         '<td>'+stat+'</td>'+
-        '<td><a class="link" href="'+esc(p.permalink)+'" target="_blank">buka</a></td>'+
+        '<td><button class="cbtn" onclick="openProd('+p.id+')">Edit</button> <a class="link" href="'+esc(p.permalink)+'" target="_blank">buka</a></td>'+
       '</tr>'+
       '<tr id="woo-var-'+p.id+'" style="display:none"><td colspan="6" style="background:#151510"></td></tr>';
     }).join('');
@@ -484,6 +501,90 @@
           }).join('')+'</tbody></table>';
       });
   }
+  // ── Modal edit produk (nama, deskripsi, harga, stok, foto) ──
+  var PROD=null;
+  function openProd(id){
+    document.getElementById('prodModal').classList.add('show');
+    document.getElementById('prodBody').innerHTML='<div class="loading">Memuat produk…</div>';
+    jsonp(WEB_APP_URL+'?page=admin&action=wooProduct&id='+id+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(!res||!res.ok){ document.getElementById('prodBody').innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
+        PROD=res.p; renderProd();
+      });
+  }
+  function closeProd(){ document.getElementById('prodModal').classList.remove('show'); PROD=null; }
+  function renderProd(){
+    var p=PROD, simple=(p.type==='simple');
+    var imgs=(p.images||[]).map(function(im,i){
+      return '<div class="pimg"><img src="'+esc(im.src)+'"><button class="cbtn" onclick="delProdImg('+i+')">✕</button>'+(i===0?'<span class="pmain">utama</span>':'')+'</div>';
+    }).join('');
+    document.getElementById('prodBody').innerHTML=
+      '<div class="pf"><label>Nama Produk</label><input id="p-name" value="'+esc(p.name)+'"></div>'+
+      '<div class="pf"><label>SKU</label><input id="p-sku" value="'+esc(p.sku)+'"></div>'+
+      '<div class="pgrid">'+
+        '<div class="pf"><label>Harga Reguler</label><input id="p-rprice" value="'+esc(p.regular_price)+'"'+(simple?'':' disabled title="atur di variasi"')+'></div>'+
+        '<div class="pf"><label>Harga Sale</label><input id="p-sprice" value="'+esc(p.sale_price)+'"'+(simple?'':' disabled')+'></div>'+
+        '<div class="pf"><label>Stok</label><input id="p-stock" value="'+esc(p.stock)+'"'+(simple?'':' disabled')+'></div>'+
+        '<div class="pf"><label>Status</label><select id="p-status"><option value="publish"'+(p.status==='publish'?' selected':'')+'>publish</option><option value="draft"'+(p.status==='draft'?' selected':'')+'>draft</option><option value="private"'+(p.status==='private'?' selected':'')+'>private</option></select></div>'+
+      '</div>'+
+      '<div class="pf"><label>Deskripsi Singkat</label><textarea id="p-sdesc" style="height:80px">'+esc(p.short_description.replace(/<[^>]+>/g,'').trim())+'</textarea></div>'+
+      '<div class="pf"><label>Deskripsi Lengkap (boleh HTML)</label><textarea id="p-desc" style="height:150px">'+esc(p.description)+'</textarea></div>'+
+      '<div class="pf"><label>Foto Produk <span style="color:#888;font-weight:400">(pertama = utama)</span></label>'+
+        '<div class="pimgs">'+(imgs||'<span style="color:#888;font-size:11px">belum ada foto</span>')+'</div>'+
+        '<div style="margin-top:7px"><button class="cbtn" onclick="document.getElementById(\'prodImgInput\').click()">＋ Upload Foto</button> '+
+        '<button class="cbtn" onclick="addProdImgUrl()">＋ dari URL</button></div></div>'+
+      '<div style="color:#888;font-size:11px;margin-top:8px">Kategori: '+esc(p.categories||'-')+' · <a class="link" href="'+esc(p.permalink)+'" target="_blank">lihat di web</a></div>';
+  }
+  function delProdImg(i){ PROD.images.splice(i,1); renderProd(); }
+  function addProdImgUrl(){ var u=prompt('URL gambar (https://…):'); if(u) { PROD.images.push({src:u}); renderProd(); } }
+  function prodImgPick(input){
+    var f=input.files&&input.files[0]; if(!f) return; input.value='';
+    var r=new FileReader();
+    r.onload=function(e){
+      var b64=e.target.result.split(',')[1];
+      var msg=document.getElementById('prodMsg'); msg.textContent='Upload foto…';
+      postFileCb('wooUpload', f.name, f.type, b64, function(res){
+        if(res&&res.ok&&res.src){ PROD.images.push({id:res.id,src:res.src}); renderProd(); msg.textContent='Foto terupload ✓'; }
+        else msg.textContent=(res&&res.error)||'Upload gagal (cek WP Application Password).';
+      });
+    };
+    r.readAsDataURL(f);
+  }
+  // POST + baca respons via JSONP polling tak tersedia → pakai form POST lalu callback optimistis
+  function postFileCb(action, filename, mime, b64, done){
+    var iframe=document.getElementById('saveframe');
+    if(!iframe){ iframe=document.createElement('iframe'); iframe.name='saveframe'; iframe.id='saveframe'; iframe.style.display='none'; document.body.appendChild(iframe); }
+    var form=document.createElement('form'); form.method='POST'; form.action=WEB_APP_URL; form.target='saveframe';
+    function add(n,v){ var i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; form.appendChild(i); }
+    add('action',action); add('key',ADMIN_KEY); add('filename',filename); add('mime',mime); add('data',b64);
+    document.body.appendChild(form); form.submit();
+    setTimeout(function(){ document.body.removeChild(form); done({ok:true, pending:true}); }, 2600);
+  }
+  function saveProd(btn){
+    if(!PROD) return;
+    var old=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan…';
+    var payload={ id:PROD.id,
+      name:document.getElementById('p-name').value,
+      sku:document.getElementById('p-sku').value,
+      desc:document.getElementById('p-desc').value,
+      sdesc:document.getElementById('p-sdesc').value,
+      status:document.getElementById('p-status').value,
+      images:JSON.stringify(PROD.images.map(function(i){ return i.id?{id:i.id}:{src:i.src}; })) };
+    if(PROD.type==='simple'){
+      payload.rprice=document.getElementById('p-rprice').value.replace(/[^0-9.]/g,'');
+      payload.sprice=document.getElementById('p-sprice').value.replace(/[^0-9.]/g,'');
+      payload.stock =document.getElementById('p-stock').value.replace(/[^0-9]/g,'');
+    }
+    var iframe=document.getElementById('saveframe');
+    if(!iframe){ iframe=document.createElement('iframe'); iframe.name='saveframe'; iframe.id='saveframe'; iframe.style.display='none'; document.body.appendChild(iframe); }
+    var form=document.createElement('form'); form.method='POST'; form.action=WEB_APP_URL; form.target='saveframe';
+    function add(n,v){ var i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; form.appendChild(i); }
+    add('action','wooSave'); add('key',ADMIN_KEY); add('payload',JSON.stringify(payload));
+    document.body.appendChild(form); form.submit();
+    setTimeout(function(){ document.body.removeChild(form); btn.disabled=false; btn.textContent=old;
+      document.getElementById('prodMsg').textContent='Tersimpan ✓ (cek web)'; loadWoo(); }, 2600);
+  }
+
   function saveVar(el){
     var v=el.textContent.trim().replace(/[^0-9]/g,''); if(el.getAttribute('data-orig')===v) return;
     el.setAttribute('data-orig',v); el.style.outline='1px solid #e0912f';
@@ -1675,6 +1776,19 @@
     <div id="poPaper"></div>
   </div>
 </div>
+
+<div id="prodModal">
+  <div class="prod-wrap">
+    <div class="inv-bar" style="flex-wrap:wrap">
+      <strong style="color:#f5f4ef;margin-right:auto">Edit Produk</strong>
+      <span id="prodMsg" style="color:#e0912f;font-size:11px"></span>
+      <button class="inv-save" onclick="saveProd(this)">💾 Simpan ke Web</button>
+      <button class="inv-cls" onclick="closeProd()">Tutup</button>
+    </div>
+    <div id="prodBody"></div>
+  </div>
+</div>
+<input type="file" id="prodImgInput" accept="image/*" style="display:none" onchange="prodImgPick(this)">
 
 <input type="file" id="poImgInput" accept="image/*" style="display:none" onchange="poImgPick(this)">
 <input type="file" id="sheetImgInput" accept="image/*" style="display:none" onchange="sheetImgPick(this)">
