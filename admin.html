@@ -137,6 +137,27 @@
     #draftText { width: 100%; height: 62vh; background: #14140f; color: #ececec; border: 1px solid #33332a; border-radius: 8px; padding: 14px; font-family: 'Consolas','Courier New',monospace; font-size: 13px; line-height: 1.5; resize: vertical; outline: none; }
     #draftText:focus { border-color: #e0912f; }
 
+    /* ── Katalog grid ── */
+    .wgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 13px; }
+    .wcard { background: #1c1c17; border: 1px solid #2a2a22; border-radius: 11px; overflow: hidden; display: flex; flex-direction: column; transition: .15s; }
+    .wcard:hover { border-color: #e0912f; transform: translateY(-2px); }
+    .wcard.wdraft { opacity: .62; }
+    .wimg { position: relative; aspect-ratio: 1/1; background: #14140f; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .wimg img { width: 100%; height: 100%; object-fit: cover; }
+    .wimg span { color: #55554d; font-size: 11px; }
+    .wbadge { position: absolute; top: 6px; left: 6px; background: #cc3333; color: #fff; font-size: 9px; font-weight: 700; padding: 1px 7px; border-radius: 10px; text-transform: uppercase; }
+    .wbody { padding: 9px 10px 10px; display: flex; flex-direction: column; gap: 3px; flex: 1; }
+    .wname { font-size: 12.5px; font-weight: 700; line-height: 1.3; cursor: pointer; }
+    .wname:hover { color: #e0912f; }
+    .wcat { font-size: 9.5px; color: #86867c; text-transform: uppercase; letter-spacing: .3px; }
+    .wprice { font-size: 14px; font-weight: 800; color: #f5f4ef; margin-top: 2px; }
+    .wvar { font-size: 9px; font-weight: 400; color: #888; }
+    .wrp { font-size: 12px; color: #e0912f; font-weight: 700; }
+    .wfoot { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: auto; padding-top: 7px; }
+    .wstok { font-size: 10px; color: #888; }
+    .prp { font-size: 10px; color: #e0912f; margin-top: 3px; min-height: 12px; }
+    @media (max-width: 640px) { .wgrid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 9px; } .wname { font-size: 11.5px; } }
+
     /* ── Edit Produk (Woo) ── */
     #prodModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
     #prodModal.show { display: block; }
@@ -448,46 +469,70 @@
   }
 
   // ── PAGE 4: Katalog Web (WooCommerce) ──
+  var WOO_RATE = 16000;
   function buildCatalog(){
     return '<div class="section-title">Katalog WooCommerce — revoltindustry.com</div>' +
       '<div class="toolbar">' +
         '<input id="qwoo" placeholder="Cari produk…" onkeydown="if(event.key===\'Enter\')loadWoo()">' +
-        '<button class="cbtn" onclick="loadWoo()">Cari / Muat</button>' +
+        '<select id="wcat" onchange="loadWoo()"><option value="">Semua kategori</option></select>' +
+        '<button class="cbtn" onclick="loadWoo()">Muat</button>' +
         '<button class="cbtn" onclick="loadWooShip()">Shipping</button>' +
         '<span id="woomsg" style="color:#888;font-size:11px"></span>' +
       '</div>' +
       '<div id="wooBody"><div class="loading">Buka tab untuk memuat…</div></div>' +
       '<div id="wooShipBox"></div>';
   }
+  function usd2rp(v){ var n=parseFloat(String(v).replace(/[^0-9.]/g,'')); return isNaN(n)||!n ? '' : 'Rp '+Math.round(n*WOO_RATE).toLocaleString('id-ID'); }
+  function loadWooCats(){
+    jsonp(WEB_APP_URL+'?page=admin&action=wooCats&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(!res||!res.ok) return;
+        var sel=document.getElementById('wcat'); if(!sel) return;
+        var cur=sel.value;
+        sel.innerHTML='<option value="">Semua kategori</option>'+(res.cats||[]).map(function(c){
+          return '<option value="'+c.id+'">'+esc(String(c.name).replace(/&amp;/g,'&'))+' ('+c.count+')</option>';
+        }).join('');
+        sel.value=cur;
+      });
+  }
   function loadWoo(){
-    window.__WOO_LOADED = true;
+    if(!window.__WOO_LOADED){ window.__WOO_LOADED=true; loadWooCats(); }
     var q=(document.getElementById('qwoo')||{}).value||'';
+    var cat=(document.getElementById('wcat')||{}).value||'';
     document.getElementById('wooBody').innerHTML='<div class="loading">Memuat produk…</div>';
-    jsonp(WEB_APP_URL+'?page=admin&action=wooProducts&search='+encodeURIComponent(q)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+    jsonp(WEB_APP_URL+'?page=admin&action=wooProducts&search='+encodeURIComponent(q)+'&cat='+encodeURIComponent(cat)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
       function(res){
         if(!res||!res.ok){ document.getElementById('wooBody').innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal muat.')+'</div>'; return; }
-        document.getElementById('woomsg').textContent=res.count+' produk';
+        if(res.rate) WOO_RATE=res.rate;
+        document.getElementById('woomsg').textContent=res.count+' produk · kurs $1 = Rp '+Math.round(WOO_RATE).toLocaleString('id-ID');
         document.getElementById('wooBody').innerHTML=wooRows(res.items);
-        labelTables();
       });
   }
   function wooRows(items){
     if(!items.length) return '<div class="loading">Tidak ada produk.</div>';
-    var rows=items.map(function(p){
-      var variabel = p.type!=='simple';
-      var priceCell = variabel ? '<span style="color:#888">'+esc(p.price)+' <span style="font-size:9px">(variasi)</span></span>' : esc(p.regular_price||p.price);
-      var stockCell = variabel ? '<span style="color:#888">—</span>' : esc(p.stock===''?'∞':p.stock);
-      return '<tr>'+
-        '<td><b>'+esc(p.name)+'</b>'+(p.sku?'<div style="font-size:9px;color:#999">'+esc(p.sku)+'</div>':'')+'</td>'+
-        '<td>'+esc(p.type)+'</td>'+
-        '<td class="num">'+priceCell+'</td>'+
-        '<td class="num">'+stockCell+'</td>'+
-        '<td>'+esc(p.status)+'</td>'+
-        '<td><button class="cbtn" onclick="openProd('+p.id+')">Edit</button> <a class="link" href="'+esc(p.permalink)+'" target="_blank">buka</a></td>'+
-      '</tr>';
-    }).join('');
-    return '<div class="table-scroll tall"><table class="rtable"><thead><tr><th>Produk</th><th>Tipe</th><th class="num">Harga</th><th class="num">Stok</th><th>Status</th><th>Aksi</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
-      '<div style="color:#888;font-size:11px;margin-top:6px">Klik <b>Edit</b> untuk ubah nama, deskripsi, foto, harga, stok & variasi · perubahan langsung live ke web</div>';
+    return '<div class="wgrid">'+items.map(function(p){
+      var variabel=p.type!=='simple';
+      var usd=p.sale_price||p.regular_price||p.price;
+      var rp=usd2rp(usd);
+      var priceLine= variabel
+        ? '<div class="wprice">$'+esc(p.price)+' <span class="wvar">variasi</span></div>'
+        : '<div class="wprice">$'+esc(usd)+(p.sale_price?' <s style="color:#777">$'+esc(p.regular_price)+'</s>':'')+'</div>';
+      var stok= variabel ? '' : '<span class="wstok">stok '+esc(p.stock===''?'∞':p.stock)+'</span>';
+      return '<div class="wcard'+(p.status!=='publish'?' wdraft':'')+'">'+
+        '<div class="wimg" onclick="openProd('+p.id+')">'+(p.img?'<img src="'+esc(p.img)+'" loading="lazy">':'<span>no photo</span>')+
+          (p.status!=='publish'?'<span class="wbadge">'+esc(p.status)+'</span>':'')+'</div>'+
+        '<div class="wbody">'+
+          '<div class="wname" onclick="openProd('+p.id+')">'+esc(p.name)+'</div>'+
+          '<div class="wcat">'+esc(String(p.cats||'-').replace(/&amp;/g,'&'))+'</div>'+
+          priceLine+
+          (rp?'<div class="wrp">≈ '+rp+'</div>':'')+
+          '<div class="wfoot">'+stok+
+            '<span><button class="cbtn" onclick="openProd('+p.id+')">Edit</button> <a class="link" href="'+esc(p.permalink)+'" target="_blank">web</a></span>'+
+          '</div>'+
+        '</div>'+
+      '</div>';
+    }).join('')+'</div>'+
+    '<div style="color:#888;font-size:11px;margin-top:8px">Klik kartu / <b>Edit</b> untuk ubah nama, deskripsi, foto, harga, stok & variasi · harga toko dalam USD, Rp = konversi kurs hari ini</div>';
   }
   // ── Modal edit produk (nama, deskripsi, harga, stok, foto) ──
   var PROD=null;
@@ -513,8 +558,8 @@
     }).join('');
     var priceBlock = simple
       ? '<div class="pgrid">'+
-          '<div class="pf"><label>Harga Reguler</label><input id="p-rprice" value="'+esc(p.regular_price)+'"></div>'+
-          '<div class="pf"><label>Harga Sale</label><input id="p-sprice" value="'+esc(p.sale_price)+'"></div>'+
+          '<div class="pf"><label>Harga Reguler (USD)</label><input id="p-rprice" value="'+esc(p.regular_price)+'" oninput="rpEcho(this,\'rp-r\')"><div class="prp" id="rp-r">'+usd2rp(p.regular_price)+'</div></div>'+
+          '<div class="pf"><label>Harga Sale (USD)</label><input id="p-sprice" value="'+esc(p.sale_price)+'" oninput="rpEcho(this,\'rp-s\')"><div class="prp" id="rp-s">'+usd2rp(p.sale_price)+'</div></div>'+
           '<div class="pf"><label>Stok</label><input id="p-stock" value="'+esc(p.stock)+'"></div>'+
           '<div class="pf"><label>Status</label>'+statusSel(p)+'</div>'+
         '</div>'
@@ -534,14 +579,15 @@
   function statusSel(p){
     return '<select id="p-status"><option value="publish"'+(p.status==='publish'?' selected':'')+'>publish</option><option value="draft"'+(p.status==='draft'?' selected':'')+'>draft</option><option value="private"'+(p.status==='private'?' selected':'')+'>private</option></select>';
   }
+  function rpEcho(inp,id){ var e=document.getElementById(id); if(e) e.textContent=usd2rp(inp.value); }
   function varBlock(p){
     if(p.vars===null) return '<div class="pf"><label>Variasi</label><div style="color:#888;font-size:12px">Memuat variasi…</div></div>';
     if(!p.vars.length) return '<div class="pf"><label>Variasi</label><div style="color:#888;font-size:12px">Tidak ada variasi.</div></div>';
-    return '<div class="pf"><label>Variasi — harga & stok per ukuran/warna</label>'+
+    return '<div class="pf"><label>Variasi — harga (USD) & stok per ukuran/warna</label>'+
       '<table class="vtab"><thead><tr><th>Variasi</th><th>Harga Reg.</th><th>Harga Sale</th><th>Stok</th></tr></thead><tbody>'+
       p.vars.map(function(v,i){
         return '<tr><td>'+esc(v.name)+'</td>'+
-          '<td><input class="vin" data-i="'+i+'" data-f="regular_price" value="'+esc(v.regular_price)+'"></td>'+
+          '<td><input class="vin" data-i="'+i+'" data-f="regular_price" value="'+esc(v.regular_price)+'" oninput="rpEcho(this,\'rpv-'+i+'\')"><div class="prp" id="rpv-'+i+'">'+usd2rp(v.regular_price)+'</div></td>'+
           '<td><input class="vin" data-i="'+i+'" data-f="sale_price" value="'+esc(v.sale_price)+'"></td>'+
           '<td><input class="vin" data-i="'+i+'" data-f="stock" value="'+esc(v.stock)+'"></td></tr>';
       }).join('')+'</tbody></table></div>';
