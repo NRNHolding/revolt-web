@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Konfirmasi Pembayaran — Revolt Industry</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#12120f;color:#ececec;padding:22px 14px 40px;line-height:1.5}
+  .wrap{max-width:520px;margin:0 auto}
+  .logo{text-align:center;font-size:19px;font-weight:800;letter-spacing:3px;margin-bottom:3px}
+  .logo span{color:#e0912f}
+  .sub{text-align:center;color:#8a8a80;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:22px}
+  .card{background:#1c1c17;border:1px solid #2a2a22;border-radius:13px;padding:18px 17px;margin-bottom:14px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:#9a9a90;margin-bottom:11px}
+  label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#8a8a80;font-weight:700;margin:11px 0 4px}
+  input,textarea{width:100%;background:#14140f;border:1px solid #33332a;border-radius:8px;color:#ececec;padding:12px 12px;font-size:16px;font-family:inherit}
+  input:focus,textarea:focus{outline:none;border-color:#e0912f}
+  .btn{width:100%;background:#e0912f;color:#141414;border:none;border-radius:9px;padding:14px;font-size:15px;font-weight:800;cursor:pointer;margin-top:14px}
+  .btn:disabled{opacity:.55}
+  .btn2{background:#25D366;color:#fff;display:block;text-align:center;text-decoration:none;border-radius:9px;padding:13px;font-weight:700;margin-top:9px}
+  .amt{text-align:center;padding:6px 0 2px}
+  .amt .usd{font-size:31px;font-weight:800;color:#f5f4ef;line-height:1.1}
+  .amt .idr{font-size:19px;font-weight:800;color:#e0912f;margin-top:3px}
+  .amt .rate{font-size:10.5px;color:#77776e;margin-top:5px}
+  .rowline{display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;border-bottom:1px solid #24241e}
+  .rowline:last-child{border:none}
+  .rowline span:first-child{color:#8a8a80}
+  .bank{background:#241a10;border:1px solid #5c3d13;border-radius:9px;padding:12px 13px;font-size:13px;margin-top:12px}
+  .bank b{color:#e0c79a;font-size:15px;letter-spacing:1px}
+  .drop{border:2px dashed #3a3a30;border-radius:10px;padding:24px 14px;text-align:center;color:#8a8a80;font-size:13px;cursor:pointer}
+  .drop:hover{border-color:#e0912f;color:#e0912f}
+  #prev{max-width:100%;border-radius:9px;margin-top:10px;display:none}
+  .msg{font-size:12.5px;padding:10px 12px;border-radius:8px;margin-top:11px;display:none}
+  .err{background:#2a1414;border:1px solid #7a2020;color:#ffb0b0}
+  .ok{background:#14251a;border:1px solid #26502f;color:#8ee5a8}
+  .done{text-align:center;padding:24px 10px}
+  .done .ic{font-size:46px}
+  .hint{font-size:11px;color:#77776e;margin-top:7px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">R<span>∃</span>VOLT INDUSTRY</div>
+  <div class="sub">Konfirmasi Pembayaran</div>
+
+  <div id="step1" class="card">
+    <h2>Masukkan Nomor Order</h2>
+    <label>Nomor Order (ada di email / halaman setelah checkout)</label>
+    <input id="ordno" inputmode="numeric" placeholder="mis. 1592">
+    <button class="btn" id="btnCek" onclick="cek()">Cek Pesanan</button>
+    <div class="msg err" id="err1"></div>
+  </div>
+
+  <div id="step2" style="display:none">
+    <div class="card">
+      <h2>Total Pembayaran</h2>
+      <div class="amt">
+        <div class="usd" id="a-usd">$0</div>
+        <div class="idr" id="a-idr">Rp 0</div>
+        <div class="rate" id="a-rate"></div>
+      </div>
+      <div style="margin-top:13px">
+        <div class="rowline"><span>Nomor Order</span><b id="i-no"></b></div>
+        <div class="rowline"><span>Nama</span><b id="i-nama"></b></div>
+        <div class="rowline"><span>Tanggal</span><b id="i-tgl"></b></div>
+        <div class="rowline"><span>Status</span><b id="i-stat"></b></div>
+      </div>
+      <div class="bank">
+        Transfer ke:<br><b>BCA 7883702788</b><br>a.n. Nandhi Adipati Bhumi
+        <div class="hint">Boleh transfer dalam Rupiah sesuai nominal di atas.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Upload Bukti Transfer</h2>
+      <div class="drop" id="drop" onclick="document.getElementById('file').click()">
+        📷 Ketuk untuk pilih foto bukti transfer
+      </div>
+      <img id="prev">
+      <input type="file" id="file" accept="image/*" style="display:none" onchange="pick(this)">
+      <label>Nama Pengirim (opsional)</label>
+      <input id="pengirim" placeholder="Nama di rekening pengirim">
+      <label>Catatan (opsional)</label>
+      <textarea id="note" rows="2" placeholder="mis. transfer 2x, atau minta dikirim cepat"></textarea>
+      <button class="btn" id="btnKirim" onclick="kirim()" disabled>Kirim Bukti Transfer</button>
+      <div class="msg err" id="err2"></div>
+      <a class="btn2" id="walink" href="#" target="_blank">💬 Konfirmasi via WhatsApp</a>
+    </div>
+  </div>
+
+  <div id="step3" style="display:none">
+    <div class="card done">
+      <div class="ic">✅</div>
+      <h2 style="margin:12px 0 6px;color:#8ee5a8">Bukti Transfer Terkirim</h2>
+      <div style="font-size:13px;color:#bbb">Terima kasih! Tim kami akan mengecek pembayaranmu dan mengabari lewat WhatsApp/email.</div>
+      <div style="font-size:13px;margin-top:12px">Order <b id="d-no"></b></div>
+      <a class="btn2" id="walink2" href="#" target="_blank">💬 Chat Admin</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  var WEB_APP_URL='https://script.google.com/macros/s/AKfycbytT2sBQnWArb78bUDAGW1yHn1iW5yXGlTw_nZ6fSt6ak54OUOIUcJ2ZgoR6n4z3KKP/exec';
+  var WA_NUMBER='6282132922625';
+  var ORDER=null, IMG=null;
+
+  function jsonp(url, cb){
+    var name='cb_'+Date.now()+Math.floor(Math.random()*9999);
+    var s=document.createElement('script');
+    var to=setTimeout(function(){ fin(null); }, 20000);
+    function fin(d){ clearTimeout(to); delete window[name]; if(s.parentNode) s.parentNode.removeChild(s); cb(d); }
+    window[name]=function(d){ fin(d); };
+    s.onerror=function(){ fin(null); };
+    s.src=url+'&callback='+name+'&_='+Date.now();
+    document.body.appendChild(s);
+  }
+  function show(id,msg,cls){ var e=document.getElementById(id); e.className='msg '+(cls||'err'); e.textContent=msg; e.style.display=msg?'block':'none'; }
+  function rp(n){ return 'Rp '+Number(n||0).toLocaleString('id-ID'); }
+
+  var q=new URLSearchParams(location.search);
+  if(q.get('order')){ document.getElementById('ordno').value=q.get('order'); setTimeout(cek,300); }
+
+  function cek(){
+    var no=(document.getElementById('ordno').value||'').replace(/[^0-9]/g,'');
+    if(!no){ show('err1','Isi nomor order dulu ya.'); return; }
+    var b=document.getElementById('btnCek'); b.disabled=true; b.textContent='Mengecek…'; show('err1','');
+    jsonp(WEB_APP_URL+'?action=orderInfo&order='+no, function(res){
+      b.disabled=false; b.textContent='Cek Pesanan';
+      if(!res||!res.ok){ show('err1',(res&&res.error)||'Gagal terhubung. Coba lagi.'); return; }
+      ORDER=res;
+      document.getElementById('a-usd').textContent='$'+res.total;
+      document.getElementById('a-idr').textContent='≈ '+rp(res.idr);
+      document.getElementById('a-rate').textContent='kurs $1 = '+rp(Math.round(res.rate));
+      document.getElementById('i-no').textContent='#'+res.number;
+      document.getElementById('i-nama').textContent=res.name||'-';
+      document.getElementById('i-tgl').textContent=res.date||'-';
+      document.getElementById('i-stat').textContent=res.status;
+      var txt=encodeURIComponent('Halo Revolt, saya mau konfirmasi pembayaran order #'+res.number+' sebesar '+rp(res.idr)+' ($'+res.total+').');
+      document.getElementById('walink').href='https://wa.me/'+WA_NUMBER+'?text='+txt;
+      document.getElementById('walink2').href='https://wa.me/'+WA_NUMBER+'?text='+txt;
+      document.getElementById('step1').style.display='none';
+      document.getElementById('step2').style.display='';
+    });
+  }
+
+  function pick(input){
+    var f=input.files&&input.files[0]; if(!f) return;
+    var r=new FileReader();
+    r.onload=function(e){
+      var img=new Image();
+      img.onload=function(){
+        var max=1400, w=img.width, h=img.height;
+        if(w>max||h>max){ if(w>h){ h=Math.round(h*max/w); w=max; } else { w=Math.round(w*max/h); h=max; } }
+        var c=document.createElement('canvas'); c.width=w; c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        var d=c.toDataURL('image/jpeg',0.85);
+        IMG=d.split(',')[1];
+        var p=document.getElementById('prev'); p.src=d; p.style.display='block';
+        document.getElementById('drop').textContent='✓ Foto siap dikirim — ketuk untuk ganti';
+        document.getElementById('btnKirim').disabled=false;
+      };
+      img.src=e.target.result;
+    };
+    r.readAsDataURL(f);
+  }
+
+  function kirim(){
+    if(!IMG||!ORDER){ show('err2','Pilih foto bukti transfer dulu.'); return; }
+    var b=document.getElementById('btnKirim'); b.disabled=true; b.textContent='Mengirim…'; show('err2','');
+    var token='t'+Date.now()+Math.floor(Math.random()*9999);
+    var payload={ order:ORDER.number, nama:document.getElementById('pengirim').value.trim(),
+      note:document.getElementById('note').value.trim(), mime:'image/jpeg', image:IMG };
+    var ifr=document.getElementById('sf');
+    if(!ifr){ ifr=document.createElement('iframe'); ifr.id='sf'; ifr.name='sf'; ifr.style.display='none'; document.body.appendChild(ifr); }
+    var form=document.createElement('form'); form.method='POST'; form.action=WEB_APP_URL; form.target='sf';
+    function add(n,v){ var i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; form.appendChild(i); }
+    add('action','payProof'); add('payload',JSON.stringify(payload)); add('token',token);
+    document.body.appendChild(form); form.submit();
+    setTimeout(function(){ if(form.parentNode) document.body.removeChild(form); },1000);
+    var tries=0;
+    (function poll(){
+      tries++;
+      if(tries>22){ b.disabled=false; b.textContent='Kirim Bukti Transfer'; show('err2','Koneksi lambat. Coba kirim ulang atau hubungi via WhatsApp.'); return; }
+      jsonp(WEB_APP_URL+'?page=admin&action=pollResult&token='+token, function(res){
+        if(res && !res.pending){
+          if(res.ok){ document.getElementById('d-no').textContent='#'+ORDER.number;
+            document.getElementById('step2').style.display='none';
+            document.getElementById('step3').style.display=''; window.scrollTo(0,0); }
+          else { b.disabled=false; b.textContent='Kirim Bukti Transfer'; show('err2',res.error||'Gagal kirim.'); }
+        } else setTimeout(poll,1500);
+      });
+    })();
+  }
+</script>
+</body>
+</html>

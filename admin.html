@@ -522,6 +522,7 @@
     return '<div class="subtabs">' +
         '<button class="stab active" onclick="wooTab(1,this)">Produk</button>' +
         '<button class="stab" onclick="wooTab(2,this)">Pesanan</button>' +
+        '<button class="stab" onclick="wooTab(7,this)">Bukti Transfer <span id="payBadge" class="nbadge" style="display:none">0</span></button>' +
         '<button class="stab" onclick="wooTab(3,this)">Kupon</button>' +
         '<button class="stab" onclick="wooTab(4,this)">Laporan Web</button>' +
         '<button class="stab" onclick="wooTab(5,this)">Shipping</button>' +
@@ -549,10 +550,13 @@
           '<select id="rperiod" onchange="loadWooReport()"><option value="month">Bulan ini</option><option value="week">Minggu ini</option><option value="year">Tahun ini</option></select>' +
           '<button class="cbtn" onclick="loadWooReport()">Muat</button></div><div id="repBody"></div></div>' +
       '<div id="wtab5" style="display:none"><div id="wooShipBox"></div></div>' +
-      '<div id="wtab6" style="display:none"><div id="payBody"></div></div>';
+      '<div id="wtab6" style="display:none"><div id="payBody"></div></div>' +
+      '<div id="wtab7" style="display:none"><div class="toolbar"><button class="cbtn" onclick="loadProofs()">↻ Muat ulang</button>' +
+        '<span style="color:#888;font-size:11px">Bukti transfer yang dikirim customer dari halaman konfirmasi</span></div>' +
+        '<div id="proofBody"></div></div>';
   }
   function wooTab(n, btn){
-    for(var i=1;i<=6;i++){ var el=document.getElementById('wtab'+i); if(el) el.style.display=(i===n?'':'none'); }
+    for(var i=1;i<=7;i++){ var el=document.getElementById('wtab'+i); if(el) el.style.display=(i===n?'':'none'); }
     document.querySelectorAll('.stab').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
     if(n===2 && !window.__ORD) { window.__ORD=1; loadOrders(); }
@@ -560,6 +564,40 @@
     if(n===4 && !window.__REP) { window.__REP=1; loadWooReport(); }
     if(n===5 && !window.__SHIP){ window.__SHIP=1; loadWooShip(); }
     if(n===6 && !window.__PAY) { window.__PAY=1; loadGateways(); }
+    if(n===7) loadProofs();
+  }
+
+  // ── Bukti transfer dari customer ──
+  function loadProofs(){
+    var el=document.getElementById('proofBody'); if(!el) return;
+    el.innerHTML='<div class="loading">Memuat bukti transfer…</div>';
+    jsonp(WEB_APP_URL+'?page=admin&action=payProofs&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(!res||!res.ok){ el.innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
+        var list=res.items||[];
+        var wait=list.filter(function(x){ return /Menunggu/i.test(x.status); }).length;
+        var b=document.getElementById('payBadge');
+        if(b){ if(wait){ b.textContent=wait; b.style.display=''; } else b.style.display='none'; }
+        if(!list.length){ el.innerHTML='<div class="loading">Belum ada bukti transfer masuk.</div>'; return; }
+        el.innerHTML=list.map(function(x){
+          var col= /Lunas|Valid/i.test(x.status) ? '#16a34a' : (/Tolak/i.test(x.status)?'#cc3333':'#c47f00');
+          return '<div class="ocard">'+
+            '<div class="ohead"><div><b>Order #'+esc(x.order)+'</b> <span class="badge" style="background:'+col+'">'+esc(x.status)+'</span>'+
+              '<div class="osub">'+esc(x.time)+' · '+esc(x.metode||'-')+'</div>'+
+              '<div class="osub">Pengirim: '+esc(x.nama||'-')+'</div>'+
+              (x.note?'<div class="onote">📝 '+esc(x.note)+'</div>':'')+'</div>'+
+              '<div class="otot">$'+esc(x.usd)+'<div class="wrp">'+rp(x.idr)+'</div></div></div>'+
+            '<div class="ofoot" style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">'+
+              (x.bukti?'<a class="cbtn" style="text-decoration:none" href="'+esc(x.bukti)+'" target="_blank">🖼 Lihat Bukti</a>':'<span style="color:#888">tanpa gambar</span>')+
+              '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="setProof('+x.row+',\'Valid — Lunas\')">✓ Valid</button>'+
+              '<button class="cbtn" style="border-color:#cc3333;color:#cc3333" onclick="setProof('+x.row+',\'Ditolak\')">✕ Tolak</button>'+
+            '</div></div>';
+        }).join('');
+      });
+  }
+  function setProof(row, status){
+    jsonp(WEB_APP_URL+'?page=admin&action=payStatus&row='+row+'&status='+encodeURIComponent(status)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ if(res&&res.ok) loadProofs(); else alert((res&&res.error)||'Gagal.'); });
   }
 
   // ── Metode pembayaran ──
