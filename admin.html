@@ -452,7 +452,7 @@
     if(!items.length) return '<div class="loading">Tidak ada produk.</div>';
     var rows=items.map(function(p){
       var variabel = p.type!=='simple';
-      var priceCell = variabel ? '<span style="color:#888">variasi ('+esc(p.price)+')</span>'
+      var priceCell = variabel ? '<button class="cbtn" onclick="loadVars('+p.id+',this)">variasi ▸</button>'
         : 'Rp <span class="wooedit edit" contenteditable="true" data-id="'+p.id+'" data-field="rprice" data-orig="'+esc(p.regular_price)+'" onblur="saveWoo(this)">'+esc(p.regular_price)+'</span>';
       var stockCell = variabel ? '<span style="color:#888">—</span>'
         : '<span class="wooedit edit" contenteditable="true" data-id="'+p.id+'" data-field="stock" data-orig="'+esc(p.stock)+'" onblur="saveWoo(this)">'+esc(p.stock===''?'∞':p.stock)+'</span>';
@@ -464,10 +464,31 @@
         '<td class="num">'+stockCell+'</td>'+
         '<td>'+stat+'</td>'+
         '<td><a class="link" href="'+esc(p.permalink)+'" target="_blank">buka</a></td>'+
-      '</tr>';
+      '</tr>'+
+      '<tr id="woo-var-'+p.id+'" style="display:none"><td colspan="6" style="background:#151510"></td></tr>';
     }).join('');
     return '<div class="table-scroll tall"><table class="rtable"><thead><tr><th>Produk</th><th>Tipe</th><th class="num">Harga Reg.</th><th class="num">Stok</th><th>Status</th><th>Web</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
-      '<div style="color:#888;font-size:11px;margin-top:6px">Klik harga/stok untuk edit · produk variasi diedit di WooCommerce · perubahan langsung live ke web</div>';
+      '<div style="color:#888;font-size:11px;margin-top:6px">Klik harga/stok untuk edit · produk variable klik “variasi” untuk edit tiap ukuran/warna · perubahan langsung live ke web</div>';
+  }
+  function loadVars(pid, btn){
+    var row=document.getElementById('woo-var-'+pid), cell=row.firstChild;
+    if(row.style.display!=='none'){ row.style.display='none'; btn.textContent='variasi ▸'; return; }
+    row.style.display=''; btn.textContent='variasi ▾'; cell.innerHTML='<div style="padding:8px;color:#999">Memuat variasi…</div>';
+    jsonp(WEB_APP_URL+'?page=admin&action=wooVars&id='+pid+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(!res||!res.ok){ cell.innerHTML='<div style="padding:8px;color:#e57373">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
+        function ed(v,f,val){ return '<span class="edit" contenteditable="true" data-pid="'+pid+'" data-vid="'+v.id+'" data-field="'+f+'" data-orig="'+esc(val)+'" onblur="saveVar(this)">'+esc(val===''?'—':val)+'</span>'; }
+        cell.innerHTML='<table class="ev-t" style="margin:4px 0"><thead><tr style="color:#888"><td>Variasi</td><td class="num">Harga Reg.</td><td class="num">Harga Sale</td><td class="num">Stok</td></tr></thead><tbody>'+
+          (res.items||[]).map(function(v){
+            return '<tr><td><b>'+esc(v.name)+'</b></td><td class="num">Rp '+ed(v,'rprice',v.regular_price)+'</td><td class="num">Rp '+ed(v,'sprice',v.sale_price)+'</td><td class="num">'+ed(v,'stock',v.stock)+'</td></tr>';
+          }).join('')+'</tbody></table>';
+      });
+  }
+  function saveVar(el){
+    var v=el.textContent.trim().replace(/[^0-9]/g,''); if(el.getAttribute('data-orig')===v) return;
+    el.setAttribute('data-orig',v); el.style.outline='1px solid #e0912f';
+    jsonp(WEB_APP_URL+'?page=admin&action=wooVarUpdate&pid='+el.getAttribute('data-pid')+'&vid='+el.getAttribute('data-vid')+'&'+el.getAttribute('data-field')+'='+encodeURIComponent(v)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ el.style.outline=(res&&res.ok)?'1px solid #16a34a':'1px solid #cc3333'; setTimeout(function(){el.style.outline='';},1000); if(res&&!res.ok)alert(res.error); });
   }
   function saveWoo(el){
     var v=el.textContent.trim().replace(/[^0-9]/g,''); if(el.getAttribute('data-orig')===v) return;
