@@ -137,6 +137,8 @@
     #draftText { width: 100%; height: 62vh; background: #14140f; color: #ececec; border: 1px solid #33332a; border-radius: 8px; padding: 14px; font-family: 'Consolas','Courier New',monospace; font-size: 13px; line-height: 1.5; resize: vertical; outline: none; }
     #draftText:focus { border-color: #e0912f; }
 
+    .nbadge { display: inline-block; background: #16a34a; color: #fff; font-size: 10px; font-weight: 800; min-width: 17px; padding: 1px 5px; border-radius: 10px; margin-left: 3px; vertical-align: middle; }
+
     /* ── Sub-tab katalog ── */
     .subtabs { display: flex; gap: 4px; margin: 4px 0 14px; flex-wrap: wrap; }
     .stab { background: #1c1c17; border: 1px solid #2a2a22; color: #999; font-size: 12px; font-weight: 700; padding: 8px 14px; border-radius: 8px; cursor: pointer; }
@@ -347,7 +349,7 @@
         '<button class="tab active" onclick="showTab(1,this)">Operasional</button>' +
         '<button class="tab" onclick="showTab(2,this)">Summary &amp; Laporan</button>' +
         '<button class="tab" onclick="showTab(3,this)">Database Customer</button>' +
-        '<button class="tab" onclick="showTab(4,this)">Katalog Web</button>' +
+        '<button class="tab" id="tabKatalog" onclick="showTab(4,this)">Katalog Web <span id="ordBadge" class="nbadge" style="display:none">0</span></button>' +
       '</div>' +
       '<div id="page1">' + buildOperasional(d) + '</div>' +
       '<div id="page2" style="display:none">' + buildLaporan(d) + '</div>' +
@@ -355,6 +357,33 @@
       '<div id="page4" style="display:none">' + buildCatalog() + '</div>';
     document.getElementById('content').innerHTML = html;
     labelTables();
+    checkNewOrders();
+  }
+
+  // ── Notif pesanan web yang butuh tindakan ──
+  function checkNewOrders(){
+    jsonp(WEB_APP_URL+'?page=admin&action=wooPending&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(!res||!res.ok) return;
+        var b=document.getElementById('ordBadge');
+        if(b){ if(res.count){ b.textContent=res.count; b.style.display=''; } else b.style.display='none'; }
+        var box=document.getElementById('ordAlert');
+        if(box){
+          if(!res.count){ box.innerHTML=''; return; }
+          box.innerHTML='<div class="warn-box" style="border-color:#2c6b3f;background:#132218">'+
+            '<div class="warn-h" style="color:#6ee7a0">🛒 '+res.count+' pesanan web menunggu diproses</div>'+
+            res.items.map(function(o){
+              return '<button class="warn-row" onclick="gotoOrders()"><b>#'+esc(o.number)+'</b> '+esc(o.name||'-')+
+                ' — $'+esc(o.total)+' · <span style="color:#9fe3bb">'+esc(o.status)+'</span> · '+esc(o.date)+'</button>';
+            }).join('')+
+            (res.count>res.items.length?'<div style="color:#888;font-size:11px;padding-top:6px">+'+(res.count-res.items.length)+' lainnya…</div>':'')+
+          '</div>';
+        }
+      });
+  }
+  function gotoOrders(){
+    var t=document.getElementById('tabKatalog'); if(t) showTab(4,t);
+    var st=document.querySelectorAll('.stab')[1]; if(st) wooTab(2,st);
   }
 
   // Seksi yang bisa dilipat/dibuka (klik judul). open=true → terbuka default.
@@ -1030,6 +1059,7 @@
       '</tr></thead><tbody>' + inquiryRows(d.inquiries || [], d.inqStatuses || []) + '</tbody></table></div>';
 
     return '<div class="kpis">' + kpis + '</div>' +
+      '<div id="ordAlert"></div>' +
       warnBanner(d.orders) +
       sec('Order Aktif (' + d.orders.length + ')', ordersBody, true) +
       sec('Inquiry Masuk (' + (d.inquiries ? d.inquiries.length : 0) + ')', inquiryBody, false);
