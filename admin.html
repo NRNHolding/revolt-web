@@ -347,17 +347,32 @@
     var html =
       '<div class="tabs">' +
         '<button class="tab active" onclick="showTab(1,this)">Operasional</button>' +
-        '<button class="tab" onclick="showTab(2,this)">Summary &amp; Laporan</button>' +
-        '<button class="tab" onclick="showTab(3,this)">Database Customer</button>' +
-        '<button class="tab" id="tabKatalog" onclick="showTab(4,this)">Katalog Web <span id="ordBadge" class="nbadge" style="display:none">0</span></button>' +
+        '<button class="tab" onclick="showTab(2,this)">Administrasi</button>' +
+        '<button class="tab" id="tabKatalog" onclick="showTab(4,this)">Website <span id="ordBadge" class="nbadge" style="display:none">0</span></button>' +
       '</div>' +
       '<div id="page1">' + buildOperasional(d) + '</div>' +
-      '<div id="page2" style="display:none">' + buildLaporan(d) + '</div>' +
-      '<div id="page3" style="display:none">' + buildCustomerDB(d) + '</div>' +
+      '<div id="page2" style="display:none">' +
+        '<div class="subtabs">' +
+          '<button class="stab active" onclick="admTab(1,this)">Summary &amp; Laporan</button>' +
+          '<button class="stab" onclick="admTab(2,this)">Database Customer</button>' +
+        '</div>' +
+        '<div id="adm1">' + buildLaporan(d) + '</div>' +
+        '<div id="adm2" style="display:none">' + buildCustomerDB(d) + '</div>' +
+      '</div>' +
       '<div id="page4" style="display:none">' + buildCatalog() + '</div>';
     document.getElementById('content').innerHTML = html;
     labelTables();
     checkNewOrders();
+  }
+
+  // Sub-tab Administrasi
+  function admTab(n, btn){
+    var a1=document.getElementById('adm1'), a2=document.getElementById('adm2');
+    if(a1) a1.style.display = n===1 ? '' : 'none';
+    if(a2) a2.style.display = n===2 ? '' : 'none';
+    document.querySelectorAll('#page2 > .subtabs .stab').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+    if(n===1){ renderEval(); filterReport(); }
   }
 
   // ── Notif pesanan web yang butuh tindakan ──
@@ -415,9 +430,8 @@
   function showTab(n, btn){
     document.getElementById('page1').style.display = n===1 ? '' : 'none';
     document.getElementById('page2').style.display = n===2 ? '' : 'none';
-    var p3=document.getElementById('page3'); if(p3) p3.style.display = n===3 ? '' : 'none';
     var p4=document.getElementById('page4'); if(p4) p4.style.display = n===4 ? '' : 'none';
-    var tabs = document.querySelectorAll('.tab');
+    var tabs = document.querySelectorAll('.tabs > .tab');
     for (var i=0;i<tabs.length;i++) tabs[i].classList.remove('active');
     btn.classList.add('active');
     if (n===2) { renderEval(); filterReport(); }
@@ -761,11 +775,26 @@
             (o.note?'<div class="onote">📝 '+esc(o.note)+'</div>':'')+'</div>'+
           '<div class="oitems">'+items+'</div>'+
         '</div>'+
-        '<div class="ofoot">Ubah status: <select class="istatus" onchange="saveOrderStatus('+o.id+',this)">'+
-          opts.map(function(s){ return '<option value="'+s+'"'+(s===o.status?' selected':'')+'>'+s+'</option>'; }).join('')+
-        '</select></div>'+
+        '<div class="ofoot" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">'+
+          '<span>Ubah status: <select class="istatus" onchange="saveOrderStatus('+o.id+',this)">'+
+            opts.map(function(s){ return '<option value="'+s+'"'+(s===o.status?' selected':'')+'>'+s+'</option>'; }).join('')+
+          '</select></span>'+
+          '<button class="cbtn" style="border-color:#cc3333;color:#cc3333" onclick="delOrder('+o.id+',\''+esc(o.number)+'\')">🗑 Hapus</button>'+
+        '</div>'+
       '</div>';
     }).join('');
+  }
+  function delOrder(id, number){
+    var reason=prompt('Alasan menghapus pesanan #'+number+' (wajib, min. 5 karakter):\nContoh: order tes internal / customer batal / duplikat');
+    if(reason===null) return;
+    reason=String(reason).trim();
+    if(reason.length<5){ alert('Alasan wajib diisi minimal 5 karakter.'); return; }
+    if(!confirm('Hapus pesanan #'+number+'?\n\nAlasan: '+reason+'\n\nPesanan dipindah ke Trash WooCommerce (masih bisa dipulihkan) dan alasan dicatat.')) return;
+    jsonp(WEB_APP_URL+'?page=admin&action=wooOrderDelete&id='+id+'&reason='+encodeURIComponent(reason)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(res&&res.ok){ loadOrders(); checkNewOrders(); }
+        else alert((res&&res.error)||'Gagal menghapus.');
+      });
   }
   function saveOrderStatus(id, sel){
     sel.disabled=true;
