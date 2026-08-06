@@ -1971,40 +1971,70 @@
   var SHEET_ORDERID='', SHEET_SLOT=null, SHEET_PHOTOS=[], PAN=null, SHEET_CACHE={};
   function openSheet(orderId){
     SHEET_ORDERID = orderId;
+    var modal=document.getElementById('sheetModal'), paper=document.getElementById('sheetPaper');
     var cached = SHEET_CACHE[orderId];
-    if (cached){   // pakai hasil edit terakhir kali — jangan rebuild / fetch ulang
-      document.getElementById('sheetPaper').innerHTML = cached.html;
+    if (cached){   // hasil edit di sesi ini
+      paper.innerHTML = cached.html;
       SHEET_PHOTOS = (cached.photos || []).slice();
-      renderTray();
-      document.getElementById('sheetModal').classList.add('show');
+      renderTray(); modal.classList.add('show');
       return;
     }
     SHEET_PHOTOS = [];
-    document.getElementById('sheetPaper').innerHTML = buildSheetTemplate();
-    renderTray();
-    document.getElementById('sheetModal').classList.add('show');
-    jsonp(WEB_APP_URL+'?page=admin&action=sheetData&id='+encodeURIComponent(orderId)+'&key='+encodeURIComponent(ADMIN_KEY),
-      function(res){ if(res && res.ok) applySheetData(res); });
+    paper.innerHTML = '<div style="padding:60px;text-align:center;color:#888">Memuat draft…</div>';
+    modal.classList.add('show');
+    // 1) cek draft tersimpan di Drive (tahan refresh & ganti hari)
+    jsonp(WEB_APP_URL+'?page=admin&action=sheetDraft&id='+encodeURIComponent(orderId)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(res && res.ok && res.found && res.html){
+          paper.innerHTML = res.html;
+          SHEET_CACHE[orderId] = { html: res.html, photos: SHEET_PHOTOS.slice() };
+          renderTray();
+          return;
+        }
+        // 2) belum ada draft → template + data dari card
+        paper.innerHTML = buildSheetTemplate();
+        renderTray();
+        jsonp(WEB_APP_URL+'?page=admin&action=sheetData&id='+encodeURIComponent(orderId)+'&key='+encodeURIComponent(ADMIN_KEY),
+          function(r2){ if(r2 && r2.ok) applySheetData(r2); });
+      });
   }
-  // Simpan editan terakhir (teks, gambar+crop, warna benang) supaya tetap saat dibuka lagi
-  function saveSheetState(){
+  // Simpan editan (teks, gambar+crop, warna benang) — memori + Drive
+  function saveSheetState(toServer){
     if (!SHEET_ORDERID) return;
     var p = document.getElementById('sheetPaper');
-    if (p && p.innerHTML.trim()) SHEET_CACHE[SHEET_ORDERID] = { html: p.innerHTML, photos: SHEET_PHOTOS.slice() };
+    if (!p || !p.innerHTML.trim() || /Memuat draft/.test(p.innerHTML)) return;
+    SHEET_CACHE[SHEET_ORDERID] = { html: p.innerHTML, photos: SHEET_PHOTOS.slice() };
+    if (toServer){
+      var iframe=document.getElementById('saveframe');
+      if(!iframe){ iframe=document.createElement('iframe'); iframe.name='saveframe'; iframe.id='saveframe'; iframe.style.display='none'; document.body.appendChild(iframe); }
+      var form=document.createElement('form'); form.method='POST'; form.action=WEB_APP_URL; form.target='saveframe';
+      function add(n,v){ var i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; form.appendChild(i); }
+      add('action','sheetSave'); add('key',ADMIN_KEY); add('id',SHEET_ORDERID); add('html',p.innerHTML);
+      document.body.appendChild(form); form.submit();
+      setTimeout(function(){ if(form.parentNode) document.body.removeChild(form); }, 1500);
+    }
   }
-  function closeSheet(){ saveSheetState(); document.getElementById('sheetModal').classList.remove('show'); }
+  function closeSheet(){ saveSheetState(true); document.getElementById('sheetModal').classList.remove('show'); }
+  function saveDraftNow(btn){
+    var old=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan…';
+    saveSheetState(true);
+    setTimeout(function(){ btn.disabled=false; btn.textContent='✓ Draft tersimpan';
+      setTimeout(function(){ btn.textContent=old; }, 1800); }, 1600);
+  }
   function resetSheet(){
-    if (!confirm('Reset Custom Sheet ke data awal dari card?\nSemua editanmu untuk order '+SHEET_ORDERID+' akan hilang.')) return;
-    delete SHEET_CACHE[SHEET_ORDERID];
-    openSheet(SHEET_ORDERID);
+    if (!confirm('Reset Custom Sheet ke data awal dari card?\nSemua editanmu untuk order '+SHEET_ORDERID+' akan hilang (termasuk draft tersimpan).')) return;
+    var id=SHEET_ORDERID;
+    delete SHEET_CACHE[id];
+    jsonp(WEB_APP_URL+'?page=admin&action=sheetDraftDel&id='+encodeURIComponent(id)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(){ openSheet(id); });
   }
 
   function buildSheetTemplate(){
     var t=new Date(), dateStr=('0'+t.getDate()).slice(-2)+'-'+('0'+(t.getMonth()+1)).slice(-2)+'-'+t.getFullYear();
     function slot(n,style,label){ return '<div class="imgslot" data-slot="'+n+'" onmousedown="slotPanStart(event,this)" onwheel="slotWheel(event,this)" ondblclick="slotUpload(this)" ondragover="event.preventDefault()" ondrop="slotDrop(event,this)" title="Seret = geser · Scroll = zoom · Klik 2x = upload · Tarik foto dari tray ke sini" style="'+style+';cursor:grab">'+(label||'')+'</div>'; }
     return ''+
-      '<div style="letter-spacing:3px;font-size:11px;color:#444">CUSTOM SHEET</div>' +
-      '<div id="sh-product" contenteditable="true" style="font-size:50px;font-weight:800;line-height:0.98;letter-spacing:-1px;text-transform:uppercase;margin:2px 0 4px">PRODUCT NAME</div>' +
+      '<div style="letter-spacing:3px;font-size:11px;color:#444;margin-bottom:12px">CUSTOM SHEET</div>' +
+      '<div id="sh-product" contenteditable="true" style="font-size:50px;font-weight:800;line-height:1.04;letter-spacing:-1px;text-transform:uppercase;margin:0 0 6px">PRODUCT NAME</div>' +
       '<div style="display:flex;justify-content:space-between;font-size:12px;color:#555;margin-bottom:10px">' +
         '<span id="sh-order" contenteditable="true">'+esc(SHEET_ORDERID)+'</span><span id="sh-date" contenteditable="true">'+dateStr+'</span></div>' +
       '<div style="display:flex;gap:12px;align-items:stretch">' +
@@ -2036,7 +2066,7 @@
       '</div>' +
       '<div style="margin-top:8px;font-size:12px"><div class="lbl">Special Custom Request:</div><div id="sh-special" contenteditable="true">-</div></div>' +
       '<div style="border-top:1px solid #111;margin-top:18px;padding-top:8px;display:flex;justify-content:space-between;font-size:11px">' +
-        '<div><b id="sh-custname" contenteditable="true">Nama Customer</b><br><span id="sh-phone" contenteditable="true">-</span></div>' +
+        '<div>Name:<br><b id="sh-custname" contenteditable="true">-</b><br><span id="sh-phone" contenteditable="true">-</span></div>' +
         '<div>Crafted by:<br><span id="sh-craftedby" contenteditable="true" style="border-bottom:1px dashed #aaa;display:inline-block;min-width:100px">Revolt Industry</span></div>' +
         '<div>Package Date:<br><span id="sh-pkgdate" contenteditable="true" style="border-bottom:1px dashed #aaa;display:inline-block;min-width:100px">'+dateStr+'</span></div>' +
       '</div>' +
@@ -2177,6 +2207,7 @@
       <button class="inv-dl" onclick="downloadSheetPDF()">⬇ PDF</button>
       <button class="inv-dl" onclick="downloadSheetJPG()">⬇ JPG</button>
       <button class="inv-save" onclick="saveSheetDrive(this)">💾 Simpan ke Drive</button>
+      <button class="cbtn" onclick="saveDraftNow(this)">💾 Simpan Draft</button>
       <button class="cbtn" onclick="resetSheet()">↻ Reset</button>
       <button class="inv-cls" onclick="closeSheet()">Tutup</button>
     </div>
