@@ -179,8 +179,8 @@
     .prp { font-size: 10px; color: #e0912f; margin-top: 3px; min-height: 12px; }
     @media (max-width: 640px) { .wgrid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 9px; } .wname { font-size: 11.5px; } }
 
-    #katModal, #bulkModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
-    #katModal.show, #bulkModal.show { display: block; }
+    #katModal, #bulkModal, #fldModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 210; display: none; overflow: auto; padding: 20px; }
+    #katModal.show, #bulkModal.show, #fldModal.show { display: block; }
 
     /* ── Edit Produk (Woo) ── */
     #prodModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
@@ -703,6 +703,52 @@
     }).join('')+'</div>'+
     '<div style="color:#888;font-size:11px;margin-top:8px">Klik kartu / <b>Edit</b> untuk ubah nama, deskripsi, foto, harga, stok & variasi · harga toko dalam USD, Rp = konversi kurs hari ini</div>';
   }
+  // ── Detail produk yang tampil di halaman web (Materials, Warranty, dll) ──
+  var PF=null;
+  function openFields(id, nama){
+    document.getElementById('fldModal').classList.add('show');
+    document.getElementById('fldTitle').textContent='Detail Web — '+(nama||id);
+    document.getElementById('fldMsg').textContent='';
+    document.getElementById('fldBody').innerHTML='<div class="loading">Memuat detail…</div>';
+    jsonp(WEB_APP_URL+'?page=admin&action=wooFields&id='+id+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(!res||!res.ok){ document.getElementById('fldBody').innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
+        PF=res; renderFields();
+      });
+  }
+  function closeFields(){ document.getElementById('fldModal').classList.remove('show'); PF=null; }
+  function renderFields(){
+    document.getElementById('fldBody').innerHTML=PF.fields.map(function(f,i){
+      return '<div class="pf"><label>'+esc(f.label)+
+        (f.messy?' <span style="color:#c47f00;font-weight:400">berisi kode sisa copy-paste — klik Rapikan</span>':'')+
+        '</label><textarea id="fld-'+i+'" style="height:'+(f.value.length>400?150:90)+'px">'+esc(f.value)+'</textarea>'+
+        (f.messy?'<button class="cbtn" style="margin-top:5px" onclick="cleanField('+i+')">✨ Rapikan</button>':'')+
+        '</div>';
+    }).join('')+
+    '<div style="color:#888;font-size:11px">Boleh pakai HTML sederhana: &lt;strong&gt;, &lt;ol&gt;&lt;li&gt;, &lt;br&gt;. Perubahan langsung tampil di halaman produk.</div>';
+  }
+  function cleanField(i){
+    var ta=document.getElementById('fld-'+i);
+    var btn=event&&event.target; if(btn){ btn.disabled=true; btn.textContent='Merapikan…'; }
+    jsonp(WEB_APP_URL+'?page=admin&action=wooFieldClean&html='+encodeURIComponent(ta.value.slice(0,1800))+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(btn){ btn.disabled=false; btn.textContent='✨ Rapikan'; }
+        if(res&&res.ok){ ta.value=res.text; document.getElementById('fldMsg').textContent='Dirapikan — cek isinya lalu Simpan.'; }
+        else alert((res&&res.error)||'Gagal merapikan.');
+      });
+  }
+  function saveFields(btn){
+    if(!PF) return;
+    var old=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan…';
+    var payload={ id:PF.id, fields:PF.fields.map(function(f,i){
+      return { key:f.key, value:document.getElementById('fld-'+i).value }; }) };
+    postJson('wooFieldsSave', payload, function(res){
+      btn.disabled=false; btn.textContent=old;
+      if(res&&res.ok){ document.getElementById('fldMsg').textContent='✓ Tersimpan — cek halaman produk di web.'; }
+      else document.getElementById('fldMsg').textContent=(res&&res.error)||'Gagal menyimpan.';
+    });
+  }
+
   // ── Edit harga massal ──
   var BULK=[];
   function openBulk(){
@@ -2515,6 +2561,7 @@
     <div class="inv-bar" style="flex-wrap:wrap">
       <strong style="color:#f5f4ef;margin-right:auto">Edit Produk</strong>
       <span id="prodMsg" style="color:#e0912f;font-size:11px"></span>
+      <button class="cbtn" onclick="if(PROD&&PROD.id){openFields(PROD.id,PROD.name);}else{alert('Buka produk dulu.');}">📄 Detail Web</button>
       <button class="inv-save" onclick="saveProd(this)">💾 Simpan ke Web</button>
       <button class="inv-cls" onclick="closeProd()">Tutup</button>
     </div>
@@ -2522,6 +2569,18 @@
   </div>
 </div>
 <input type="file" id="prodImgInput" accept="image/*" style="display:none" onchange="prodImgPick(this)">
+
+<div id="fldModal">
+  <div class="prod-wrap">
+    <div class="inv-bar" style="flex-wrap:wrap">
+      <strong id="fldTitle" style="color:#f5f4ef;margin-right:auto">Detail Web</strong>
+      <span id="fldMsg" style="color:#e0912f;font-size:11px"></span>
+      <button class="inv-save" onclick="saveFields(this)">💾 Simpan ke Web</button>
+      <button class="inv-cls" onclick="closeFields()">Tutup</button>
+    </div>
+    <div id="fldBody"></div>
+  </div>
+</div>
 
 <div id="bulkModal">
   <div style="max-width:960px;margin:0 auto">
