@@ -182,6 +182,25 @@
 
     #katModal, #bulkModal, #fldModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 210; display: none; overflow: auto; padding: 20px; }
     #katModal.show, #bulkModal.show, #fldModal.show { display: block; }
+    /* Galeri katalog — alur 3 langkah */
+    .kstep { border:1px solid #2a2a24; border-radius:10px; padding:13px 15px; margin-bottom:11px; background:#141410; opacity:.5; }
+    .kstep.active { opacity:1; border-color:#e0912f; }
+    .kstep.done { opacity:1; border-color:#2f5c33; }
+    .kshead { display:flex; align-items:center; gap:9px; font-weight:700; color:#f5f4ef; font-size:13.5px; flex-wrap:wrap; }
+    .ksno { width:22px; height:22px; border-radius:50%; background:#2a2a24; color:#bbb; display:flex; align-items:center; justify-content:center; font-size:12px; flex:0 0 22px; }
+    .kstep.active .ksno { background:#e0912f; color:#171712; }
+    .kstep.done .ksno { background:#16a34a; color:#fff; }
+    .kspick { margin-left:auto; display:flex; align-items:center; gap:8px; color:#e0912f; font-weight:700; font-size:12.5px; }
+    .kschips { display:flex; flex-wrap:wrap; gap:7px; margin-top:11px; }
+    .kchip { background:#1e1e18; border:1px solid #3a3a30; color:#ddd; border-radius:20px; padding:8px 14px; font-size:12.5px; cursor:pointer; }
+    .kchip:hover { border-color:#e0912f; color:#e0912f; }
+    .kdrop { margin-top:11px; border:2px dashed #3a3a30; border-radius:11px; padding:24px 14px; text-align:center; color:#ddd; cursor:pointer; background:#171712; }
+    .kdrop:hover, .kdrop.over { border-color:#e0912f; background:#1d1a14; }
+    .kprev { display:flex; flex-wrap:wrap; gap:9px; margin-top:11px; }
+    .kthumb { position:relative; width:88px; height:88px; border-radius:8px; overflow:hidden; border:1px solid #2a2a24; }
+    .kthumb img { width:100%; height:100%; object-fit:cover; display:block; }
+    .kthumb .cbtn { position:absolute; top:3px; right:3px; padding:1px 6px; font-size:11px; background:rgba(0,0,0,.7); }
+    @media(max-width:640px){ .kspick { margin-left:0; width:100%; } }
 
     /* ── Edit Produk (Woo) ── */
     #prodModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
@@ -2244,56 +2263,154 @@
     r.readAsDataURL(file);
   }
 
-  // ── Galeri foto KATALOG (Drive per kategori → kirim ke Media Library WP) ──
+  // ── Galeri foto KATALOG — alur 3 langkah (Drive "5. Customize Order Catalogue") ──
+  var KAT={cat:'',prod:'',files:[]};
   function openKatalog(){
     document.getElementById('katModal').classList.add('show');
-    var sel=document.getElementById('katCat');
-    if(sel && !sel.options.length){
-      document.getElementById('katBody').innerHTML='<div class="loading">Memuat kategori dari Drive…</div>';
+    KAT={cat:'',prod:'',files:[]};
+    renderKat();
+    if(!window.__KATCATS){
       jsonp(WEB_APP_URL+'?page=admin&action=katalogCats&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
-        function(res){
-          var cats=(res&&res.ok)?(res.cats||[]):[];
-          sel.innerHTML=cats.map(function(c){ return '<option>'+esc(c)+'</option>'; }).join('');
-          loadKatalog();
-        });
-    } else loadKatProducts();
+        function(res){ window.__KATCATS=(res&&res.ok)?(res.cats||[]):[]; renderKat(); });
+    }
   }
   function closeKatalog(){ document.getElementById('katModal').classList.remove('show'); }
-  // Kategori dipilih → muat daftar produk
-  function loadKatProducts(){
-    var cat=(document.getElementById('katCat')||{}).value||'';
-    var ps=document.getElementById('katProd');
-    ps.innerHTML='<option value="">— semua produk —</option>';
-    document.getElementById('katBody').innerHTML='<div class="loading">Memuat produk…</div>';
-    jsonp(WEB_APP_URL+'?page=admin&action=katalogProducts&cat='+encodeURIComponent(cat)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
-      function(res){
-        var items=(res&&res.ok)?(res.items||[]):[];
-        ps.innerHTML='<option value="">— semua produk —</option>'+items.map(function(p){
-          return '<option>'+esc(p.name)+'</option>'; }).join('');
-        loadKatalog();
-      });
-  }
-  function newKatProduct(){
-    var nm=prompt('Nama produk baru (mis. "Jacket on black color"):');
-    if(!nm) return;
-    var ps=document.getElementById('katProd');
-    var o=document.createElement('option'); o.textContent=nm; o.selected=true; ps.appendChild(o);
-    document.getElementById('katMsg').textContent='Produk "'+nm+'" siap — pilih foto untuk mengunggah.';
-  }
-  function loadKatalog(){
-    var cat=(document.getElementById('katCat')||{}).value||'';
-    var prod=(document.getElementById('katProd')||{}).value||'';
+
+  function renderKat(){
+    var cats=window.__KATCATS||null, prods=window.__KATPRODS||null;
     var b=document.getElementById('katBody');
-    b.innerHTML='<div class="loading">Memuat foto…</div>';
-    jsonp(WEB_APP_URL+'?page=admin&action=katalogList&cat='+encodeURIComponent(cat)+'&product='+encodeURIComponent(prod)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+
+    // LANGKAH 1 — kategori
+    var s1='<div class="kstep'+(KAT.cat?' done':' active')+'">'+
+      '<div class="kshead"><span class="ksno">1</span> Pilih kategori'+
+        (KAT.cat?'<span class="kspick">'+esc(KAT.cat)+' <button class="cbtn" onclick="katUbahKategori()">ubah</button></span>':'')+
+      '</div>'+
+      (KAT.cat?'':'<div class="kschips">'+
+        (cats===null?'<span style="color:#888;font-size:12px">Memuat kategori…</span>'
+          :(cats.length?cats.map(function(c){ return '<button class="kchip" onclick="katPilihKategori('+jsq(c)+')">'+esc(c)+'</button>'; }).join('')
+            :'<span style="color:#888;font-size:12px">Tidak ada kategori di Drive.</span>'))+
+      '</div>')+
+    '</div>';
+
+    // LANGKAH 2 — produk
+    var s2='<div class="kstep'+(!KAT.cat?'':(KAT.prod?' done':' active'))+'">'+
+      '<div class="kshead"><span class="ksno">2</span> Pilih produk'+
+        (KAT.prod?'<span class="kspick">'+esc(KAT.prod)+' <button class="cbtn" onclick="katUbahProduk()">ubah</button></span>':'')+
+      '</div>';
+    if(KAT.cat && !KAT.prod){
+      s2+='<div class="kschips">'+
+        (prods===null?'<span style="color:#888;font-size:12px">Memuat produk…</span>'
+          :(prods.length?prods.map(function(p){ return '<button class="kchip" onclick="katPilihProduk('+jsq(p.name)+')">'+esc(p.name)+'</button>'; }).join('')
+            :'<span style="color:#888;font-size:12px">Belum ada produk di kategori ini — ketik nama baru di bawah.</span>'))+
+        '</div>'+
+        '<div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap">'+
+          '<input id="katNewProd" placeholder="atau ketik nama produk baru…" style="flex:1;min-width:200px">'+
+          '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="katProdukBaru()">＋ Buat</button>'+
+        '</div>';
+    }
+    s2+='</div>';
+
+    // LANGKAH 3 — foto
+    var s3='<div class="kstep'+(KAT.prod?' active':'')+'">'+
+      '<div class="kshead"><span class="ksno">3</span> Tambahkan foto</div>';
+    if(KAT.prod){
+      s3+='<div class="kdrop" id="katDrop" onclick="document.getElementById(\'katInput\').click()">'+
+            '<div style="font-size:26px">📷</div>'+
+            '<div style="font-weight:700;margin-top:5px">Tarik foto ke sini, atau klik untuk memilih</div>'+
+            '<div style="font-size:11px;color:#888;margin-top:3px">Bisa banyak foto sekaligus · otomatis dikecilkan</div>'+
+          '</div>'+
+          '<div id="katPreview" class="kprev"></div>'+
+          '<div style="display:flex;gap:9px;align-items:center;margin-top:11px;flex-wrap:wrap">'+
+            '<button class="inv-dl" id="katUpBtn" onclick="katKirim(this)" disabled>Upload foto</button>'+
+            '<label style="color:#bbb;font-size:11px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="katToWp" checked> kirim juga ke Media Library WordPress</label>'+
+            '<span id="katMsg" style="color:#e0912f;font-size:12px"></span>'+
+          '</div>';
+    } else {
+      s3+='<div style="color:#888;font-size:12px;margin-top:8px">Selesaikan langkah 1 dan 2 dulu.</div>';
+    }
+    s3+='</div>';
+
+    var listFoto=KAT.prod
+      ? '<div class="section-title" style="margin-top:18px">Foto di '+esc(KAT.cat)+' › '+esc(KAT.prod)+'</div><div id="katList"><div class="loading">Memuat…</div></div>'
+      : '';
+    b.innerHTML=s1+s2+s3+listFoto;
+
+    if(KAT.prod){
+      var dz=document.getElementById('katDrop');
+      dz.addEventListener('dragover', function(e){ e.preventDefault(); dz.classList.add('over'); });
+      dz.addEventListener('dragleave', function(){ dz.classList.remove('over'); });
+      dz.addEventListener('drop', function(e){ e.preventDefault(); dz.classList.remove('over');
+        katTambahFile(Array.prototype.slice.call((e.dataTransfer||{}).files||[])); });
+      renderKatPreview();
+      loadKatFoto();
+    }
+  }
+  function jsq(s){ return "'"+String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/</g,'\\x3c')+"'"; }
+
+  function katPilihKategori(c){
+    KAT.cat=c; KAT.prod=''; KAT.files=[]; window.__KATPRODS=null; renderKat();
+    jsonp(WEB_APP_URL+'?page=admin&action=katalogProducts&cat='+encodeURIComponent(c)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ window.__KATPRODS=(res&&res.ok)?(res.items||[]):[]; renderKat(); });
+  }
+  function katUbahKategori(){ KAT.cat=''; KAT.prod=''; KAT.files=[]; window.__KATPRODS=null; renderKat(); }
+  function katPilihProduk(p){ KAT.prod=p; KAT.files=[]; renderKat(); }
+  function katUbahProduk(){ KAT.prod=''; KAT.files=[]; renderKat(); }
+  function katProdukBaru(){
+    var e=document.getElementById('katNewProd');
+    var nm=(e.value||'').trim();
+    if(!nm){ e.focus(); return; }
+    katPilihProduk(nm);
+  }
+
+  function katTambahFile(files){
+    files.filter(function(f){ return /^image\//.test(f.type); }).forEach(function(f){
+      shrinkImage(f, 2000, 0.9, function(b64){ KAT.files.push({name:f.name, b64:b64}); renderKatPreview(); });
+    });
+  }
+  function katUpload(input){ katTambahFile(Array.prototype.slice.call(input.files||[])); input.value=''; }
+  function katHapusPreview(i){ KAT.files.splice(i,1); renderKatPreview(); }
+  function renderKatPreview(){
+    var p=document.getElementById('katPreview'); if(!p) return;
+    p.innerHTML=KAT.files.map(function(f,i){
+      return '<div class="kthumb"><img src="data:image/jpeg;base64,'+f.b64+'">'+
+        '<button class="cbtn" onclick="katHapusPreview('+i+')">✕</button></div>';
+    }).join('');
+    var btn=document.getElementById('katUpBtn');
+    if(btn){ btn.disabled=!KAT.files.length; btn.textContent=KAT.files.length?('Upload '+KAT.files.length+' foto'):'Upload foto'; }
+  }
+
+  function katKirim(btn){
+    if(!KAT.files.length) return;
+    var toWp=document.getElementById('katToWp').checked?'1':'0';
+    var msg=document.getElementById('katMsg');
+    var cat=KAT.cat, prod=KAT.prod, antre=KAT.files.slice();
+    var total=antre.length, sel=0, gagal=0;
+    btn.disabled=true; msg.textContent='Mengunggah 0/'+total+'…';
+    antre.forEach(function(f){
+      postKat(cat, prod, f.name, f.b64, toWp, function(res){
+        if(!(res&&res.ok)) gagal++;
+        sel++; msg.textContent='Mengunggah '+sel+'/'+total+'…';
+        if(sel===total){
+          msg.textContent = gagal ? ('Selesai — '+(total-gagal)+' berhasil, '+gagal+' gagal')
+                                  : ('✓ '+total+' foto masuk '+cat+' › '+prod);
+          if(window.__KATPRODS && !window.__KATPRODS.some(function(x){ return x.name===prod; }))
+            window.__KATPRODS.push({name:prod, ids:[]});
+          KAT.files=[]; renderKatPreview(); loadKatFoto();
+        }
+      });
+    });
+  }
+
+  function loadKatFoto(){
+    var el=document.getElementById('katList'); if(!el) return;
+    jsonp(WEB_APP_URL+'?page=admin&action=katalogList&cat='+encodeURIComponent(KAT.cat)+'&product='+encodeURIComponent(KAT.prod)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
       function(res){
-        if(!res||!res.ok){ b.innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
+        if(!res||!res.ok){ el.innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
         var it=res.items||[];
-        if(!it.length){ b.innerHTML='<div class="loading">Belum ada foto di <b>'+esc(cat)+(prod?' › '+esc(prod):'')+'</b>.</div>'; return; }
-        b.innerHTML='<div class="wgrid">'+it.map(function(f){
+        if(!it.length){ el.innerHTML='<div class="loading">Belum ada foto di produk ini.</div>'; return; }
+        el.innerHTML='<div class="wgrid">'+it.map(function(f){
           return '<div class="wcard"><div class="wimg"><img src="'+esc(f.thumb)+'" loading="lazy"></div>'+
-            '<div class="wbody"><div class="wname" style="font-size:11px">'+esc(f.product||'')+'</div>'+
-            '<div class="wcat" style="word-break:break-all">'+esc(f.name)+'</div>'+
+            '<div class="wbody"><div class="wcat" style="word-break:break-all">'+esc(f.name)+'</div>'+
             '<div class="wfoot"><a class="link" href="'+esc(f.url)+'" target="_blank">drive</a>'+
             '<button class="cbtn" onclick="pushKat(\''+f.id+'\',this)">→ Kirim ke Web</button></div></div></div>';
         }).join('')+'</div>';
@@ -2305,28 +2422,11 @@
       function(res){
         btn.disabled=false;
         if(res&&res.ok){ btn.textContent='✓ di Media Library'; btn.style.color='#16a34a';
-          copyText(res.src); document.getElementById('katMsg').textContent='URL foto disalin — tempel di Edit Produk → ＋ dari URL'; }
+          copyText(res.src);
+          var m=document.getElementById('katMsg');
+          if(m) m.textContent='URL foto disalin — tempel di Edit Produk → ＋ dari URL'; }
         else { btn.textContent=old; alert((res&&res.error)||'Gagal.'); }
       });
-  }
-  function katUpload(input){
-    var files=Array.prototype.slice.call(input.files||[]); input.value='';
-    if(!files.length) return;
-    var cat=(document.getElementById('katCat')||{}).value||'Umum';
-    var prod=(document.getElementById('katProd')||{}).value||'';
-    var msg=document.getElementById('katMsg');
-    if(!prod){ msg.textContent=''; alert('Pilih produk dulu (atau klik "＋ Produk Baru").'); return; }
-    var toWp=document.getElementById('katToWp').checked?'1':'0';
-    var done=0;
-    msg.textContent='Mengunggah 0/'+files.length+' ke '+cat+' › '+prod+'…';
-    files.forEach(function(f){
-      shrinkImage(f, 2000, 0.9, function(b64){
-        postKat(cat, prod, f.name, b64, toWp, function(res){
-          done++; msg.textContent='Mengunggah '+done+'/'+files.length+'…';
-          if(done===files.length){ msg.textContent='✓ '+files.length+' foto masuk "'+cat+' › '+prod+'"'; loadKatProducts(); }
-        });
-      });
-    });
   }
   function postKat(cat, product, filename, b64, toWp, done){
     var token='t'+Date.now()+Math.floor(Math.random()*9999);
@@ -2909,15 +3009,9 @@
 <div id="katModal">
   <div style="max-width:900px;margin:0 auto">
     <div class="inv-bar" style="flex-wrap:wrap">
-      <strong style="color:#f5f4ef;margin-right:auto">Galeri Foto Katalog <span style="font-weight:400;font-size:11px;color:#888">Drive: 5. Customize Order Catalogue</span></strong>
-      <select id="katCat" class="istatus" onchange="loadKatProducts()"></select>
-      <select id="katProd" class="istatus" onchange="loadKatalog()"><option value="">— semua produk —</option></select>
-      <button class="cbtn" onclick="newKatProduct()">＋ Produk Baru</button>
-      <label style="color:#bbb;font-size:11px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="katToWp" checked> langsung ke Media Library WP</label>
-      <button class="inv-dl" onclick="document.getElementById('katInput').click()">＋ Upload Foto</button>
+      <strong style="color:#f5f4ef;margin-right:auto">Tambah Foto Katalog <span style="font-weight:400;font-size:11px;color:#888">Drive: 5. Customize Order Catalogue</span></strong>
       <button class="inv-cls" onclick="closeKatalog()">Tutup</button>
     </div>
-    <div id="katMsg" style="color:#e0912f;font-size:12px;margin-bottom:8px"></div>
     <div id="katBody"></div>
   </div>
 </div>
