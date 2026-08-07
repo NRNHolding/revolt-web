@@ -2283,10 +2283,14 @@
     document.getElementById('katModal').classList.add('show');
     KAT={cat:'',prod:'',files:[]};
     renderKat();
-    if(!window.__KATCATS){
-      jsonp(WEB_APP_URL+'?page=admin&action=katalogCats&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
-        function(res){ window.__KATCATS=(res&&res.ok)?(res.cats||[]):[]; renderKat(); });
-    }
+    muatKategori();   // selalu ambil ulang — folder baru di Drive langsung kelihatan
+  }
+  function muatKategori(pilih){
+    jsonp(WEB_APP_URL+'?page=admin&action=katalogCats&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        window.__KATCATS=(res&&res.ok)?(res.cats||[]):[];
+        if(pilih) katPilihKategori(pilih); else renderKat();
+      });
   }
   function closeKatalog(){ document.getElementById('katModal').classList.remove('show'); }
 
@@ -2303,6 +2307,11 @@
         (cats===null?'<span style="color:#888;font-size:12px">Memuat kategori…</span>'
           :(cats.length?cats.map(function(c){ return '<button class="kchip" onclick="katPilihKategori('+jsq(c)+')">'+esc(c)+'</button>'; }).join('')
             :'<span style="color:#888;font-size:12px">Tidak ada kategori di Drive.</span>'))+
+      '</div>'+
+      '<div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap">'+
+        '<input id="katNewCat" placeholder="atau ketik kategori baru… (mis. Pet Accessories)" style="flex:1;min-width:220px" onkeydown="if(event.key===\'Enter\')katKategoriBaru()">'+
+        '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="katKategoriBaru()">＋ Buat Kategori</button>'+
+        '<button class="cbtn" title="Ambil ulang daftar kategori dari Drive" onclick="muatKategori()">↻</button>'+
       '</div>')+
     '</div>';
 
@@ -2370,6 +2379,21 @@
       function(res){ window.__KATPRODS=(res&&res.ok)?(res.items||[]):[]; renderKat(); });
   }
   function katUbahKategori(){ KAT.cat=''; KAT.prod=''; KAT.files=[]; window.__KATPRODS=null; renderKat(); }
+  function katKategoriBaru(){
+    var e=document.getElementById('katNewCat');
+    var nm=(e.value||'').trim();
+    if(!nm){ e.focus(); return; }
+    var cats=window.__KATCATS||[];
+    var sama=cats.filter(function(c){ return c.toLowerCase()===nm.toLowerCase(); })[0];
+    if(sama){ katPilihKategori(sama); return; }
+    e.disabled=true;
+    jsonp(WEB_APP_URL+'?page=admin&action=katalogNewCat&cat='+encodeURIComponent(nm)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        e.disabled=false;
+        if(!res||!res.ok){ alert((res&&res.error)||'Gagal buat kategori.'); return; }
+        muatKategori(res.name);   // ambil ulang lalu langsung masuk ke kategori itu
+      });
+  }
   function katPilihProduk(p){ KAT.prod=p; KAT.files=[]; renderKat(); }
   function katUbahProduk(){ KAT.prod=''; KAT.files=[]; renderKat(); }
   function katProdukBaru(){
