@@ -204,6 +204,7 @@
     .vtab td:first-child { max-width: 170px; word-break: break-word; }
     .vin { width: 100%; background: #14140f; border: 1px solid #33332a; border-radius: 5px; color: #ececec; padding: 5px 7px; font-size: 12px; text-align: right; }
     .vin:focus { outline: none; border-color: #e0912f; }
+    .swin { width: 30px; height: 26px; padding: 1px; border: 1px solid #33332a; border-radius: 5px; background: #14140f; cursor: pointer; }
     @media (max-width: 640px) { .pgrid { grid-template-columns: 1fr 1fr; } .vtab td:first-child { max-width: 90px; font-size: 10px; } }
 
     /* ── Riwayat / Timeline ── */
@@ -544,6 +545,7 @@
         '<button class="stab" onclick="wooTab(4,this)">Laporan Web</button>' +
         '<button class="stab" onclick="wooTab(5,this)">Shipping</button>' +
         '<button class="stab" onclick="wooTab(6,this)">Pembayaran</button>' +
+        '<button class="stab" onclick="wooTab(8,this)">🎨 Tampilan Web</button>' +
       '</div>' +
       '<div id="wtab1">' +
         '<div class="toolbar">' +
@@ -575,10 +577,11 @@
       '<div id="wtab6" style="display:none"><div id="payBody"></div></div>' +
       '<div id="wtab7" style="display:none"><div class="toolbar"><button class="cbtn" onclick="loadProofs()">↻ Muat ulang</button>' +
         '<span style="color:#888;font-size:11px">Bukti transfer yang dikirim customer dari halaman konfirmasi</span></div>' +
-        '<div id="proofBody"></div></div>';
+        '<div id="proofBody"></div></div>' +
+      '<div id="wtab8" style="display:none"><div id="themeBody"></div></div>';
   }
   function wooTab(n, btn){
-    for(var i=1;i<=7;i++){ var el=document.getElementById('wtab'+i); if(el) el.style.display=(i===n?'':'none'); }
+    for(var i=1;i<=8;i++){ var el=document.getElementById('wtab'+i); if(el) el.style.display=(i===n?'':'none'); }
     document.querySelectorAll('.stab').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
     if(n===2 && !window.__ORD) { window.__ORD=1; loadOrders(); }
@@ -587,6 +590,79 @@
     if(n===5 && !window.__SHIP){ window.__SHIP=1; loadWooShip(); }
     if(n===6 && !window.__PAY) { window.__PAY=1; loadGateways(); }
     if(n===7) loadProofs();
+    if(n===8 && !window.__THEME) { window.__THEME=1; loadTheme(); }
+  }
+
+  // ── Editor tampilan website ──
+  var THEME_FIELDS=[
+    {k:'headerBg',   l:'Warna latar header',      t:'color'},
+    {k:'headerText', l:'Warna teks header',       t:'color'},
+    {k:'pageBg',     l:'Warna latar halaman',     t:'color'},
+    {k:'textColor',  l:'Warna teks utama',        t:'color'},
+    {k:'linkColor',  l:'Warna tautan',            t:'color'},
+    {k:'priceColor', l:'Warna harga',             t:'color'},
+    {k:'btnBg',      l:'Warna tombol',            t:'color'},
+    {k:'btnText',    l:'Warna teks tombol',       t:'color'},
+    {k:'footerBg',   l:'Warna latar footer',      t:'color'},
+    {k:'footerText', l:'Warna teks footer',       t:'color'},
+    {k:'baseSize',   l:'Ukuran teks dasar (px)',  t:'number', ph:'14'},
+    {k:'radius',     l:'Kelengkungan sudut (px)', t:'number', ph:'0'},
+    {k:'bodyFont',   l:'Font (nama CSS)',         t:'text',   ph:"mis. 'Helvetica Neue', Arial, sans-serif"}
+  ];
+  function loadTheme(){
+    var b=document.getElementById('themeBody');
+    b.innerHTML='<div class="loading">Memuat pengaturan tampilan…</div>';
+    jsonp(WEB_APP_URL+'?page=admin&action=themeGet&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        var cfg=(res&&res.ok)?(res.cfg||{}):{};
+        window.__THEMECFG=cfg;
+        b.innerHTML=
+          '<div class="section-title">Tampilan Website</div>'+
+          '<div class="warn-box" style="border-color:#3a5a8a;background:#111a24">'+
+            '<div class="warn-h" style="color:#8fc0ff">Cara kerja</div>'+
+            '<div style="font-size:12px;color:#bbb;line-height:1.6">Pengaturan di sini menimpa tampilan tema tanpa mengubah file tema. '+
+            'Kosongkan sebuah kolom kalau ingin kembali ke bawaan tema. Semua perubahan bisa dimatikan sekaligus lewat tombol di bawah.</div></div>'+
+          '<div class="pgrid" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))">'+
+          THEME_FIELDS.map(function(f){
+            var v=cfg[f.k]||'';
+            if(f.t==='color'){
+              return '<div class="pf"><label>'+f.l+'</label>'+
+                '<div style="display:flex;gap:6px;align-items:center">'+
+                  '<input type="color" id="th-'+f.k+'" value="'+esc(v||'#000000')+'" style="width:44px;height:38px;padding:2px;border-radius:7px;background:#14140f;border:1px solid #33332a">'+
+                  '<input type="text" id="thx-'+f.k+'" value="'+esc(v)+'" placeholder="kosong = bawaan tema" oninput="document.getElementById(\'th-'+f.k+'\').value=this.value||\'#000000\'">'+
+                  '<button class="cbtn" onclick="document.getElementById(\'thx-'+f.k+'\').value=\'\'">bersihkan</button>'+
+                '</div></div>';
+            }
+            return '<div class="pf"><label>'+f.l+'</label><input type="'+(f.t==='number'?'number':'text')+'" id="thx-'+f.k+'" value="'+esc(v)+'" placeholder="'+esc(f.ph||'')+'"></div>';
+          }).join('')+'</div>'+
+          '<div class="pf"><label>CSS tambahan (untuk yang tidak ada di atas)</label>'+
+            '<textarea id="thx-extraCss" style="height:120px;font-family:Consolas,monospace" placeholder="mis. .home-slideshow .title img{ opacity:.6 }">'+esc(cfg.extraCss||'')+'</textarea></div>'+
+          '<div class="toolbar">'+
+            '<button class="inv-save" style="border:none;border-radius:8px;padding:11px 18px;font-weight:700;cursor:pointer" onclick="saveTheme(this,true)">💾 Terapkan ke Website</button>'+
+            '<button class="cbtn" onclick="saveTheme(this,false)">Matikan semua perubahan</button>'+
+            '<a class="cbtn" style="text-decoration:none" href="https://revoltindustry.com/?preview='+Date.now()+'" target="_blank">Lihat website</a>'+
+            '<span id="themeMsg" style="color:#e0912f;font-size:12px"></span>'+
+          '</div>';
+        // sinkron color picker → text
+        THEME_FIELDS.forEach(function(f){
+          if(f.t!=='color') return;
+          var c=document.getElementById('th-'+f.k), x=document.getElementById('thx-'+f.k);
+          if(c&&x) c.addEventListener('input', function(){ x.value=c.value; });
+        });
+      });
+  }
+  function saveTheme(btn, aktif){
+    var cfg={};
+    THEME_FIELDS.forEach(function(f){ var e=document.getElementById('thx-'+f.k); if(e&&e.value.trim()) cfg[f.k]=e.value.trim(); });
+    var ex=document.getElementById('thx-extraCss'); if(ex&&ex.value.trim()) cfg.extraCss=ex.value;
+    if(!aktif && !confirm('Matikan semua pengaturan tampilan dari dashboard?\nWebsite kembali ke tampilan asli tema.')) return;
+    var old=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan…';
+    postJson('themeSave', {cfg:cfg, active:aktif}, function(res){
+      btn.disabled=false; btn.textContent=old;
+      var m=document.getElementById('themeMsg');
+      if(res&&res.ok) m.textContent=aktif?'✓ Diterapkan ke website — buka website untuk melihat':'✓ Dimatikan — website kembali ke tampilan tema';
+      else m.textContent=(res&&res.error)||'Gagal menyimpan.';
+    });
   }
 
   // ── Bukti transfer dari customer ──
@@ -1110,12 +1186,32 @@
       function(res){ if(res&&res.ok){ window.__CATS=res.cats||[]; if(PROD&&PROD.isNew) renderProd(); } });
   }
   function catPicker(){
-    if(!PROD.isNew) return '';
     var cats=window.__CATS||[];
-    if(!cats.length) return '<div class="pf"><label>Kategori</label><div style="color:#888;font-size:12px">Memuat kategori…</div></div>';
-    return '<div class="pf"><label>Kategori (bisa pilih beberapa)</label><div class="catbox">'+
-      cats.map(function(c){ return '<label class="catopt"><input type="checkbox" class="ccat" value="'+c.id+'"> '+esc(String(c.name).replace(/&amp;/g,'&'))+'</label>'; }).join('')+
-      '</div></div>';
+    if(!cats.length){
+      if(!window.__CATSREQ){ window.__CATSREQ=1;
+        jsonp(WEB_APP_URL+'?page=admin&action=wooCats&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+          function(res){ if(res&&res.ok){ window.__CATS=res.cats||[]; if(PROD) renderProd(); } }); }
+      return '<div class="pf"><label>Kategori</label><div style="color:#888;font-size:12px">Memuat kategori…</div></div>';
+    }
+    var punya=String(PROD.categories||'').split(',').map(function(s){return s.trim().toLowerCase();});
+    return '<div class="pf"><label>Kategori '+(PROD.isNew?'(bisa pilih beberapa)':'<span class="po-hint">centang lalu klik Simpan Kategori</span>')+'</label>'+
+      '<div class="catbox">'+
+      cats.map(function(c){
+        var nm=String(c.name).replace(/&amp;/g,'&');
+        var on = !PROD.isNew && punya.indexOf(nm.toLowerCase())>-1;
+        return '<label class="catopt"><input type="checkbox" class="ccat" value="'+c.id+'"'+(on?' checked':'')+'> '+esc(nm)+'</label>';
+      }).join('')+'</div>'+
+      (PROD.isNew?'':'<button class="cbtn" style="margin-top:7px" onclick="saveCats(this)">💾 Simpan Kategori</button>')+
+      '</div>';
+  }
+  function saveCats(btn){
+    if(!PROD||!PROD.id) return;
+    var picked=[]; document.querySelectorAll('.ccat:checked').forEach(function(c){ picked.push(c.value); });
+    var old=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan…';
+    jsonp(WEB_APP_URL+'?page=admin&action=wooSetCats&id='+PROD.id+'&cats='+encodeURIComponent(picked.join(','))+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ btn.disabled=false; btn.textContent=old;
+        document.getElementById('prodMsg').textContent=(res&&res.ok)?'✓ Kategori tersimpan':((res&&res.error)||'Gagal simpan kategori.');
+        if(res&&res.ok) loadWoo(); });
   }
   // Rupiah ⇄ USD (kurs live WOO_RATE)
   function usdNum2rp(usd){ var n=parseFloat(String(usd).replace(/[^0-9.]/g,'')); return (!n||isNaN(n))?'':String(Math.round(n*WOO_RATE)); }
@@ -1129,17 +1225,51 @@
     if(!p.vars.length) return '<div class="pf"><label>Variasi</label><div style="color:#888;font-size:12px">Tidak ada variasi.</div></div>';
     return '<div class="pf"><label>Variasi — harga (Rp) &amp; stok per ukuran/warna '+
         '<span class="po-hint">nama variasi bisa diklik-edit (berlaku di semua produk)</span></label>'+
-      '<table class="vtab"><thead><tr><th>Variasi</th><th>Harga Reg. (Rp)</th><th>Harga Sale (Rp)</th><th>Stok</th></tr></thead><tbody>'+
+      '<table class="vtab"><thead><tr><th>Warna</th><th>Variasi</th><th>Harga Reg. (Rp)</th><th>Harga Sale (Rp)</th><th>Stok</th><th></th></tr></thead><tbody>'+
       p.vars.map(function(v,i){
         var t=(PROD.terms||[]).filter(function(x){ return x.name===v.name; })[0];
+        var sw = t
+          ? '<input type="color" class="swin" value="'+esc(t.color||'#cccccc')+'" title="Klik untuk ganti warna kotak di website" '+
+            'onchange="setTermColor('+t.attr+','+t.term+',this.value,this)">'
+          : '';
         var nameCell = t
           ? '<span class="edit" contenteditable="true" data-attr="'+t.attr+'" data-term="'+t.term+'" data-orig="'+esc(v.name)+'" onblur="renameTerm(this)" title="Klik untuk ganti nama — berlaku di semua produk">'+esc(v.name)+'</span>'
           : esc(v.name);
-        return '<tr><td>'+nameCell+'</td>'+
+        return '<tr><td style="width:38px">'+sw+'</td><td>'+nameCell+'</td>'+
           '<td><input class="vin" data-i="'+i+'" data-f="regular_price" value="'+esc(usdNum2rp(v.regular_price))+'" oninput="usdEcho(this,\'rpv-'+i+'\')"><div class="prp" id="rpv-'+i+'">'+usdEchoTxt(usdNum2rp(v.regular_price))+'</div></td>'+
           '<td><input class="vin" data-i="'+i+'" data-f="sale_price" value="'+esc(usdNum2rp(v.sale_price))+'" oninput="usdEcho(this,\'rps-'+i+'\')"><div class="prp" id="rps-'+i+'">'+usdEchoTxt(usdNum2rp(v.sale_price))+'</div></td>'+
-          '<td><input class="vin" data-i="'+i+'" data-f="stock" value="'+esc(v.stock)+'"></td></tr>';
-      }).join('')+'</tbody></table></div>';
+          '<td><input class="vin" data-i="'+i+'" data-f="stock" value="'+esc(v.stock)+'"></td>'+
+          '<td style="width:30px"><button class="cbtn" style="padding:1px 6px;border-color:#cc3333;color:#cc3333" title="Hapus variasi ini" onclick="delVariation('+v.id+',\''+esc(v.name)+'\')">✕</button></td></tr>';
+      }).join('')+'</tbody></table>'+
+      '<button class="cbtn" style="margin-top:8px;border-color:#16a34a;color:#16a34a" onclick="addVariation()">＋ Tambah Warna</button>'+
+      '</div>';
+  }
+  function setTermColor(attr, term, color, el){
+    el.style.outline='2px solid #e0912f';
+    jsonp(WEB_APP_URL+'?page=admin&action=wooTermColor&attr='+attr+'&term='+term+'&color='+encodeURIComponent(color)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ el.style.outline=(res&&res.ok)?'2px solid #16a34a':'2px solid #cc3333';
+        setTimeout(function(){ el.style.outline=''; },1200); if(res&&!res.ok) alert(res.error); });
+  }
+  function addVariation(){
+    if(!PROD||!PROD.id) return;
+    var nm=prompt('Nama warna baru (mis. "Milling Navy"):'); if(!nm) return;
+    var col=prompt('Kode warna kotak di website (hex, mis. #1b2a4a):','#888888')||'';
+    var rp=prompt('Harga reguler dalam Rupiah (boleh dikosongkan):','')||'';
+    var st=prompt('Stok (boleh dikosongkan):','')||'';
+    var msg=document.getElementById('prodMsg'); msg.textContent='Menambah warna…';
+    jsonp(WEB_APP_URL+'?page=admin&action=wooVarAdd&id='+PROD.id+'&attr=1&name='+encodeURIComponent(nm)+
+      '&color='+encodeURIComponent(col)+'&rprice='+encodeURIComponent(rp?rp2usd(rp):'')+'&stock='+encodeURIComponent(st.replace(/[^0-9]/g,''))+
+      '&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(res&&res.ok){ msg.textContent='✓ Warna "'+nm+'" ditambahkan'; openProd(PROD.id, PROD.name); }
+        else { msg.textContent=''; alert((res&&res.error)||'Gagal menambah warna.'); }
+      });
+  }
+  function delVariation(vid, nama){
+    if(!PROD||!PROD.id) return;
+    if(!confirm('Hapus variasi "'+nama+'" dari produk ini?\n(Warna tetap ada di daftar warna global.)')) return;
+    jsonp(WEB_APP_URL+'?page=admin&action=wooVarDel&id='+PROD.id+'&vid='+vid+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ if(res&&res.ok) openProd(PROD.id, PROD.name); else alert((res&&res.error)||'Gagal hapus.'); });
   }
   function renameTerm(el){
     var v=el.textContent.trim(), orig=el.getAttribute('data-orig');
