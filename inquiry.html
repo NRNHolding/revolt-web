@@ -111,7 +111,7 @@
   }
   var WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbytT2sBQnWArb78bUDAGW1yHn1iW5yXGlTw_nZ6fSt6ak54OUOIUcJ2ZgoR6n4z3KKP/exec';
   var URL_LANG = (new URLSearchParams(location.search)).get('lang');
-  var LANG = ('' || URL_LANG || detectLang());   // appscript template → ?lang= → auto-deteksi
+  var LANG = ('' || URL_LANG || 'en');   // situs berbahasa Inggris — ID hanya lewat tombol/?lang=id
   var IMAGES = [];   // { name, mimeType, data(base64), preview(dataURL) }
   var MAX_IMAGES = 8;
 

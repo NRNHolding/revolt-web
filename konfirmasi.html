@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Konfirmasi Pembayaran — Revolt Industry</title>
+<title>Payment Confirmation — Revolt Industry</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:'Segoe UI',Arial,sans-serif;background:#12120f;color:#ececec;padding:22px 14px 40px;line-height:1.5}
@@ -50,19 +50,19 @@
 <body>
 <div class="wrap">
   <div class="logo">R<span>∃</span>VOLT INDUSTRY</div>
-  <div class="sub">Konfirmasi Pembayaran</div>
+  <div class="sub">Payment Confirmation</div>
 
   <div id="step1" class="card">
-    <h2>Masukkan Nomor Order</h2>
-    <label>Nomor Order (ada di email / halaman setelah checkout)</label>
-    <input id="ordno" inputmode="numeric" placeholder="mis. 1592">
-    <button class="btn" id="btnCek" onclick="cek()">Cek Pesanan</button>
+    <h2>Enter Your Order Number</h2>
+    <label>Order number (in your email, or on the page after checkout)</label>
+    <input id="ordno" inputmode="numeric" placeholder="e.g. 1592">
+    <button class="btn" id="btnCek" onclick="cek()">Find My Order</button>
     <div class="msg err" id="err1"></div>
   </div>
 
   <div id="step2" style="display:none">
     <div class="card">
-      <h2>Total Pembayaran</h2>
+      <h2>Amount To Pay</h2>
       <div class="amt">
         <div class="usd" id="a-usd">$0</div>
         <div class="idr" id="a-idr">Rp 0</div>
@@ -70,43 +70,43 @@
       </div>
       <div id="i-items"></div>
       <div style="margin-top:13px">
-        <div class="rowline"><span>Nomor Order</span><b id="i-no"></b></div>
-        <div class="rowline"><span>Nama</span><b id="i-nama"></b></div>
-        <div class="rowline"><span>Tanggal</span><b id="i-tgl"></b></div>
+        <div class="rowline"><span>Order number</span><b id="i-no"></b></div>
+        <div class="rowline"><span>Name</span><b id="i-nama"></b></div>
+        <div class="rowline"><span>Date</span><b id="i-tgl"></b></div>
         <div class="rowline"><span>Status</span><b id="i-stat"></b></div>
       </div>
       <div class="bank">
-        Transfer ke:<br><b>BCA 7883702788</b><br>a.n. Nandhi Adipati Bhumi
-        <div class="hint">Boleh transfer dalam Rupiah sesuai nominal di atas.</div>
+        Transfer to:<br><b>BCA 7883702788</b><br>Account holder: Nandhi Adipati Bhumi
+        <div class="hint">You may transfer in Rupiah using the amount shown above.</div>
       </div>
     </div>
 
     <div class="card">
-      <h2>Upload Bukti Transfer</h2>
+      <h2>Upload Transfer Proof</h2>
       <div class="drop" id="drop" onclick="document.getElementById('file').click()">
-        📷 Ketuk untuk pilih foto bukti transfer
+        📷 Tap to choose your transfer receipt
       </div>
       <img id="prev">
       <input type="file" id="file" accept="image/*" style="display:none" onchange="pick(this)">
-      <label>Nama Pengirim (opsional)</label>
-      <input id="pengirim" placeholder="Nama di rekening pengirim">
-      <label>Catatan (opsional)</label>
-      <textarea id="note" rows="2" placeholder="mis. transfer 2x, atau minta dikirim cepat"></textarea>
-      <button class="btn" id="btnKirim" onclick="kirim()" disabled>Kirim Bukti Transfer</button>
+      <label>Sender name (optional)</label>
+      <input id="pengirim" placeholder="Name on the sending account">
+      <label>Note (optional)</label>
+      <textarea id="note" rows="2" placeholder="e.g. paid in two transfers, or please ship sooner"></textarea>
+      <button class="btn" id="btnKirim" onclick="kirim()" disabled>Send Transfer Proof</button>
       <div class="msg err" id="err2"></div>
-      <a class="btn2" id="walink" href="#" target="_blank">💬 Konfirmasi via WhatsApp</a>
+      <a class="btn2" id="walink" href="#" target="_blank">💬 Confirm via WhatsApp</a>
     </div>
   </div>
 
   <div id="step3" style="display:none">
     <div class="card done">
       <div class="ic">✅</div>
-      <h2 style="margin:12px 0 6px;color:#8ee5a8">Bukti Transfer Terkirim</h2>
-      <div style="font-size:13px;color:#bbb">Terima kasih! Tim kami akan mengecek pembayaranmu dan mengabari lewat WhatsApp/email.</div>
+      <h2 style="margin:12px 0 6px;color:#8ee5a8">Transfer Proof Received</h2>
+      <div style="font-size:13px;color:#bbb">Thank you! Our team will verify your payment and update you via WhatsApp or email.</div>
       <div style="font-size:13px;margin-top:12px">Order <b id="d-no"></b></div>
-      <a class="btn2" id="viewOrderBtn" href="#" style="display:none;background:#e0912f;color:#141414">📄 Lihat Pesananku</a>
+      <a class="btn2" id="viewOrderBtn" href="#" style="display:none;background:#e0912f;color:#141414">📄 View My Order</a>
       <div id="cdown" style="font-size:11px;color:#8a8a80;margin-top:8px"></div>
-      <a class="btn2" id="walink2" href="#" target="_blank">💬 Chat Admin</a>
+      <a class="btn2" id="walink2" href="#" target="_blank">💬 Chat With Us</a>
     </div>
   </div>
 </div>
@@ -141,21 +141,21 @@
 
   function cek(){
     var no=(document.getElementById('ordno').value||'').replace(/[^0-9]/g,'');
-    if(!no){ show('err1','Isi nomor order dulu ya.'); return; }
-    var b=document.getElementById('btnCek'); b.disabled=true; b.textContent='Mengecek…'; show('err1','');
+    if(!no){ show('err1','Please enter your order number.'); return; }
+    var b=document.getElementById('btnCek'); b.disabled=true; b.textContent='Checking…'; show('err1','');
     jsonp(WEB_APP_URL+'?action=orderInfo&order='+no, function(res){
-      b.disabled=false; b.textContent='Cek Pesanan';
-      if(!res||!res.ok){ show('err1',(res&&res.error)||'Gagal terhubung. Coba lagi.'); return; }
+      b.disabled=false; b.textContent='Find My Order';
+      if(!res||!res.ok){ show('err1',(res&&res.error)||'Could not connect. Please try again.'); return; }
       ORDER=res;
       document.getElementById('a-usd').textContent='$'+res.total;
       document.getElementById('a-idr').textContent='≈ '+rp(res.idr);
-      document.getElementById('a-rate').textContent='kurs $1 = '+rp(Math.round(res.rate));
+      document.getElementById('a-rate').textContent='rate $1 = '+rp(Math.round(res.rate));
       var it=res.items||[];
       document.getElementById('i-items').innerHTML = it.length
-        ? '<div class="sechead">Pesananmu</div>'+it.map(function(x){
+        ? '<div class="sechead">Your Order</div>'+it.map(function(x){
             return '<div class="oitem">'+
               (x.img?'<img src="'+x.img+'" alt="">':'<img alt="">')+
-              '<div class="nm">'+x.name+'<div class="qt">Jumlah: '+x.qty+'</div></div>'+
+              '<div class="nm">'+x.name+'<div class="qt">Qty: '+x.qty+'</div></div>'+
               '<div class="pr">$'+x.total+'<small>'+rp(x.idr)+'</small></div></div>';
           }).join('')
         : '';
@@ -163,7 +163,7 @@
       document.getElementById('i-nama').textContent=res.name||'-';
       document.getElementById('i-tgl').textContent=res.date||'-';
       document.getElementById('i-stat').textContent=res.status;
-      var txt=encodeURIComponent('Halo Revolt, saya mau konfirmasi pembayaran order #'+res.number+' sebesar '+rp(res.idr)+' ($'+res.total+').');
+      var txt=encodeURIComponent('Hi Revolt, I would like to confirm payment for order #'+res.number+' of '+rp(res.idr)+' ($'+res.total+').');
       document.getElementById('walink').href='https://wa.me/'+WA_NUMBER+'?text='+txt;
       document.getElementById('walink2').href='https://wa.me/'+WA_NUMBER+'?text='+txt;
       document.getElementById('step1').style.display='none';
@@ -184,7 +184,7 @@
         var d=c.toDataURL('image/jpeg',0.85);
         IMG=d.split(',')[1];
         var p=document.getElementById('prev'); p.src=d; p.style.display='block';
-        document.getElementById('drop').textContent='✓ Foto siap dikirim — ketuk untuk ganti';
+        document.getElementById('drop').textContent='✓ Photo ready — tap to change';
         document.getElementById('btnKirim').disabled=false;
       };
       img.src=e.target.result;
@@ -193,8 +193,8 @@
   }
 
   function kirim(){
-    if(!IMG||!ORDER){ show('err2','Pilih foto bukti transfer dulu.'); return; }
-    var b=document.getElementById('btnKirim'); b.disabled=true; b.textContent='Mengirim…'; show('err2','');
+    if(!IMG||!ORDER){ show('err2','Please choose your transfer receipt first.'); return; }
+    var b=document.getElementById('btnKirim'); b.disabled=true; b.textContent='Sending…'; show('err2','');
     var token='t'+Date.now()+Math.floor(Math.random()*9999);
     var payload={ order:ORDER.number, nama:document.getElementById('pengirim').value.trim(),
       note:document.getElementById('note').value.trim(), mime:'image/jpeg', image:IMG };
@@ -208,7 +208,7 @@
     var tries=0;
     (function poll(){
       tries++;
-      if(tries>22){ b.disabled=false; b.textContent='Kirim Bukti Transfer'; show('err2','Koneksi lambat. Coba kirim ulang atau hubungi via WhatsApp.'); return; }
+      if(tries>22){ b.disabled=false; b.textContent='Send Transfer Proof'; show('err2','The connection is slow. Please try again or reach us on WhatsApp.'); return; }
       jsonp(WEB_APP_URL+'?page=admin&action=pollResult&token='+token, function(res){
         if(res && !res.pending){
           if(res.ok){ document.getElementById('d-no').textContent='#'+ORDER.number;
@@ -218,10 +218,10 @@
             var vb=document.getElementById('viewOrderBtn');
             if(vb){ vb.href=vu; vb.style.display=''; }
             var cd=document.getElementById('cdown');
-            if(cd){ var s=5; cd.textContent='Mengarahkan ke halaman pesananmu dalam '+s+' detik…';
+            if(cd){ var s=5; cd.textContent='Taking you to your order page in '+s+' seconds…';
               var iv=setInterval(function(){ s--; if(s<=0){ clearInterval(iv); location.href=vu; }
-                else cd.textContent='Mengarahkan ke halaman pesananmu dalam '+s+' detik…'; }, 1000); } }
-          else { b.disabled=false; b.textContent='Kirim Bukti Transfer'; show('err2',res.error||'Gagal kirim.'); }
+                else cd.textContent='Taking you to your order page in '+s+' seconds…'; }, 1000); } }
+          else { b.disabled=false; b.textContent='Send Transfer Proof'; show('err2',res.error||'Failed to send.'); }
         } else setTimeout(poll,1500);
       });
     })();
