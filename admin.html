@@ -179,6 +179,9 @@
     .prp { font-size: 10px; color: #e0912f; margin-top: 3px; min-height: 12px; }
     @media (max-width: 640px) { .wgrid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 9px; } .wname { font-size: 11.5px; } }
 
+    #katModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
+    #katModal.show { display: block; }
+
     /* ── Edit Produk (Woo) ── */
     #prodModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
     #prodModal.show { display: block; }
@@ -548,6 +551,7 @@
           '<select id="wcat" onchange="loadWoo()"><option value="">Semua kategori</option></select>' +
           '<button class="cbtn" onclick="loadWoo()">Muat</button>' +
           '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="openNewProd()">＋ Produk Baru</button>' +
+          '<button class="cbtn" style="border-color:#3b82f6;color:#7cb3ff" onclick="openKatalog()">📷 Galeri Foto</button>' +
           '<span id="woomsg" style="color:#888;font-size:11px"></span>' +
         '</div>' +
         '<div id="wooBody"><div class="loading">Buka tab untuk memuat…</div></div>' +
@@ -891,7 +895,7 @@
       p.vars.map(function(v,i){
         return '<tr><td>'+esc(v.name)+'</td>'+
           '<td><input class="vin" data-i="'+i+'" data-f="regular_price" value="'+esc(v.regular_price)+'" oninput="rpEcho(this,\'rpv-'+i+'\')"><div class="prp" id="rpv-'+i+'">'+usd2rp(v.regular_price)+'</div></td>'+
-          '<td><input class="vin" data-i="'+i+'" data-f="sale_price" value="'+esc(v.sale_price)+'"></td>'+
+          '<td><input class="vin" data-i="'+i+'" data-f="sale_price" value="'+esc(v.sale_price)+'" oninput="rpEcho(this,\'rps-'+i+'\')"><div class="prp" id="rps-'+i+'">'+usd2rp(v.sale_price)+'</div></td>'+
           '<td><input class="vin" data-i="'+i+'" data-f="stock" value="'+esc(v.stock)+'"></td></tr>';
       }).join('')+'</tbody></table></div>';
   }
@@ -947,13 +951,14 @@
     })();
   }
   // POST (file besar) lalu ambil hasilnya via token + polling JSONP
-  function postFileCb(action, filename, mime, b64, done){
+  function postFileCb(action, filename, mime, b64, done, id){
     var token='t'+Date.now()+Math.floor(Math.random()*9999);
     var iframe=document.getElementById('saveframe');
     if(!iframe){ iframe=document.createElement('iframe'); iframe.name='saveframe'; iframe.id='saveframe'; iframe.style.display='none'; document.body.appendChild(iframe); }
     var form=document.createElement('form'); form.method='POST'; form.action=WEB_APP_URL; form.target='saveframe';
     function add(n,v){ var i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; form.appendChild(i); }
     add('action',action); add('key',ADMIN_KEY); add('filename',filename); add('mime',mime); add('data',b64); add('token',token);
+    if(id) add('id',id);
     document.body.appendChild(form); form.submit();
     setTimeout(function(){ if(form.parentNode) document.body.removeChild(form); }, 1000);
     var tries=0;
@@ -1260,7 +1265,7 @@
         '<td data-v="'+(o.estMs||0)+'"'+dlStyle+'>'+esc(o.estCompletion)+(days!==null&&days<0?' ⚠':'')+'</td>' +
         '<td data-v="'+esc(o.status)+'">'+statusBadge(o.status)+'</td>' +
         '<td>'+link+'</td>' +
-        '<td><button class="cbtn" onclick="openTimeline(\''+esc(o.orderId)+'\')">Riwayat</button> <button class="cbtn" onclick="openInvoice(\''+esc(o.orderId)+'\',\'dp\')">DP</button> <button class="cbtn" onclick="openInvoice(\''+esc(o.orderId)+'\',\'lunas\')">Lunas</button> <button class="cbtn" onclick="openSheet(\''+esc(o.orderId)+'\')">Sheet</button>' +
+        '<td><button class="cbtn" style="border-color:#3b82f6;color:#7cb3ff" onclick="pickOrderPhoto(\''+esc(o.orderId)+'\')">📷 Foto</button> <button class="cbtn" onclick="openTimeline(\''+esc(o.orderId)+'\')">Riwayat</button> <button class="cbtn" onclick="openInvoice(\''+esc(o.orderId)+'\',\'dp\')">DP</button> <button class="cbtn" onclick="openInvoice(\''+esc(o.orderId)+'\',\'lunas\')">Lunas</button> <button class="cbtn" onclick="openSheet(\''+esc(o.orderId)+'\')">Sheet</button>' +
           ' <button class="cbtn" style="border-color:#e0912f;color:#e0912f" onclick="openPO(\''+esc(o.orderId)+'\')">PO</button></td>' +
       '</tr>';
     }).join('');
@@ -1748,6 +1753,120 @@
       setTimeout(function(){ document.body.removeChild(form); btn.disabled=false; btn.textContent=old;
         alert('Invoice dikirim ke folder Drive client ✅\n(File lama tipe sama otomatis diganti.)'); }, 1500);
     }).catch(function(e){ p.classList.remove('exporting'); btn.disabled=false; btn.textContent=old; alert('Gagal: '+e.message); });
+  }
+
+  // ── Upload foto CUSTOMER (masuk folder Drive order → tampil di link tracking) ──
+  var PHOTO_ORDER='';
+  function pickOrderPhoto(orderId){ PHOTO_ORDER=orderId; document.getElementById('orderPhotoInput').click(); }
+  function orderPhotoPick(input){
+    var files=Array.prototype.slice.call(input.files||[]); input.value='';
+    if(!files.length || !PHOTO_ORDER) return;
+    var bar=document.getElementById('upBar');
+    bar.style.display='block'; bar.textContent='Mengunggah 0/'+files.length+' ke '+PHOTO_ORDER+'…';
+    var done=0, gagal=0;
+    files.forEach(function(f){
+      shrinkImage(f, 1600, 0.85, function(b64){
+        postFileCb('orderPhoto', f.name, 'image/jpeg', b64, function(res){
+          if(!(res&&res.ok)) gagal++;
+          done++;
+          bar.textContent='Mengunggah '+done+'/'+files.length+' ke '+PHOTO_ORDER+'…';
+          if(done===files.length){
+            bar.textContent = gagal ? ('Selesai — '+(files.length-gagal)+' foto terunggah, '+gagal+' gagal') : ('✓ '+files.length+' foto masuk folder '+PHOTO_ORDER);
+            setTimeout(function(){ bar.style.display='none'; }, 4000);
+          }
+        }, PHOTO_ORDER);
+      });
+    });
+  }
+  // kompres gambar sebelum upload
+  function shrinkImage(file, max, q, cb){
+    var r=new FileReader();
+    r.onload=function(e){
+      var im=new Image();
+      im.onload=function(){
+        var w=im.width, h=im.height;
+        if(w>max||h>max){ if(w>h){ h=Math.round(h*max/w); w=max; } else { w=Math.round(w*max/h); h=max; } }
+        var c=document.createElement('canvas'); c.width=w; c.height=h;
+        c.getContext('2d').drawImage(im,0,0,w,h);
+        cb(c.toDataURL('image/jpeg',q).split(',')[1]);
+      };
+      im.src=e.target.result;
+    };
+    r.readAsDataURL(file);
+  }
+
+  // ── Galeri foto KATALOG (Drive per kategori → kirim ke Media Library WP) ──
+  function openKatalog(){
+    document.getElementById('katModal').classList.add('show');
+    var sel=document.getElementById('katCat');
+    if(sel && !sel.options.length){
+      jsonp(WEB_APP_URL+'?page=admin&action=wooCats&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+        function(res){
+          var cats=(res&&res.ok)?(res.cats||[]):[];
+          sel.innerHTML=cats.map(function(c){ return '<option>'+esc(String(c.name).replace(/&amp;/g,'&'))+'</option>'; }).join('')+'<option>Umum</option>';
+          loadKatalog();
+        });
+    } else loadKatalog();
+  }
+  function closeKatalog(){ document.getElementById('katModal').classList.remove('show'); }
+  function loadKatalog(){
+    var cat=(document.getElementById('katCat')||{}).value||'Umum';
+    var b=document.getElementById('katBody');
+    b.innerHTML='<div class="loading">Memuat foto…</div>';
+    jsonp(WEB_APP_URL+'?page=admin&action=katalogList&cat='+encodeURIComponent(cat)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(!res||!res.ok){ b.innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
+        var it=res.items||[];
+        if(!it.length){ b.innerHTML='<div class="loading">Belum ada foto di kategori <b>'+esc(cat)+'</b>.</div>'; return; }
+        b.innerHTML='<div class="wgrid">'+it.map(function(f){
+          return '<div class="wcard"><div class="wimg"><img src="'+esc(f.thumb)+'" loading="lazy"></div>'+
+            '<div class="wbody"><div class="wcat" style="word-break:break-all">'+esc(f.name)+'</div>'+
+            '<div class="wfoot"><a class="link" href="'+esc(f.url)+'" target="_blank">drive</a>'+
+            '<button class="cbtn" onclick="pushKat(\''+f.id+'\',this)">→ Kirim ke Web</button></div></div></div>';
+        }).join('')+'</div>';
+      });
+  }
+  function pushKat(id, btn){
+    var old=btn.textContent; btn.disabled=true; btn.textContent='Mengirim…';
+    jsonp(WEB_APP_URL+'?page=admin&action=katalogPush&id='+encodeURIComponent(id)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        btn.disabled=false;
+        if(res&&res.ok){ btn.textContent='✓ di Media Library'; btn.style.color='#16a34a';
+          copyText(res.src); document.getElementById('katMsg').textContent='URL foto disalin — tempel di Edit Produk → ＋ dari URL'; }
+        else { btn.textContent=old; alert((res&&res.error)||'Gagal.'); }
+      });
+  }
+  function katUpload(input){
+    var files=Array.prototype.slice.call(input.files||[]); input.value='';
+    if(!files.length) return;
+    var cat=(document.getElementById('katCat')||{}).value||'Umum';
+    var toWp=document.getElementById('katToWp').checked?'1':'0';
+    var msg=document.getElementById('katMsg');
+    var done=0;
+    msg.textContent='Mengunggah 0/'+files.length+' ke kategori '+cat+'…';
+    files.forEach(function(f){
+      shrinkImage(f, 2000, 0.9, function(b64){
+        postKat(cat, f.name, b64, toWp, function(){
+          done++; msg.textContent='Mengunggah '+done+'/'+files.length+'…';
+          if(done===files.length){ msg.textContent='✓ '+files.length+' foto masuk "'+cat+'"'; loadKatalog(); }
+        });
+      });
+    });
+  }
+  function postKat(cat, filename, b64, toWp, done){
+    var token='t'+Date.now()+Math.floor(Math.random()*9999);
+    var iframe=document.getElementById('saveframe');
+    if(!iframe){ iframe=document.createElement('iframe'); iframe.name='saveframe'; iframe.id='saveframe'; iframe.style.display='none'; document.body.appendChild(iframe); }
+    var form=document.createElement('form'); form.method='POST'; form.action=WEB_APP_URL; form.target='saveframe';
+    function add(n,v){ var i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; form.appendChild(i); }
+    add('action','katalogPhoto'); add('key',ADMIN_KEY); add('cat',cat); add('filename',filename);
+    add('mime','image/jpeg'); add('data',b64); add('toWp',toWp); add('token',token);
+    document.body.appendChild(form); form.submit();
+    setTimeout(function(){ if(form.parentNode) document.body.removeChild(form); }, 1200);
+    var tries=0;
+    (function poll(){ tries++; if(tries>25){ done({ok:false}); return; }
+      jsonp(WEB_APP_URL+'?page=admin&action=pollResult&token='+token+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+        function(res){ if(res && !res.pending) done(res); else setTimeout(poll,1500); }); })();
   }
 
   // ── Riwayat / Timeline order (dari Trello card actions) ──
@@ -2272,6 +2391,23 @@
   </div>
 </div>
 <input type="file" id="prodImgInput" accept="image/*" style="display:none" onchange="prodImgPick(this)">
+
+<div id="katModal">
+  <div style="max-width:900px;margin:0 auto">
+    <div class="inv-bar" style="flex-wrap:wrap">
+      <strong style="color:#f5f4ef;margin-right:auto">Galeri Foto Katalog</strong>
+      <select id="katCat" class="istatus" onchange="loadKatalog()"></select>
+      <label style="color:#bbb;font-size:11px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="katToWp" checked> langsung ke Media Library WP</label>
+      <button class="inv-dl" onclick="document.getElementById('katInput').click()">＋ Upload Foto</button>
+      <button class="inv-cls" onclick="closeKatalog()">Tutup</button>
+    </div>
+    <div id="katMsg" style="color:#e0912f;font-size:12px;margin-bottom:8px"></div>
+    <div id="katBody"></div>
+  </div>
+</div>
+<input type="file" id="katInput" accept="image/*" multiple style="display:none" onchange="katUpload(this)">
+<input type="file" id="orderPhotoInput" accept="image/*" multiple style="display:none" onchange="orderPhotoPick(this)">
+<div id="upBar" style="display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:9999;background:#1c1c17;border:1px solid #e0912f;color:#e0912f;padding:11px 18px;border-radius:9px;font-size:13px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.5)"></div>
 
 <input type="file" id="poImgInput" accept="image/*" style="display:none" onchange="poImgPick(this)">
 <input type="file" id="sheetImgInput" accept="image/*" style="display:none" onchange="sheetImgPick(this)">
