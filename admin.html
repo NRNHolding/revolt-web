@@ -2322,9 +2322,12 @@
           '<div id="katPreview" class="kprev"></div>'+
           '<div style="display:flex;gap:9px;align-items:center;margin-top:11px;flex-wrap:wrap">'+
             '<button class="inv-dl" id="katUpBtn" onclick="katKirim(this)" disabled>Upload foto</button>'+
-            '<label style="color:#bbb;font-size:11px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="katToWp" checked> kirim juga ke Media Library WordPress</label>'+
+            '<label style="color:#bbb;font-size:11px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="katToWp"> salin juga ke Media Library WordPress (untuk foto produk toko)</label>'+
             '<span id="katMsg" style="color:#e0912f;font-size:12px"></span>'+
-          '</div>';
+          '</div>'+
+          '<div style="font-size:11px;color:#888;margin-top:8px">Setelah upload, foto langsung tampil di '+
+            '<a class="link" href="https://revoltindustry.com/custom-order/" target="_blank">revoltindustry.com/custom-order/</a> '+
+            '(refresh halamannya). Kalau belum berubah, klik <b>Segarkan Web</b> di atas.</div>';
     } else {
       s3+='<div style="color:#888;font-size:12px;margin-top:8px">Selesaikan langkah 1 dan 2 dulu.</div>';
     }
@@ -2392,13 +2395,24 @@
         sel++; msg.textContent='Mengunggah '+sel+'/'+total+'…';
         if(sel===total){
           msg.textContent = gagal ? ('Selesai — '+(total-gagal)+' berhasil, '+gagal+' gagal')
-                                  : ('✓ '+total+' foto masuk '+cat+' › '+prod);
+                                  : ('✓ '+total+' foto masuk '+cat+' › '+prod+' — sudah tayang di website');
           if(window.__KATPRODS && !window.__KATPRODS.some(function(x){ return x.name===prod; }))
             window.__KATPRODS.push({name:prod, ids:[]});
           KAT.files=[]; renderKatPreview(); loadKatFoto();
         }
       });
     });
+  }
+
+  function katSegarkan(btn){
+    var old=btn.textContent; btn.disabled=true; btn.textContent='Menyegarkan…';
+    jsonp(WEB_APP_URL+'?page=admin&action=katalogRefresh&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        btn.disabled=false; btn.textContent=old;
+        var m=document.getElementById('katMsg');
+        var t=(res&&res.ok)?'✓ Website disegarkan — refresh halaman /custom-order/':((res&&res.error)||'Gagal menyegarkan.');
+        if(m) m.textContent=t; else alert(t);
+      });
   }
 
   function loadKatFoto(){
@@ -2412,7 +2426,7 @@
           return '<div class="wcard"><div class="wimg"><img src="'+esc(f.thumb)+'" loading="lazy"></div>'+
             '<div class="wbody"><div class="wcat" style="word-break:break-all">'+esc(f.name)+'</div>'+
             '<div class="wfoot"><a class="link" href="'+esc(f.url)+'" target="_blank">drive</a>'+
-            '<button class="cbtn" onclick="pushKat(\''+f.id+'\',this)">→ Kirim ke Web</button></div></div></div>';
+            '<button class="cbtn" title="Salin foto ini ke Media Library WordPress (untuk dipakai di foto produk toko)" onclick="pushKat(\''+f.id+'\',this)">→ Media Library</button></div></div></div>';
         }).join('')+'</div>';
       });
   }
@@ -3010,6 +3024,7 @@
   <div style="max-width:900px;margin:0 auto">
     <div class="inv-bar" style="flex-wrap:wrap">
       <strong style="color:#f5f4ef;margin-right:auto">Tambah Foto Katalog <span style="font-weight:400;font-size:11px;color:#888">Drive: 5. Customize Order Catalogue</span></strong>
+      <button class="cbtn" id="katRefBtn" onclick="katSegarkan(this)" title="Paksa website ambil data katalog terbaru">↻ Segarkan Web</button>
       <button class="inv-cls" onclick="closeKatalog()">Tutup</button>
     </div>
     <div id="katBody"></div>
