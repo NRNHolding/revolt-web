@@ -2438,8 +2438,19 @@
           return '<div class="wcard"><div class="wimg"><img src="'+esc(f.thumb)+'" loading="lazy"></div>'+
             '<div class="wbody"><div class="wcat" style="word-break:break-all">'+esc(f.name)+'</div>'+
             '<div class="wfoot"><a class="link" href="'+esc(f.url)+'" target="_blank">drive</a>'+
-            '<button class="cbtn" title="Salin foto ini ke Media Library WordPress (untuk dipakai di foto produk toko)" onclick="pushKat(\''+f.id+'\',this)">→ Media Library</button></div></div></div>';
+            '<button class="cbtn" title="Salin foto ini ke Media Library WordPress (untuk dipakai di foto produk toko)" onclick="pushKat(\''+f.id+'\',this)">→ Media Library</button>'+
+            '<button class="cbtn" style="border-color:#8a3b3b;color:#d97a7a" title="Hapus foto (masuk Trash Drive)" onclick="hapusKat(\''+f.id+'\',this)">✕</button></div></div></div>';
         }).join('')+'</div>';
+      });
+  }
+  function hapusKat(id, btn){
+    if(!confirm('Hapus foto ini dari katalog?\n(Masuk Trash Drive, masih bisa dipulihkan.)')) return;
+    btn.disabled=true; btn.textContent='…';
+    jsonp(WEB_APP_URL+'?page=admin&action=katalogDel&id='+encodeURIComponent(id)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(res&&res.ok){ var c=btn.closest('.wcard'); if(c) c.remove();
+          var m=document.getElementById('katMsg'); if(m) m.textContent='Foto dihapus.'; }
+        else { btn.disabled=false; btn.textContent='✕'; alert((res&&res.error)||'Gagal hapus.'); }
       });
   }
   function pushKat(id, btn){
