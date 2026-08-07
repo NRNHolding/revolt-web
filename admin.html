@@ -710,10 +710,12 @@
     jsonp(WEB_APP_URL+'?page=admin&action=wooProduct&id='+id+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
       function(res){
         if(!res||!res.ok){ document.getElementById('prodBody').innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
-        PROD=res.p; PROD.vars=null; renderProd();
+        PROD=res.p; PROD.vars=null; PROD.terms=[]; renderProd();
         if(PROD.type!=='simple'){
           jsonp(WEB_APP_URL+'?page=admin&action=wooVars&id='+id+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
             function(vr){ PROD.vars=(vr&&vr.ok)?(vr.items||[]):[]; renderProd(); });
+          jsonp(WEB_APP_URL+'?page=admin&action=wooTerms&id='+id+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+            function(tr){ if(tr&&tr.ok){ PROD.terms=tr.terms||[]; if(PROD.vars!==null) renderProd(); } });
         }
       });
   }
@@ -725,8 +727,8 @@
     }).join('');
     var priceBlock = simple
       ? '<div class="pgrid">'+
-          '<div class="pf"><label>Harga Reguler (USD)</label><input id="p-rprice" value="'+esc(p.regular_price)+'" oninput="rpEcho(this,\'rp-r\')"><div class="prp" id="rp-r">'+usd2rp(p.regular_price)+'</div></div>'+
-          '<div class="pf"><label>Harga Sale (USD)</label><input id="p-sprice" value="'+esc(p.sale_price)+'" oninput="rpEcho(this,\'rp-s\')"><div class="prp" id="rp-s">'+usd2rp(p.sale_price)+'</div></div>'+
+          '<div class="pf"><label>Harga Reguler (Rp)</label><input id="p-rprice" value="'+esc(usdNum2rp(p.regular_price))+'" oninput="usdEcho(this,\'rp-r\')"><div class="prp" id="rp-r">'+usdEchoTxt(usdNum2rp(p.regular_price))+'</div></div>'+
+          '<div class="pf"><label>Harga Sale (Rp)</label><input id="p-sprice" value="'+esc(usdNum2rp(p.sale_price))+'" oninput="usdEcho(this,\'rp-s\')"><div class="prp" id="rp-s">'+usdEchoTxt(usdNum2rp(p.sale_price))+'</div></div>'+
           '<div class="pf"><label>Stok</label><input id="p-stock" value="'+esc(p.stock)+'"></div>'+
           '<div class="pf"><label>Status</label>'+statusSel(p)+'</div>'+
         '</div>'
@@ -886,18 +888,39 @@
       cats.map(function(c){ return '<label class="catopt"><input type="checkbox" class="ccat" value="'+c.id+'"> '+esc(String(c.name).replace(/&amp;/g,'&'))+'</label>'; }).join('')+
       '</div></div>';
   }
+  // Rupiah ⇄ USD (kurs live WOO_RATE)
+  function usdNum2rp(usd){ var n=parseFloat(String(usd).replace(/[^0-9.]/g,'')); return (!n||isNaN(n))?'':String(Math.round(n*WOO_RATE)); }
+  function rp2usd(rp){ var n=parseFloat(String(rp).replace(/[^0-9]/g,'')); return (!n||isNaN(n))?'':String(Math.round(n/WOO_RATE*100)/100); }
+  function usdEchoTxt(rp){ var u=rp2usd(rp); return u?('= $'+u):''; }
+  function usdEcho(inp,id){ var e=document.getElementById(id); if(e) e.textContent=usdEchoTxt(inp.value); }
   function rpEcho(inp,id){ var e=document.getElementById(id); if(e) e.textContent=usd2rp(inp.value); }
+
   function varBlock(p){
     if(p.vars===null) return '<div class="pf"><label>Variasi</label><div style="color:#888;font-size:12px">Memuat variasi…</div></div>';
     if(!p.vars.length) return '<div class="pf"><label>Variasi</label><div style="color:#888;font-size:12px">Tidak ada variasi.</div></div>';
-    return '<div class="pf"><label>Variasi — harga (USD) & stok per ukuran/warna</label>'+
-      '<table class="vtab"><thead><tr><th>Variasi</th><th>Harga Reg.</th><th>Harga Sale</th><th>Stok</th></tr></thead><tbody>'+
+    return '<div class="pf"><label>Variasi — harga (Rp) &amp; stok per ukuran/warna '+
+        '<span class="po-hint">nama variasi bisa diklik-edit (berlaku di semua produk)</span></label>'+
+      '<table class="vtab"><thead><tr><th>Variasi</th><th>Harga Reg. (Rp)</th><th>Harga Sale (Rp)</th><th>Stok</th></tr></thead><tbody>'+
       p.vars.map(function(v,i){
-        return '<tr><td>'+esc(v.name)+'</td>'+
-          '<td><input class="vin" data-i="'+i+'" data-f="regular_price" value="'+esc(v.regular_price)+'" oninput="rpEcho(this,\'rpv-'+i+'\')"><div class="prp" id="rpv-'+i+'">'+usd2rp(v.regular_price)+'</div></td>'+
-          '<td><input class="vin" data-i="'+i+'" data-f="sale_price" value="'+esc(v.sale_price)+'" oninput="rpEcho(this,\'rps-'+i+'\')"><div class="prp" id="rps-'+i+'">'+usd2rp(v.sale_price)+'</div></td>'+
+        var t=(PROD.terms||[]).filter(function(x){ return x.name===v.name; })[0];
+        var nameCell = t
+          ? '<span class="edit" contenteditable="true" data-attr="'+t.attr+'" data-term="'+t.term+'" data-orig="'+esc(v.name)+'" onblur="renameTerm(this)" title="Klik untuk ganti nama — berlaku di semua produk">'+esc(v.name)+'</span>'
+          : esc(v.name);
+        return '<tr><td>'+nameCell+'</td>'+
+          '<td><input class="vin" data-i="'+i+'" data-f="regular_price" value="'+esc(usdNum2rp(v.regular_price))+'" oninput="usdEcho(this,\'rpv-'+i+'\')"><div class="prp" id="rpv-'+i+'">'+usdEchoTxt(usdNum2rp(v.regular_price))+'</div></td>'+
+          '<td><input class="vin" data-i="'+i+'" data-f="sale_price" value="'+esc(usdNum2rp(v.sale_price))+'" oninput="usdEcho(this,\'rps-'+i+'\')"><div class="prp" id="rps-'+i+'">'+usdEchoTxt(usdNum2rp(v.sale_price))+'</div></td>'+
           '<td><input class="vin" data-i="'+i+'" data-f="stock" value="'+esc(v.stock)+'"></td></tr>';
       }).join('')+'</tbody></table></div>';
+  }
+  function renameTerm(el){
+    var v=el.textContent.trim(), orig=el.getAttribute('data-orig');
+    if(!v || v===orig) { el.textContent=orig; return; }
+    if(!confirm('Ganti nama variasi "'+orig+'" jadi "'+v+'"?\n\nNama ini dipakai bersama — berubah di SEMUA produk yang memakainya.')){ el.textContent=orig; return; }
+    el.setAttribute('data-orig',v); el.style.outline='1px solid #e0912f';
+    jsonp(WEB_APP_URL+'?page=admin&action=wooTermRename&attr='+el.getAttribute('data-attr')+'&term='+el.getAttribute('data-term')+'&name='+encodeURIComponent(v)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){ el.style.outline=(res&&res.ok)?'1px solid #16a34a':'1px solid #cc3333';
+        setTimeout(function(){ el.style.outline=''; },1200);
+        if(res&&!res.ok){ alert(res.error); el.textContent=orig; el.setAttribute('data-orig',orig); } });
   }
   // simpan isi form ke PROD supaya tidak hilang saat re-render
   function syncProdForm(){
@@ -990,16 +1013,16 @@
       });
       return;
     }
-    if(PROD.type==='simple'){
-      payload.rprice=String(PROD.regular_price).replace(/[^0-9.]/g,'');
-      payload.sprice=String(PROD.sale_price).replace(/[^0-9.]/g,'');
+    if(PROD.type==='simple'){   // form diisi Rupiah → simpan sebagai USD
+      payload.rprice=rp2usd(PROD.regular_price);
+      payload.sprice=rp2usd(PROD.sale_price);
       payload.stock =String(PROD.stock).replace(/[^0-9]/g,'');
     }
-    // Variasi: kirim yang berubah (GET/JSONP per variasi)
+    // Variasi: kirim yang berubah (GET/JSONP per variasi) — nilai form Rupiah → USD
     var nVar=0;
     (PROD.vars||[]).forEach(function(v){
-      var q='&rprice='+encodeURIComponent(String(v.regular_price||''))+
-            '&sprice='+encodeURIComponent(String(v.sale_price||''))+
+      var q='&rprice='+encodeURIComponent(rp2usd(v.regular_price))+
+            '&sprice='+encodeURIComponent(rp2usd(v.sale_price))+
             '&stock='+encodeURIComponent(String(v.stock||''));
       nVar++;
       jsonp(WEB_APP_URL+'?page=admin&action=wooVarUpdate&pid='+PROD.id+'&vid='+v.id+q+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(), function(){});
