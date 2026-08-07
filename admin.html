@@ -201,6 +201,13 @@
     .kthumb img { width:100%; height:100%; object-fit:cover; display:block; }
     .kthumb .cbtn { position:absolute; top:3px; right:3px; padding:1px 6px; font-size:11px; background:rgba(0,0,0,.7); }
     @media(max-width:640px){ .kspick { margin-left:0; width:100%; } }
+    /* Tata ulang urutan foto katalog */
+    .katcard { cursor:grab; }
+    .katcard.katdrag { opacity:.35; }
+    .katcard.katover { outline:2px dashed #e0912f; outline-offset:2px; }
+    .katno { position:absolute; top:6px; left:6px; background:rgba(0,0,0,.72); color:#fff; font-size:11px;
+      font-weight:800; border-radius:50%; width:22px; height:22px; display:flex; align-items:center;
+      justify-content:center; z-index:2; }
 
     /* ── Edit Produk (Woo) ── */
     #prodModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
@@ -2434,14 +2441,77 @@
         if(!res||!res.ok){ el.innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
         var it=res.items||[];
         if(!it.length){ el.innerHTML='<div class="loading">Belum ada foto di produk ini.</div>'; return; }
-        el.innerHTML='<div class="wgrid">'+it.map(function(f){
-          return '<div class="wcard"><div class="wimg"><img src="'+esc(f.thumb)+'" loading="lazy"></div>'+
+        el.innerHTML='<div style="font-size:11px;color:#888;margin-bottom:8px">Urutan di bawah = urutan tampil di website. '+
+            'Seret kartunya untuk menata ulang, atau pakai tombol ◀ ▶ di HP.</div>'+
+          '<div class="wgrid" id="katGrid">'+it.map(function(f,n){
+          return '<div class="wcard katcard" draggable="true" data-id="'+f.id+'">'+
+            '<div class="wimg" style="position:relative"><img src="'+esc(f.thumb)+'" loading="lazy">'+
+              '<span class="katno">'+(n+1)+'</span></div>'+
             '<div class="wbody"><div class="wcat" style="word-break:break-all">'+esc(f.name)+'</div>'+
-            '<div class="wfoot"><a class="link" href="'+esc(f.url)+'" target="_blank">drive</a>'+
-            '<button class="cbtn" title="Salin foto ini ke Media Library WordPress (untuk dipakai di foto produk toko)" onclick="pushKat(\''+f.id+'\',this)">→ Media Library</button>'+
-            '<button class="cbtn" style="border-color:#8a3b3b;color:#d97a7a" title="Hapus foto (masuk Trash Drive)" onclick="hapusKat(\''+f.id+'\',this)">✕</button></div></div></div>';
+            '<div class="wfoot" style="gap:4px;flex-wrap:wrap">'+
+              '<button class="cbtn" title="Geser ke kiri" onclick="katGeser(this,-1)">◀</button>'+
+              '<button class="cbtn" title="Geser ke kanan" onclick="katGeser(this,1)">▶</button>'+
+              '<a class="link" href="'+esc(f.url)+'" target="_blank">drive</a>'+
+              '<button class="cbtn" title="Salin foto ini ke Media Library WordPress (untuk dipakai di foto produk toko)" onclick="pushKat(\''+f.id+'\',this)">→ Media Library</button>'+
+              '<button class="cbtn" style="border-color:#8a3b3b;color:#d97a7a" title="Hapus foto (masuk Trash Drive)" onclick="hapusKat(\''+f.id+'\',this)">✕</button>'+
+            '</div></div></div>';
         }).join('')+'</div>';
+        pasangDrag();
       });
+  }
+
+  // ── Tata ulang urutan foto ──
+  function pasangDrag(){
+    var grid=document.getElementById('katGrid'); if(!grid) return;
+    var seret=null;
+    grid.querySelectorAll('.katcard').forEach(function(c){
+      c.addEventListener('dragstart', function(e){
+        seret=c; c.classList.add('katdrag');
+        try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',''); }catch(err){}
+      });
+      c.addEventListener('dragend', function(){
+        c.classList.remove('katdrag');
+        grid.querySelectorAll('.katover').forEach(function(x){ x.classList.remove('katover'); });
+        if(seret){ seret=null; nomorUlang(); simpanUrutan(); }
+      });
+      c.addEventListener('dragover', function(e){
+        if(!seret || seret===c) return;
+        e.preventDefault();
+        c.classList.add('katover');
+        var r=c.getBoundingClientRect();
+        var kanan=(e.clientX-r.left) > r.width/2;
+        grid.insertBefore(seret, kanan ? c.nextSibling : c);
+      });
+      c.addEventListener('dragleave', function(){ c.classList.remove('katover'); });
+      c.addEventListener('drop', function(e){ e.preventDefault(); c.classList.remove('katover'); });
+    });
+  }
+  function katGeser(btn, arah){
+    var c=btn.closest('.katcard'), grid=document.getElementById('katGrid');
+    if(!c||!grid) return;
+    if(arah<0 && c.previousElementSibling) grid.insertBefore(c, c.previousElementSibling);
+    else if(arah>0 && c.nextElementSibling) grid.insertBefore(c.nextElementSibling, c);
+    else return;
+    nomorUlang(); simpanUrutan();
+  }
+  function nomorUlang(){
+    var grid=document.getElementById('katGrid'); if(!grid) return;
+    grid.querySelectorAll('.katcard .katno').forEach(function(n,i){ n.textContent=i+1; });
+  }
+  var KAT_SIMPAN=null;
+  function simpanUrutan(){
+    clearTimeout(KAT_SIMPAN);
+    KAT_SIMPAN=setTimeout(function(){
+      var grid=document.getElementById('katGrid'); if(!grid) return;
+      var ids=[].map.call(grid.querySelectorAll('.katcard'), function(c){ return c.getAttribute('data-id'); });
+      var m=document.getElementById('katMsg'); if(m) m.textContent='Menyimpan urutan…';
+      jsonp(WEB_APP_URL+'?page=admin&action=katalogOrder&cat='+encodeURIComponent(KAT.cat)+
+            '&product='+encodeURIComponent(KAT.prod)+'&ids='+encodeURIComponent(ids.join(','))+
+            '&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+        function(res){
+          if(m) m.textContent=(res&&res.ok) ? '✓ Urutan tersimpan — website ikut berubah' : ('Gagal simpan urutan: '+((res&&res.error)||'?'));
+        });
+    }, 500);
   }
   function hapusKat(id, btn){
     if(!confirm('Hapus foto ini dari katalog?\n(Masuk Trash Drive, masih bisa dipulihkan.)')) return;
