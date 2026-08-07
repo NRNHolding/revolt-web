@@ -619,7 +619,12 @@
   }
   function setProof(row, status){
     jsonp(WEB_APP_URL+'?page=admin&action=payStatus&row='+row+'&status='+encodeURIComponent(status)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
-      function(res){ if(res&&res.ok) loadProofs(); else alert((res&&res.error)||'Gagal.'); });
+      function(res){
+        if(!res||!res.ok){ alert((res&&res.error)||'Gagal.'); return; }
+        if(res.orderUpdated) alert('Bukti divalidasi ✅\nStatus order #'+res.order+' otomatis jadi "Payment Received".');
+        if(document.getElementById('ordBody')) loadOrders();
+        if(document.getElementById('proofBody')) loadProofs();
+      });
   }
 
   // ── Metode pembayaran ──
@@ -936,6 +941,7 @@
             '<button class="cbtn" onclick="saveAwb('+o.id+',this)">Simpan</button>'+
             (o.awb?' <a class="link" href="https://www.jne.co.id/tracking-package?awb='+encodeURIComponent(o.awb)+'" target="_blank">lacak</a>':'')+
           '</span>'+
+          waBtn(o)+
           '<button class="cbtn" style="border-color:#cc3333;color:#cc3333" onclick="delOrder('+o.id+',\''+esc(o.number)+'\')">🗑 Hapus</button>'+
         '</div>'+
       '</div>';
@@ -982,10 +988,54 @@
       });
   }
   function saveOrderStatus(id, sel){
+    var v=sel.value;
+    // Wajib isi resi sebelum masuk fase pengiriman
+    if(v==='on-delivery'){
+      var inp=document.getElementById('awb-'+id);
+      var awb=inp?(inp.value||'').trim():'';
+      if(!awb){
+        alert('Isi nomor resi JNE dulu sebelum mengubah status ke "On Delivery".\n\nKetik resi di kolom "Resi JNE" pada pesanan ini, klik Simpan, baru ubah statusnya.');
+        var o=(window.__ORDERS||[]).filter(function(x){return x.id===id;})[0];
+        sel.value=o?o.status:'processing';
+        if(inp) inp.focus();
+        return;
+      }
+    }
     sel.disabled=true;
-    jsonp(WEB_APP_URL+'?page=admin&action=wooOrderUpdate&id='+id+'&status='+encodeURIComponent(sel.value)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+    jsonp(WEB_APP_URL+'?page=admin&action=wooOrderUpdate&id='+id+'&status='+encodeURIComponent(v)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
       function(res){ sel.disabled=false; sel.style.outline=(res&&res.ok)?'1px solid #16a34a':'1px solid #cc3333';
-        setTimeout(function(){ sel.style.outline=''; },1200); if(res&&!res.ok) alert(res.error); });
+        setTimeout(function(){ sel.style.outline=''; loadOrders(); },1000); if(res&&!res.ok) alert(res.error); });
+  }
+  // Template pesan WhatsApp sesuai status pesanan
+  function waPesan(o){
+    var rpTot=usd2rp(o.total);
+    var t;
+    switch(o.status){
+      case 'pending':
+        t='Halo '+(o.name||'Kak')+', terima kasih sudah order di Revolt Industry.\n\nOrder #'+o.number+' — total '+rpTot+' ($'+o.total+').\n'+
+          'Silakan transfer ke BCA 7883702788 a.n. Nandhi Adipati Bhumi, lalu upload bukti transfer di sini:\n'+
+          'https://nrnholding.github.io/revolt-web/konfirmasi.html?order='+o.number; break;
+      case 'processing':
+        t='Halo '+(o.name||'Kak')+', pembayaran untuk order #'+o.number+' sudah kami terima ✅\n\nPesananmu segera kami siapkan. Kami kabari lagi saat dikirim.'; break;
+      case 'packed':
+        t='Halo '+(o.name||'Kak')+', order #'+o.number+' sudah selesai dikemas 📦\nSegera kami serahkan ke kurir JNE.'; break;
+      case 'on-delivery':
+        t='Halo '+(o.name||'Kak')+', order #'+o.number+' sudah dikirim 🚚\n\nKurir: JNE Reguler\nNo. Resi: '+(o.awb||'-')+'\nLacak: https://www.jne.co.id/tracking-package?awb='+encodeURIComponent(o.awb||''); break;
+      case 'order-arrived':
+        t='Halo '+(o.name||'Kak')+', paket order #'+o.number+' sudah sampai tujuan 📬\nSemoga suka ya! Kalau ada kendala, balas pesan ini.'; break;
+      case 'completed':
+        t='Halo '+(o.name||'Kak')+', order #'+o.number+' sudah selesai ✅\n\nTerima kasih sudah mempercayakan Revolt Industry. Ditunggu order berikutnya!'; break;
+      default:
+        t='Halo '+(o.name||'Kak')+', mengenai order #'+o.number+' di Revolt Industry.';
+    }
+    return t;
+  }
+  function waBtn(o){
+    var d=String(o.phone||'').replace(/[^0-9]/g,'');
+    if(!d) return '';
+    if(d.charAt(0)==='0') d='62'+d.slice(1); else if(d.charAt(0)==='8') d='62'+d;
+    return '<a class="cbtn" style="text-decoration:none;border-color:#25D366;color:#25D366" target="wa" rel="noopener" '+
+      'href="https://web.whatsapp.com/send?phone='+d+'&text='+encodeURIComponent(waPesan(o))+'">💬 Kirim WA</a>';
   }
 
   // ── Kupon ──
