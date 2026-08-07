@@ -26,6 +26,14 @@
   .rowline{display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;border-bottom:1px solid #24241e}
   .rowline:last-child{border:none}
   .rowline span:first-child{color:#8a8a80}
+  .oitem{display:flex;gap:11px;align-items:center;padding:9px 0;border-bottom:1px solid #24241e}
+  .oitem:last-child{border-bottom:none}
+  .oitem img{width:52px;height:52px;object-fit:cover;border-radius:7px;background:#14140f;flex:0 0 52px}
+  .oitem .nm{flex:1;font-size:12.5px;line-height:1.35}
+  .oitem .qt{font-size:11px;color:#8a8a80;margin-top:2px}
+  .oitem .pr{text-align:right;font-size:12.5px;font-weight:700;white-space:nowrap}
+  .oitem .pr small{display:block;color:#e0912f;font-size:11px;font-weight:700}
+  .sechead{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#8a8a80;font-weight:700;margin:16px 0 4px}
   .bank{background:#241a10;border:1px solid #5c3d13;border-radius:9px;padding:12px 13px;font-size:13px;margin-top:12px}
   .bank b{color:#e0c79a;font-size:15px;letter-spacing:1px}
   .drop{border:2px dashed #3a3a30;border-radius:10px;padding:24px 14px;text-align:center;color:#8a8a80;font-size:13px;cursor:pointer}
@@ -60,6 +68,7 @@
         <div class="idr" id="a-idr">Rp 0</div>
         <div class="rate" id="a-rate"></div>
       </div>
+      <div id="i-items"></div>
       <div style="margin-top:13px">
         <div class="rowline"><span>Nomor Order</span><b id="i-no"></b></div>
         <div class="rowline"><span>Nama</span><b id="i-nama"></b></div>
@@ -95,6 +104,8 @@
       <h2 style="margin:12px 0 6px;color:#8ee5a8">Bukti Transfer Terkirim</h2>
       <div style="font-size:13px;color:#bbb">Terima kasih! Tim kami akan mengecek pembayaranmu dan mengabari lewat WhatsApp/email.</div>
       <div style="font-size:13px;margin-top:12px">Order <b id="d-no"></b></div>
+      <a class="btn2" id="viewOrderBtn" href="#" style="display:none;background:#e0912f;color:#141414">📄 Lihat Pesananku</a>
+      <div id="cdown" style="font-size:11px;color:#8a8a80;margin-top:8px"></div>
       <a class="btn2" id="walink2" href="#" target="_blank">💬 Chat Admin</a>
     </div>
   </div>
@@ -119,6 +130,13 @@
   function rp(n){ return 'Rp '+Number(n||0).toLocaleString('id-ID'); }
 
   var q=new URLSearchParams(location.search);
+  var ORDER_KEY=q.get('key')||'';        // untuk kembali ke halaman order WooCommerce
+  var SITE='https://revoltindustry.com';
+  function viewOrderUrl(){
+    if(ORDER && ORDER.number && ORDER_KEY)
+      return SITE+'/checkout/order-received/'+encodeURIComponent(ORDER.number)+'/?key='+encodeURIComponent(ORDER_KEY)+'&rvdone=1';
+    return SITE+'/my-account/orders/';
+  }
   if(q.get('order')){ document.getElementById('ordno').value=q.get('order'); setTimeout(cek,300); }
 
   function cek(){
@@ -132,6 +150,15 @@
       document.getElementById('a-usd').textContent='$'+res.total;
       document.getElementById('a-idr').textContent='≈ '+rp(res.idr);
       document.getElementById('a-rate').textContent='kurs $1 = '+rp(Math.round(res.rate));
+      var it=res.items||[];
+      document.getElementById('i-items').innerHTML = it.length
+        ? '<div class="sechead">Pesananmu</div>'+it.map(function(x){
+            return '<div class="oitem">'+
+              (x.img?'<img src="'+x.img+'" alt="">':'<img alt="">')+
+              '<div class="nm">'+x.name+'<div class="qt">Jumlah: '+x.qty+'</div></div>'+
+              '<div class="pr">$'+x.total+'<small>'+rp(x.idr)+'</small></div></div>';
+          }).join('')
+        : '';
       document.getElementById('i-no').textContent='#'+res.number;
       document.getElementById('i-nama').textContent=res.name||'-';
       document.getElementById('i-tgl').textContent=res.date||'-';
@@ -186,7 +213,14 @@
         if(res && !res.pending){
           if(res.ok){ document.getElementById('d-no').textContent='#'+ORDER.number;
             document.getElementById('step2').style.display='none';
-            document.getElementById('step3').style.display=''; window.scrollTo(0,0); }
+            document.getElementById('step3').style.display=''; window.scrollTo(0,0);
+            var vu=viewOrderUrl();
+            var vb=document.getElementById('viewOrderBtn');
+            if(vb){ vb.href=vu; vb.style.display=''; }
+            var cd=document.getElementById('cdown');
+            if(cd){ var s=5; cd.textContent='Mengarahkan ke halaman pesananmu dalam '+s+' detik…';
+              var iv=setInterval(function(){ s--; if(s<=0){ clearInterval(iv); location.href=vu; }
+                else cd.textContent='Mengarahkan ke halaman pesananmu dalam '+s+' detik…'; }, 1000); } }
           else { b.disabled=false; b.textContent='Kirim Bukti Transfer'; show('err2',res.error||'Gagal kirim.'); }
         } else setTimeout(poll,1500);
       });
