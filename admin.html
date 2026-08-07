@@ -179,8 +179,8 @@
     .prp { font-size: 10px; color: #e0912f; margin-top: 3px; min-height: 12px; }
     @media (max-width: 640px) { .wgrid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 9px; } .wname { font-size: 11.5px; } }
 
-    #katModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
-    #katModal.show { display: block; }
+    #katModal, #bulkModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
+    #katModal.show, #bulkModal.show { display: block; }
 
     /* ── Edit Produk (Woo) ── */
     #prodModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
@@ -552,6 +552,7 @@
           '<button class="cbtn" onclick="loadWoo()">Muat</button>' +
           '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="openNewProd()">＋ Produk Baru</button>' +
           '<button class="cbtn" style="border-color:#3b82f6;color:#7cb3ff" onclick="openKatalog()">📷 Galeri Foto</button>' +
+          '<button class="cbtn" style="border-color:#e0912f;color:#e0912f" onclick="openBulk()">✎ Edit Harga Massal</button>' +
           '<span id="woomsg" style="color:#888;font-size:11px"></span>' +
         '</div>' +
         '<div id="wooBody"><div class="loading">Buka tab untuk memuat…</div></div>' +
@@ -671,6 +672,7 @@
       function(res){
         if(!res||!res.ok){ document.getElementById('wooBody').innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal muat.')+'</div>'; return; }
         if(res.rate) WOO_RATE=res.rate;
+        window.__WOO_ITEMS=res.items||[];
         document.getElementById('woomsg').textContent=res.count+' produk · kurs $1 = Rp '+Math.round(WOO_RATE).toLocaleString('id-ID');
         document.getElementById('wooBody').innerHTML=wooRows(res.items);
       });
@@ -701,6 +703,86 @@
     }).join('')+'</div>'+
     '<div style="color:#888;font-size:11px;margin-top:8px">Klik kartu / <b>Edit</b> untuk ubah nama, deskripsi, foto, harga, stok & variasi · harga toko dalam USD, Rp = konversi kurs hari ini</div>';
   }
+  // ── Edit harga massal ──
+  var BULK=[];
+  function openBulk(){
+    var items=(window.__WOO_ITEMS||[]);
+    if(!items.length){ alert('Muat produk dulu (klik Muat), baru buka Edit Harga Massal.'); return; }
+    BULK=items.map(function(p){
+      var reg=parseFloat(p.regular_price||p.price||0)||0;
+      var sal=parseFloat(p.sale_price||0)||0;
+      return { id:p.id, name:p.name, type:p.type, cats:p.cats, img:p.img,
+        rpReg:reg?Math.round(reg*WOO_RATE):'', rpSale:sal?Math.round(sal*WOO_RATE):'',
+        oReg:reg?Math.round(reg*WOO_RATE):'', oSale:sal?Math.round(sal*WOO_RATE):'', pick:true };
+    });
+    document.getElementById('bulkModal').classList.add('show');
+    renderBulk();
+  }
+  function closeBulk(){ document.getElementById('bulkModal').classList.remove('show'); }
+  function renderBulk(){
+    var n=BULK.filter(function(b){return b.pick;}).length;
+    var ubah=BULK.filter(function(b){ return b.pick && (String(b.rpReg)!==String(b.oReg) || String(b.rpSale)!==String(b.oSale)); }).length;
+    document.getElementById('bulkCount').textContent=n+' dipilih · '+ubah+' berubah';
+    document.getElementById('bulkBody').innerHTML=
+      '<div class="table-scroll tall"><table class="rtable"><thead><tr>'+
+        '<th style="width:26px"><input type="checkbox" id="bulkAll" checked onchange="bulkPickAll(this)"></th>'+
+        '<th>Produk</th><th>Tipe</th><th class="num">Harga Reg. (Rp)</th><th class="num">Harga Sale (Rp)</th>'+
+      '</tr></thead><tbody>'+
+      BULK.map(function(b,i){
+        var chg=(String(b.rpReg)!==String(b.oReg)||String(b.rpSale)!==String(b.oSale));
+        return '<tr'+(chg?' style="background:#241a10"':'')+'>'+
+          '<td><input type="checkbox" '+(b.pick?'checked':'')+' onchange="BULK['+i+'].pick=this.checked;renderBulkCount()"></td>'+
+          '<td><b>'+esc(b.name)+'</b><div style="font-size:9px;color:#999">'+esc(b.cats||'')+'</div></td>'+
+          '<td>'+esc(b.type)+(b.type!=='simple'?'<div style="font-size:9px;color:#999">semua variasi</div>':'')+'</td>'+
+          '<td class="num"><input class="vin" style="width:120px" value="'+esc(b.rpReg)+'" oninput="BULK['+i+'].rpReg=this.value.replace(/[^0-9]/g,\'\');renderBulkCount()"><div class="prp">'+(b.rpReg?('= $'+rp2usd(b.rpReg)):'')+'</div></td>'+
+          '<td class="num"><input class="vin" style="width:120px" value="'+esc(b.rpSale)+'" oninput="BULK['+i+'].rpSale=this.value.replace(/[^0-9]/g,\'\');renderBulkCount()"><div class="prp">'+(b.rpSale?('= $'+rp2usd(b.rpSale)):'')+'</div></td>'+
+        '</tr>';
+      }).join('')+'</tbody></table></div>';
+    labelTables();
+  }
+  function renderBulkCount(){
+    var n=BULK.filter(function(b){return b.pick;}).length;
+    var ubah=BULK.filter(function(b){ return b.pick && (String(b.rpReg)!==String(b.oReg) || String(b.rpSale)!==String(b.oSale)); }).length;
+    document.getElementById('bulkCount').textContent=n+' dipilih · '+ubah+' berubah';
+  }
+  function bulkPickAll(cb){ BULK.forEach(function(b){ b.pick=cb.checked; }); renderBulk(); }
+  // Alat massal
+  function bulkApply(mode){
+    var v=parseFloat((document.getElementById('bulkVal').value||'').replace(/[^0-9.]/g,''));
+    if(isNaN(v)||!v){ alert('Isi angkanya dulu.'); return; }
+    var target=document.getElementById('bulkTarget').value;   // reg | sale | both
+    BULK.forEach(function(b){
+      if(!b.pick) return;
+      ['rpReg','rpSale'].forEach(function(f){
+        if(target==='reg' && f!=='rpReg') return;
+        if(target==='sale' && f!=='rpSale') return;
+        var cur=parseFloat(b[f]||0)||0;
+        if(mode==='set') b[f]=String(Math.round(v));
+        else if(mode==='pct') { if(cur) b[f]=String(Math.round(cur*(1+v/100))); }
+        else if(mode==='pctdown'){ if(cur) b[f]=String(Math.round(cur*(1-v/100))); }
+        else if(mode==='add'){ if(cur||mode==='add') b[f]=String(Math.round(cur+v)); }
+        else if(mode==='sub'){ if(cur) b[f]=String(Math.max(0,Math.round(cur-v))); }
+      });
+    });
+    renderBulk();
+  }
+  function bulkReset(){ BULK.forEach(function(b){ b.rpReg=b.oReg; b.rpSale=b.oSale; }); renderBulk(); }
+  function bulkSave(btn){
+    var items=BULK.filter(function(b){ return b.pick && (String(b.rpReg)!==String(b.oReg) || String(b.rpSale)!==String(b.oSale)); });
+    if(!items.length){ alert('Belum ada harga yang diubah.'); return; }
+    var nVar=items.filter(function(b){return b.type!=='simple';}).length;
+    if(!confirm('Simpan '+items.length+' produk ke website?'+(nVar?('\n\n'+nVar+' produk variable — SEMUA variasinya akan diset harga yang sama.'):'')+'\n\nPerubahan langsung live.')) return;
+    var old=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan…';
+    var payload={ items: items.map(function(b){
+      return { id:b.id, type:b.type, rprice:rp2usd(b.rpReg), sprice:b.rpSale?rp2usd(b.rpSale):'' }; }) };
+    postJson('wooBulk', payload, function(res){
+      btn.disabled=false; btn.textContent=old;
+      if(res&&res.ok){ alert('Selesai — '+res.updated+' produk terupdate'+(res.failed?(', '+res.failed+' gagal'):'')+'.');
+        closeBulk(); loadWoo(); }
+      else alert((res&&res.error)||'Gagal menyimpan.');
+    });
+  }
+
   // ── Modal edit produk (nama, deskripsi, harga, stok, foto) ──
   var PROD=null;
   function openProd(id){
@@ -2440,6 +2522,32 @@
   </div>
 </div>
 <input type="file" id="prodImgInput" accept="image/*" style="display:none" onchange="prodImgPick(this)">
+
+<div id="bulkModal">
+  <div style="max-width:960px;margin:0 auto">
+    <div class="inv-bar" style="flex-wrap:wrap">
+      <strong style="color:#f5f4ef;margin-right:auto">Edit Harga Massal <span id="bulkCount" style="font-weight:400;font-size:11px;color:#e0912f"></span></strong>
+      <button class="cbtn" onclick="bulkReset()">↺ Kembalikan</button>
+      <button class="inv-save" onclick="bulkSave(this)">💾 Simpan ke Web</button>
+      <button class="inv-cls" onclick="closeBulk()">Tutup</button>
+    </div>
+    <div class="toolbar" style="background:#1c1c17;border:1px solid #2a2a22;border-radius:9px;padding:10px 12px">
+      <select id="bulkTarget" class="istatus">
+        <option value="reg">Harga Reguler</option>
+        <option value="sale">Harga Sale</option>
+        <option value="both">Reguler + Sale</option>
+      </select>
+      <input id="bulkVal" placeholder="angka (mis. 10 atau 50000)" style="max-width:190px">
+      <button class="cbtn" onclick="bulkApply('pct')">▲ Naik %</button>
+      <button class="cbtn" onclick="bulkApply('pctdown')">▼ Turun %</button>
+      <button class="cbtn" onclick="bulkApply('add')">+ Rp</button>
+      <button class="cbtn" onclick="bulkApply('sub')">− Rp</button>
+      <button class="cbtn" onclick="bulkApply('set')">= Set semua</button>
+      <span style="color:#888;font-size:11px">berlaku ke produk yang dicentang</span>
+    </div>
+    <div id="bulkBody"></div>
+  </div>
+</div>
 
 <div id="katModal">
   <div style="max-width:900px;margin:0 auto">
