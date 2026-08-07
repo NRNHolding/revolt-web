@@ -2301,7 +2301,9 @@
     // LANGKAH 1 — kategori
     var s1='<div class="kstep'+(KAT.cat?' done':' active')+'">'+
       '<div class="kshead"><span class="ksno">1</span> Pilih kategori'+
-        (KAT.cat?'<span class="kspick">'+esc(KAT.cat)+' <button class="cbtn" onclick="katUbahKategori()">ubah</button></span>':'')+
+        (KAT.cat?'<span class="kspick">'+esc(KAT.cat)+' <button class="cbtn" onclick="katUbahKategori()">ubah</button>'+
+          ((prods && !prods.length) ? '<button class="cbtn" style="border-color:#8a3b3b;color:#d97a7a" title="Hapus kategori kosong ini" onclick="katHapusKategori()">✕ hapus kategori</button>' : '')+
+        '</span>':'')+
       '</div>'+
       (KAT.cat?'':'<div class="kschips">'+
         (cats===null?'<span style="color:#888;font-size:12px">Memuat kategori…</span>'
@@ -2379,6 +2381,15 @@
       function(res){ window.__KATPRODS=(res&&res.ok)?(res.items||[]):[]; renderKat(); });
   }
   function katUbahKategori(){ KAT.cat=''; KAT.prod=''; KAT.files=[]; window.__KATPRODS=null; renderKat(); }
+  function katHapusKategori(){
+    var c=KAT.cat; if(!c) return;
+    if(!confirm('Hapus kategori "'+c+'"?\n(Hanya bisa kalau belum ada produk di dalamnya.)')) return;
+    jsonp(WEB_APP_URL+'?page=admin&action=katalogDelCat&cat='+encodeURIComponent(c)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(!res||!res.ok){ alert((res&&res.error)||'Gagal hapus kategori.'); return; }
+        KAT={cat:'',prod:'',files:[]}; window.__KATPRODS=null; muatKategori();
+      });
+  }
   function katKategoriBaru(){
     var e=document.getElementById('katNewCat');
     var nm=(e.value||'').trim();
