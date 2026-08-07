@@ -151,6 +151,7 @@
     .obody { display: grid; grid-template-columns: 1.2fr 1fr; gap: 14px; padding: 9px 0; font-size: 12px; }
     .oitem { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid #24241e; padding: 3px 0; font-size: 11.5px; }
     .onote { margin-top: 5px; font-size: 11px; color: #e0c79a; background: #241a10; border-radius: 6px; padding: 5px 7px; }
+    .obukti { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: #181812; border: 1px solid #33332a; border-radius: 8px; padding: 8px 10px; margin: 8px 0; }
     .ofoot { border-top: 1px solid #24241e; padding-top: 8px; font-size: 11px; color: #999; }
     .zbox { border: 1px solid #2a2a22; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: #1a1a15; }
     .zhead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
@@ -538,8 +539,7 @@
   function buildCatalog(){
     return '<div class="subtabs">' +
         '<button class="stab active" onclick="wooTab(1,this)">Produk</button>' +
-        '<button class="stab" onclick="wooTab(2,this)">Pesanan</button>' +
-        '<button class="stab" onclick="wooTab(7,this)">Bukti Transfer <span id="payBadge" class="nbadge" style="display:none">0</span></button>' +
+        '<button class="stab" onclick="wooTab(2,this)">Pesanan <span id="payBadge" class="nbadge" style="display:none">0</span></button>' +
         '<button class="stab" onclick="wooTab(3,this)">Kupon</button>' +
         '<button class="stab" onclick="wooTab(4,this)">Laporan Web</button>' +
         '<button class="stab" onclick="wooTab(5,this)">Shipping</button>' +
@@ -560,8 +560,11 @@
       '<div id="wtab2" style="display:none"><div class="toolbar">' +
           '<input id="qord" placeholder="Cari pesanan / nama…" onkeydown="if(event.key===\'Enter\')loadOrders()">' +
           '<select id="ostat" onchange="loadOrders()">' +
-            '<option value="">Semua status</option><option value="pending">pending</option><option value="processing">processing</option>' +
-            '<option value="on-hold">on-hold</option><option value="completed">completed</option><option value="cancelled">cancelled</option><option value="refunded">refunded</option>' +
+            '<option value="">Semua status</option>' +
+            '<option value="pending">Order Received</option><option value="processing">Payment Received</option>' +
+            '<option value="packed">Packed</option><option value="on-delivery">On Delivery</option>' +
+            '<option value="order-arrived">Order Arrived</option><option value="completed">Complete</option>' +
+            '<option value="on-hold">On Hold</option><option value="cancelled">Cancelled</option><option value="refunded">Refunded</option>' +
           '</select><button class="cbtn" onclick="loadOrders()">Muat</button><span id="ordmsg" style="color:#888;font-size:11px"></span>' +
         '</div><div id="ordBody"></div></div>' +
       '<div id="wtab3" style="display:none"><div id="cpnBody"></div></div>' +
@@ -885,17 +888,31 @@
         if(!res||!res.ok){ document.getElementById('ordBody').innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
         if(res.rate) WOO_RATE=res.rate;
         window.__ORDERS=res.items||[];
-        document.getElementById('ordmsg').textContent=(res.items||[]).length+' pesanan';
+        window.__FLOW=res.flow||[]; window.__EXTRA=res.extra||[];
+        window.__PROOFS=res.proofs||[];
+        var wait=(res.proofs||[]).filter(function(x){return /Menunggu/i.test(x.status);}).length;
+        var b=document.getElementById('payBadge');
+        if(b){ if(wait){ b.textContent=wait; b.style.display=''; } else b.style.display='none'; }
+        document.getElementById('ordmsg').textContent=(res.items||[]).length+' pesanan'+(wait?(' · '+wait+' bukti transfer menunggu cek'):'');
         document.getElementById('ordBody').innerHTML=orderCards(res.items||[]);
       });
   }
+  // Nama status mengikuti tampilan website
+  var STATUS_LABEL={pending:'Order Received',processing:'Payment Received',packed:'Packed',
+    'on-delivery':'On Delivery','order-arrived':'Order Arrived',completed:'Complete',
+    'on-hold':'On Hold',cancelled:'Cancelled',refunded:'Refunded',failed:'Failed'};
   function ostatBadge(s){
-    var c={pending:'#c47f00',processing:'#3b82f6','on-hold':'#8b5cf6',completed:'#16a34a',cancelled:'#cc3333',refunded:'#6b7280',failed:'#cc3333'}[s]||'#6b7280';
-    return '<span class="badge" style="background:'+c+'">'+esc(s)+'</span>';
+    var c={pending:'#c47f00',processing:'#3b82f6',packed:'#8b5cf6','on-delivery':'#0ea5e9',
+      'order-arrived':'#14b8a6',completed:'#16a34a','on-hold':'#6b7280',cancelled:'#cc3333',
+      refunded:'#6b7280',failed:'#cc3333'}[s]||'#6b7280';
+    return '<span class="badge" style="background:'+c+'">'+esc(STATUS_LABEL[s]||s)+'</span>';
   }
   function orderCards(list){
     if(!list.length) return '<div class="loading">Tidak ada pesanan.</div>';
-    var opts=['pending','processing','on-hold','completed','cancelled','refunded'];
+    var flow=(window.__FLOW||[]).map(function(f){return f.key;});
+    var extra=(window.__EXTRA||[]).map(function(f){return f.key;});
+    var opts=flow.concat(extra);
+    if(!opts.length) opts=['pending','processing','packed','on-delivery','order-arrived','completed','cancelled','refunded'];
     return list.map(function(o,i){
       var items=o.items.map(function(l){ return '<div class="oitem"><span>'+esc(l.name)+' × '+l.qty+'</span><span>$'+esc(l.total)+'</span></div>'; }).join('');
       var wa=waAnchor(o.phone,'wa');
@@ -909,14 +926,48 @@
             (o.note?'<div class="onote">📝 '+esc(o.note)+'</div>':'')+'</div>'+
           '<div class="oitems">'+items+'</div>'+
         '</div>'+
+        proofBlock(o.number)+
         '<div class="ofoot" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">'+
-          '<span>Ubah status: <select class="istatus" onchange="saveOrderStatus('+o.id+',this)">'+
-            opts.map(function(s){ return '<option value="'+s+'"'+(s===o.status?' selected':'')+'>'+s+'</option>'; }).join('')+
+          '<span>Status: <select class="istatus" onchange="saveOrderStatus('+o.id+',this)">'+
+            opts.map(function(s){ return '<option value="'+s+'"'+(s===o.status?' selected':'')+'>'+esc(STATUS_LABEL[s]||s)+'</option>'; }).join('')+
           '</select></span>'+
+          '<span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">Resi JNE: '+
+            '<input class="vin" style="width:160px" id="awb-'+o.id+'" value="'+esc(o.awb||'')+'" placeholder="mis. JP1234567890">'+
+            '<button class="cbtn" onclick="saveAwb('+o.id+',this)">Simpan</button>'+
+            (o.awb?' <a class="link" href="https://www.jne.co.id/tracking-package?awb='+encodeURIComponent(o.awb)+'" target="_blank">lacak</a>':'')+
+          '</span>'+
           '<button class="cbtn" style="border-color:#cc3333;color:#cc3333" onclick="delOrder('+o.id+',\''+esc(o.number)+'\')">🗑 Hapus</button>'+
         '</div>'+
       '</div>';
     }).join('');
+  }
+  // Bukti transfer tampil langsung di kartu pesanan
+  function proofBlock(number){
+    var ps=(window.__PROOFS||[]).filter(function(p){ return String(p.order)===String(number); });
+    if(!ps.length) return '';
+    return ps.map(function(p){
+      var col=/Valid|Lunas/i.test(p.status)?'#16a34a':(/Tolak/i.test(p.status)?'#cc3333':'#c47f00');
+      return '<div class="obukti">'+
+        (p.bukti?'<a href="'+esc(p.bukti)+'" target="_blank" class="cbtn" style="text-decoration:none">🖼 Lihat Bukti</a>':'<span style="color:#888">tanpa gambar</span>')+
+        '<div style="flex:1;min-width:140px;font-size:11px;color:#bbb">Bukti transfer '+esc(p.time)+
+          (p.nama?' · '+esc(p.nama):'')+(p.note?'<div style="color:#e0c79a">📝 '+esc(p.note)+'</div>':'')+'</div>'+
+        '<span class="badge" style="background:'+col+'">'+esc(p.status)+'</span>'+
+        '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="setProof('+p.row+',\'Valid — Lunas\')">✓ Valid</button>'+
+        '<button class="cbtn" style="border-color:#cc3333;color:#cc3333" onclick="setProof('+p.row+',\'Ditolak\')">✕ Tolak</button>'+
+      '</div>';
+    }).join('');
+  }
+  function saveAwb(id, btn){
+    var inp=document.getElementById('awb-'+id);
+    var v=(inp.value||'').trim();
+    if(!v){ alert('Isi nomor resi dulu.'); return; }
+    var old=btn.textContent; btn.disabled=true; btn.textContent='…';
+    jsonp(WEB_APP_URL+'?page=admin&action=wooOrderAwb&id='+id+'&awb='+encodeURIComponent(v)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        btn.disabled=false; btn.textContent=old;
+        if(res&&res.ok){ btn.textContent='✓'; setTimeout(function(){ btn.textContent=old; loadOrders(); },1200); }
+        else alert((res&&res.error)||'Gagal simpan resi.');
+      });
   }
   function delOrder(id, number){
     var reason=prompt('Alasan menghapus pesanan #'+number+' (wajib, min. 5 karakter):\nContoh: order tes internal / customer batal / duplikat');
