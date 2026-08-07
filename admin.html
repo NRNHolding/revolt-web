@@ -1800,10 +1800,11 @@
     document.getElementById('katModal').classList.add('show');
     var sel=document.getElementById('katCat');
     if(sel && !sel.options.length){
-      jsonp(WEB_APP_URL+'?page=admin&action=wooCats&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      document.getElementById('katBody').innerHTML='<div class="loading">Memuat kategori dari Drive…</div>';
+      jsonp(WEB_APP_URL+'?page=admin&action=katalogCats&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
         function(res){
           var cats=(res&&res.ok)?(res.cats||[]):[];
-          sel.innerHTML=cats.map(function(c){ return '<option>'+esc(String(c.name).replace(/&amp;/g,'&'))+'</option>'; }).join('')+'<option>Umum</option>';
+          sel.innerHTML=cats.map(function(c){ return '<option>'+esc(c)+'</option>'; }).join('');
           loadKatalog();
         });
     } else loadKatalog();
@@ -2395,7 +2396,7 @@
 <div id="katModal">
   <div style="max-width:900px;margin:0 auto">
     <div class="inv-bar" style="flex-wrap:wrap">
-      <strong style="color:#f5f4ef;margin-right:auto">Galeri Foto Katalog</strong>
+      <strong style="color:#f5f4ef;margin-right:auto">Galeri Foto Katalog <span style="font-weight:400;font-size:11px;color:#888">Drive: 5. Customize Order Catalogue</span></strong>
       <select id="katCat" class="istatus" onchange="loadKatalog()"></select>
       <label style="color:#bbb;font-size:11px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="katToWp" checked> langsung ke Media Library WP</label>
       <button class="inv-dl" onclick="document.getElementById('katInput').click()">＋ Upload Foto</button>
