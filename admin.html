@@ -574,7 +574,6 @@
         '<button class="stab" onclick="wooTab(4,this)">Laporan Web</button>' +
         '<button class="stab" onclick="wooTab(5,this)">Shipping</button>' +
         '<button class="stab" onclick="wooTab(6,this)">Pembayaran</button>' +
-        '<button class="stab" onclick="wooTab(8,this)">🎨 Tampilan Web</button>' +
       '</div>' +
       '<div id="wtab1">' +
         '<div class="toolbar">' +
@@ -607,7 +606,7 @@
       '<div id="wtab7" style="display:none"><div class="toolbar"><button class="cbtn" onclick="loadProofs()">↻ Muat ulang</button>' +
         '<span style="color:#888;font-size:11px">Bukti transfer yang dikirim customer dari halaman konfirmasi</span></div>' +
         '<div id="proofBody"></div></div>' +
-      '<div id="wtab8" style="display:none"><div id="themeBody"></div></div>';
+      '';
   }
   function wooTab(n, btn){
     for(var i=1;i<=8;i++){ var el=document.getElementById('wtab'+i); if(el) el.style.display=(i===n?'':'none'); }
@@ -619,143 +618,6 @@
     if(n===5 && !window.__SHIP){ window.__SHIP=1; loadWooShip(); }
     if(n===6 && !window.__PAY) { window.__PAY=1; loadGateways(); }
     if(n===7) loadProofs();
-    if(n===8 && !window.__THEME) { window.__THEME=1; loadTheme(); }
-  }
-
-  // ── Editor tampilan website ──
-  var THEME_FIELDS=[
-    {k:'headerBg',   l:'Warna latar header',      t:'color',  d:'Bar hitam paling atas (logo, menu, ikon)'},
-    {k:'headerText', l:'Warna teks header',       t:'color',  d:'Tulisan PRODUCTS / CUSTOM ORDER / STORIES'},
-    {k:'pageBg',     l:'Warna latar halaman',     t:'color',  d:'Latar seluruh halaman di bawah header'},
-    {k:'textColor',  l:'Warna teks utama',        t:'color',  d:'Paragraf & keterangan produk'},
-    {k:'linkColor',  l:'Warna tautan',            t:'color',  d:'Semua teks yang bisa diklik'},
-    {k:'priceColor', l:'Warna harga',             t:'color',  d:'Angka harga di kartu & halaman produk'},
-    {k:'btnBg',      l:'Warna tombol',            t:'color',  d:'ADD TO CART, PURCHASE, CHECKOUT'},
-    {k:'btnText',    l:'Warna teks tombol',       t:'color',  d:'Tulisan di dalam tombol'},
-    {k:'footerBg',   l:'Warna latar footer',      t:'color',  d:'Bagian paling bawah website'},
-    {k:'footerText', l:'Warna teks footer',       t:'color',  d:'Tulisan di footer'},
-    {k:'baseSize',   l:'Ukuran teks dasar (px)',  t:'number', ph:'14', d:'Makin besar makin mudah dibaca. Normal 14–16'},
-    {k:'radius',     l:'Kelengkungan sudut (px)', t:'number', ph:'0',  d:'0 = kotak tajam, 8 = sudut membulat'},
-    {k:'bodyFont',   l:'Font (nama CSS)',         t:'text',   ph:"Arial, sans-serif", d:'Kosongkan kalau tidak yakin'}
-  ];
-  var THEME_PRESETS={
-    'Bawaan tema': {},
-    'Hitam elegan': {headerBg:'#000000',headerText:'#ffffff',pageBg:'#ffffff',textColor:'#222222',
-      linkColor:'#111111',priceColor:'#111111',btnBg:'#111111',btnText:'#ffffff',
-      footerBg:'#000000',footerText:'#dddddd',baseSize:'15',radius:'0'},
-    'Krem leather': {headerBg:'#2b2118',headerText:'#f5efe6',pageBg:'#faf7f2',textColor:'#3a2f26',
-      linkColor:'#8a5a2b',priceColor:'#8a5a2b',btnBg:'#8a5a2b',btnText:'#ffffff',
-      footerBg:'#2b2118',footerText:'#e8ded1',baseSize:'15',radius:'6'},
-    'Terang minimalis': {headerBg:'#ffffff',headerText:'#111111',pageBg:'#ffffff',textColor:'#333333',
-      linkColor:'#0f62fe',priceColor:'#111111',btnBg:'#111111',btnText:'#ffffff',
-      footerBg:'#f4f4f4',footerText:'#555555',baseSize:'15',radius:'8'},
-    'Gelap penuh': {headerBg:'#0d0d0d',headerText:'#f0f0f0',pageBg:'#141414',textColor:'#dddddd',
-      linkColor:'#e0912f',priceColor:'#e0912f',btnBg:'#e0912f',btnText:'#141414',
-      footerBg:'#0d0d0d',footerText:'#aaaaaa',baseSize:'15',radius:'6'}
-  };
-  function applyPreset(nama){
-    var p=THEME_PRESETS[nama]||{};
-    THEME_FIELDS.forEach(function(f){
-      var x=document.getElementById('thx-'+f.k), c=document.getElementById('th-'+f.k);
-      if(!x) return;
-      x.value=p[f.k]||'';
-      if(c) c.value=p[f.k]||'#000000';
-    });
-    renderPreview();
-  }
-  // Pratinjau mini: mencontohkan tampilan website dengan pengaturan saat ini
-  function renderPreview(){
-    var box=document.getElementById('thPreview'); if(!box) return;
-    function v(k){ var e=document.getElementById('thx-'+k); return e?e.value.trim():''; }
-    var hb=v('headerBg')||'#000000', ht=v('headerText')||'#ffffff';
-    var pb=v('pageBg')||'#ffffff', tc=v('textColor')||'#333333';
-    var lc=v('linkColor')||'#111111', pc=v('priceColor')||'#111111';
-    var bb=v('btnBg')||'#111111', bt=v('btnText')||'#ffffff';
-    var fb=v('footerBg')||'#000000', ft=v('footerText')||'#dddddd';
-    var fs=v('baseSize')||'14', rd=v('radius')||'0', fo=v('bodyFont')||'Arial, sans-serif';
-    box.innerHTML=
-      '<div style="font-family:'+fo+';font-size:'+fs+'px;border:1px solid #33332a;border-radius:10px;overflow:hidden">'+
-        '<div style="background:'+hb+';color:'+ht+';padding:12px 14px;display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:700;letter-spacing:1px">'+
-          '<span>PRODUCTS &nbsp; CUSTOM ORDER &nbsp; STORIES</span><span>◯ ▢ ◻</span></div>'+
-        '<div style="background:'+pb+';color:'+tc+';padding:16px 14px">'+
-          '<div style="display:flex;gap:14px;align-items:flex-start">'+
-            '<div style="width:96px;height:96px;background:#e6e6e6;border-radius:'+rd+'px;flex:0 0 96px"></div>'+
-            '<div style="flex:1">'+
-              '<div style="font-weight:700;margin-bottom:4px">Arca Short Wallet</div>'+
-              '<div style="color:'+pc+';font-weight:800;margin-bottom:6px">$89 <span style="font-size:.85em">≈ Rp 1.596.000</span></div>'+
-              '<div style="line-height:1.5;margin-bottom:10px">Contoh keterangan produk. Warna teks ini mengikuti pengaturan "warna teks utama".</div>'+
-              '<a href="#" onclick="return false" style="color:'+lc+';text-decoration:underline">contoh tautan</a>'+
-              '<div style="margin-top:10px"><span style="display:inline-block;background:'+bb+';color:'+bt+';padding:10px 18px;border-radius:'+rd+'px;font-weight:700;font-size:.92em">ADD TO CART</span></div>'+
-            '</div></div></div>'+
-        '<div style="background:'+fb+';color:'+ft+';padding:12px 14px;font-size:.82em">© 2026 Revolt Industry · Surabaya</div>'+
-      '</div>';
-  }
-  function loadTheme(){
-    var b=document.getElementById('themeBody');
-    b.innerHTML='<div class="loading">Memuat pengaturan tampilan…</div>';
-    jsonp(WEB_APP_URL+'?page=admin&action=themeGet&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
-      function(res){
-        var cfg=(res&&res.ok)?(res.cfg||{}):{};
-        window.__THEMECFG=cfg;
-        b.innerHTML=
-          '<div class="section-title">Tampilan Website</div>'+
-          '<div class="warn-box" style="border-color:#3a5a8a;background:#111a24">'+
-            '<div class="warn-h" style="color:#8fc0ff">Cara kerja</div>'+
-            '<div style="font-size:12px;color:#bbb;line-height:1.6">Ubah pengaturan di bawah, lihat hasilnya di <b>Pratinjau</b> sebelah — itu contoh tampilan website. '+
-            'Kalau sudah cocok, klik <b>Terapkan ke Website</b>. Kolom yang dikosongkan mengikuti bawaan tema, dan semua perubahan bisa dibatalkan kapan saja.</div></div>'+
-          '<div class="toolbar"><span style="color:#8a8a80;font-size:11px;font-weight:700;text-transform:uppercase">Pilihan cepat:</span>'+
-            Object.keys(THEME_PRESETS).map(function(n){
-              return '<button class="cbtn" onclick="applyPreset(\''+n+'\')">'+esc(n)+'</button>'; }).join('')+
-          '</div>'+
-          '<div class="thwrap">'+
-            '<div class="thform"><div class="pgrid" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))">'+
-            THEME_FIELDS.map(function(f){
-              var v=cfg[f.k]||'';
-              var hint=f.d?'<div style="font-size:10px;color:#77776e;margin-top:3px;line-height:1.4">'+esc(f.d)+'</div>':'';
-              if(f.t==='color'){
-                return '<div class="pf"><label>'+f.l+'</label>'+
-                  '<div style="display:flex;gap:6px;align-items:center">'+
-                    '<input type="color" id="th-'+f.k+'" value="'+esc(v||'#000000')+'" style="width:44px;height:38px;padding:2px;border-radius:7px;background:#14140f;border:1px solid #33332a">'+
-                    '<input type="text" id="thx-'+f.k+'" value="'+esc(v)+'" placeholder="kosong = bawaan tema" oninput="document.getElementById(\'th-'+f.k+'\').value=this.value||\'#000000\';renderPreview()">'+
-                    '<button class="cbtn" onclick="document.getElementById(\'thx-'+f.k+'\').value=\'\';renderPreview()">bersihkan</button>'+
-                  '</div>'+hint+'</div>';
-              }
-              return '<div class="pf"><label>'+f.l+'</label><input type="'+(f.t==='number'?'number':'text')+'" id="thx-'+f.k+'" value="'+esc(v)+'" placeholder="'+esc(f.ph||'')+'" oninput="renderPreview()">'+hint+'</div>';
-            }).join('')+'</div></div>'+
-            '<div class="thprev"><div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#8a8a80;font-weight:700;margin-bottom:7px">Pratinjau</div>'+
-              '<div id="thPreview"></div>'+
-              '<div style="font-size:10.5px;color:#77776e;margin-top:8px;line-height:1.5">Ini contoh, bukan website asli. Untuk hasil sebenarnya klik Terapkan lalu buka website.</div></div>'+
-          '</div>'+
-          '<div class="pf"><label>CSS tambahan (untuk yang tidak ada di atas)</label>'+
-            '<textarea id="thx-extraCss" style="height:120px;font-family:Consolas,monospace" placeholder="mis. .home-slideshow .title img{ opacity:.6 }">'+esc(cfg.extraCss||'')+'</textarea></div>'+
-          '<div class="toolbar">'+
-            '<button class="inv-save" style="border:none;border-radius:8px;padding:11px 18px;font-weight:700;cursor:pointer" onclick="saveTheme(this,true)">💾 Terapkan ke Website</button>'+
-            '<button class="cbtn" onclick="saveTheme(this,false)">Matikan semua perubahan</button>'+
-            '<a class="cbtn" style="text-decoration:none" href="https://revoltindustry.com/?preview='+Date.now()+'" target="_blank">Lihat website</a>'+
-            '<span id="themeMsg" style="color:#e0912f;font-size:12px"></span>'+
-          '</div>';
-        // sinkron color picker → text + pratinjau
-        THEME_FIELDS.forEach(function(f){
-          if(f.t!=='color') return;
-          var c=document.getElementById('th-'+f.k), x=document.getElementById('thx-'+f.k);
-          if(c&&x) c.addEventListener('input', function(){ x.value=c.value; renderPreview(); });
-        });
-        var ex2=document.getElementById('thx-extraCss'); if(ex2) ex2.addEventListener('input', renderPreview);
-        renderPreview();
-      });
-  }
-  function saveTheme(btn, aktif){
-    var cfg={};
-    THEME_FIELDS.forEach(function(f){ var e=document.getElementById('thx-'+f.k); if(e&&e.value.trim()) cfg[f.k]=e.value.trim(); });
-    var ex=document.getElementById('thx-extraCss'); if(ex&&ex.value.trim()) cfg.extraCss=ex.value;
-    if(!aktif && !confirm('Matikan semua pengaturan tampilan dari dashboard?\nWebsite kembali ke tampilan asli tema.')) return;
-    var old=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan…';
-    postJson('themeSave', {cfg:cfg, active:aktif}, function(res){
-      btn.disabled=false; btn.textContent=old;
-      var m=document.getElementById('themeMsg');
-      if(res&&res.ok) m.textContent=aktif?'✓ Diterapkan ke website — buka website untuk melihat':'✓ Dimatikan — website kembali ke tampilan tema';
-      else m.textContent=(res&&res.error)||'Gagal menyimpan.';
-    });
   }
 
   // ── Bukti transfer dari customer ──
@@ -2028,7 +1890,7 @@
   function jsonp(url, cb){
     var name = 'jcb_' + Date.now() + '_' + Math.floor(Math.random()*10000);
     var s = document.createElement('script');
-    var to = setTimeout(function(){ finish(null); }, 15000);
+    var to = setTimeout(function(){ finish(null); }, 40000);   // Woo kadang lambat — jangan buru-buru menyerah
     function finish(d){ clearTimeout(to); delete window[name]; if (s.parentNode) s.parentNode.removeChild(s); cb(d); }
     window[name] = function(d){ finish(d); };
     s.onerror = function(){ finish(null); };
