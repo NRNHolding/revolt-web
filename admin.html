@@ -211,7 +211,7 @@
         padding: 9px 11px; margin-bottom: 10px; background: #141410; }
       .vtab td { display: block; padding: 4px 0 !important; border: none !important;
         width: auto !important; flex: 1 1 100%; }
-      .vtab td[data-l="Harga Reguler (Rp)"], .vtab td[data-l="Harga Sale (Rp)"],
+      .vtab td[data-l="Harga Reguler ($)"], .vtab td[data-l="Harga Sale ($)"],
       .vtab td[data-l="Stok"] { flex: 1 1 40%; min-width: 0; }
       .vtab td[data-l="Kotak warna"] { flex: 0 0 auto; }
       /* biar tidak berdesakan dengan kotak warna di baris yang sama */
@@ -848,7 +848,7 @@
     document.getElementById('bulkBody').innerHTML=
       '<div class="table-scroll tall"><table class="rtable"><thead><tr>'+
         '<th style="width:26px"><input type="checkbox" id="bulkAll" checked onchange="bulkPickAll(this)"></th>'+
-        '<th>Produk</th><th>Tipe</th><th class="num">Harga Reg. (Rp)</th><th class="num">Harga Sale (Rp)</th>'+
+        '<th>Produk</th><th>Tipe</th><th class="num">Harga Reg. ($)</th><th class="num">Harga Sale ($)</th>'+
       '</tr></thead><tbody>'+
       BULK.map(function(b,i){
         var chg=(String(b.rpReg)!==String(b.oReg)||String(b.rpSale)!==String(b.oSale));
@@ -3307,13 +3307,13 @@
         <option value="sale">Harga Sale</option>
         <option value="both">Reguler + Sale</option>
       </select>
-      <input id="bulkVal" placeholder="angka (mis. 10 atau 50000)" style="max-width:190px">
+      <input id="bulkVal" placeholder="angka (mis. 10 untuk 10%, atau 2.5 untuk $2.5)" style="max-width:230px">
       <button class="cbtn" onclick="bulkApply('pct')">▲ Naik %</button>
       <button class="cbtn" onclick="bulkApply('pctdown')">▼ Turun %</button>
-      <button class="cbtn" onclick="bulkApply('add')">+ Rp</button>
-      <button class="cbtn" onclick="bulkApply('sub')">− Rp</button>
+      <button class="cbtn" onclick="bulkApply('add')">+ $</button>
+      <button class="cbtn" onclick="bulkApply('sub')">− $</button>
       <button class="cbtn" onclick="bulkApply('set')">= Set semua</button>
-      <span style="color:#888;font-size:11px">berlaku ke produk yang dicentang</span>
+      <span style="color:#888;font-size:11px">semua harga dalam dollar · berlaku ke produk yang dicentang</span>
     </div>
     <div id="bulkBody"></div>
   </div>
