@@ -195,6 +195,8 @@
     .kchip { background:#1e1e18; border:1px solid #3a3a30; color:#ddd; border-radius:20px; padding:8px 14px; font-size:12.5px; cursor:pointer; }
     .kchip:hover { border-color:#e0912f; color:#e0912f; }
     .kchip.aktif { background:#e0912f; border-color:#e0912f; color:#171712; font-weight:700; }
+    .vimg { width:40px; height:40px; object-fit:cover; border-radius:6px; border:1px solid #33332a; display:block; }
+    .vimg.kosong { display:flex; align-items:center; justify-content:center; color:#666; background:#141410; }
     /* Judul kelompok di daftar produk: status + kategori besar */
     .wgrup { display:flex; align-items:center; gap:9px; margin:20px 0 10px; font-size:12.5px;
       font-weight:700; letter-spacing:.6px; color:#f5f4ef; text-transform:uppercase;
@@ -213,9 +215,10 @@
         width: auto !important; flex: 1 1 100%; }
       .vtab td[data-l="Harga Reguler ($)"], .vtab td[data-l="Harga Sale ($)"],
       .vtab td[data-l="Stok"] { flex: 1 1 40%; min-width: 0; }
-      .vtab td[data-l="Kotak warna"] { flex: 0 0 auto; }
-      /* biar tidak berdesakan dengan kotak warna di baris yang sama */
-      .vtab td[data-l="Jenis"], .vtab td[data-l="Nama"], .vtab td[data-l="Variasi"] { min-width: 100%; }
+      .vtab td[data-l="Kotak warna"], .vtab td[data-l="Foto"] { flex: 0 0 auto; }
+      .vtab td[data-l="Ukuran"] { flex: 1 1 40%; min-width: 0; }
+      /* biar tidak berdesakan dengan foto/kotak warna di baris yang sama */
+      .vtab td[data-l="Jenis"], .vtab td[data-l="Nama"], .vtab td[data-l="Warna"] { min-width: 100%; }
       .vtab td[data-l]:not([data-l=""])::before {
         content: attr(data-l); display: block; font-size: 10px; letter-spacing: .6px;
         color: #888; text-transform: uppercase; margin-bottom: 3px; white-space: nowrap;
@@ -1418,19 +1421,22 @@
   function varBlock(p){
     if(p.vars===null) return '<div class="pf"><label>Variasi</label><div style="color:#888;font-size:12px">Memuat variasi…</div></div>';
     if(!p.vars.length) return '<div class="pf"><label>Variasi</label><div style="color:#888;font-size:12px">Tidak ada variasi.</div></div>';
-    return '<div class="pf"><label>Variasi — harga ($) &amp; stok per ukuran/warna '+
-        '<span class="po-hint">nama variasi bisa diklik-edit (berlaku di semua produk)</span></label>'+
-      '<table class="vtab"><thead><tr><th>Warna</th><th>Variasi</th><th>Harga Reg. ($)</th><th>Harga Sale ($)</th><th>Stok</th><th></th></tr></thead><tbody>'+
+    var adaUkuran=p.vars.some(function(v){ return v.ukuran; });
+    return '<div class="pf"><label>Variasi — harga ($) &amp; stok per warna'+(adaUkuran?' &amp; ukuran':'')+' '+
+        '<span class="po-hint">nama warna bisa diklik-edit (berlaku di semua produk)</span></label>'+
+      '<table class="vtab"><thead><tr><th>Foto</th><th>Warna</th>'+(adaUkuran?'<th>Ukuran</th>':'')+
+        '<th>Harga Reg. ($)</th><th>Harga Sale ($)</th><th>Stok</th><th></th></tr></thead><tbody>'+
       p.vars.map(function(v,i){
-        var t=(PROD.terms||[]).filter(function(x){ return x.name===v.name; })[0];
-        var sw = t
-          ? '<input type="color" class="swin" value="'+esc(t.color||'#cccccc')+'" title="Klik untuk ganti warna kotak di website" '+
-            'onchange="setTermColor('+t.attr+','+t.term+',this.value,this)">'
-          : '';
+        var nama=v.warna||v.name;
+        var t=(PROD.terms||[]).filter(function(x){ return x.name===nama; })[0];
+        var sw = v.img
+          ? '<img src="'+esc(v.img)+'" class="vimg" title="Foto yang tampil kalau warna ini dipilih">'
+          : '<span class="vimg kosong" title="Belum ada foto untuk warna ini">—</span>';
         var nameCell = t
-          ? '<span class="edit" contenteditable="true" data-attr="'+t.attr+'" data-term="'+t.term+'" data-orig="'+esc(v.name)+'" onblur="renameTerm(this)" title="Klik untuk ganti nama — berlaku di semua produk">'+esc(v.name)+'</span>'
-          : esc(v.name);
-        return '<tr><td data-l="Kotak warna" style="width:38px">'+sw+'</td><td data-l="Variasi">'+nameCell+'</td>'+
+          ? '<span class="edit" contenteditable="true" data-attr="'+t.attr+'" data-term="'+t.term+'" data-orig="'+esc(nama)+'" onblur="renameTerm(this)" title="Klik untuk ganti nama — berlaku di semua produk">'+esc(nama)+'</span>'
+          : esc(nama);
+        return '<tr><td data-l="Foto" style="width:46px">'+sw+'</td><td data-l="Warna">'+nameCell+'</td>'+
+          (adaUkuran?'<td data-l="Ukuran"><b>'+esc(v.ukuran||'—')+'</b></td>':'')+
           '<td data-l="Harga Reguler ($)"><input class="vin" data-i="'+i+'" data-f="regular_price" value="'+esc(v.regular_price)+'" oninput="rpEcho(this,\'rpv-'+i+'\')"><div class="prp" id="rpv-'+i+'">'+usd2rp(v.regular_price)+'</div></td>'+
           '<td data-l="Harga Sale ($)"><input class="vin" data-i="'+i+'" data-f="sale_price" value="'+esc(v.sale_price)+'" oninput="rpEcho(this,\'rps-'+i+'\')"><div class="prp" id="rps-'+i+'">'+usd2rp(v.sale_price)+'</div></td>'+
           '<td data-l="Stok"><input class="vin" data-i="'+i+'" data-f="stock" value="'+esc(v.stock)+'"></td>'+
