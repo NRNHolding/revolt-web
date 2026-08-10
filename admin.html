@@ -195,6 +195,19 @@
     .kchip { background:#1e1e18; border:1px solid #3a3a30; color:#ddd; border-radius:20px; padding:8px 14px; font-size:12.5px; cursor:pointer; }
     .kchip:hover { border-color:#e0912f; color:#e0912f; }
     .kchip.aktif { background:#e0912f; border-color:#e0912f; color:#171712; font-weight:700; }
+    /* Di HP tabel variasi jadi kartu — kalau tetap tabel, kolom namanya cuma 36px */
+    @media (max-width: 640px) {
+      .vtab thead { display: none; }
+      .vtab, .vtab tbody, .vtab tr, .vtab td { display: block; width: 100%; }
+      .vtab tr { border: 1px solid #33332a; border-radius: 9px; padding: 9px 11px; margin-bottom: 10px; background: #141410; }
+      .vtab td { padding: 5px 0 !important; border: none !important; width: auto !important; }
+      .vtab td[data-l]:not([data-l=""])::before {
+        content: attr(data-l); display: block; font-size: 10px; letter-spacing: .6px;
+        color: #888; text-transform: uppercase; margin-bottom: 3px;
+      }
+      .vtab td input:not([type=color]), .vtab td select { width: 100%; }
+      .vtab td .edit { display: inline-block; min-width: 120px; }
+    }
     .kdrop { margin-top:11px; border:2px dashed #3a3a30; border-radius:11px; padding:24px 14px; text-align:center; color:#ddd; cursor:pointer; background:#171712; }
     .kdrop:hover, .kdrop.over { border-color:#e0912f; background:#1d1a14; }
     .kprev { display:flex; flex-wrap:wrap; gap:9px; margin-top:11px; }
@@ -1023,17 +1036,17 @@
     if(p.type!=='variable') return '';
     var rows=(p.baru||[]).map(function(v,i){
       return '<tr>'+
-        '<td><select class="bvin" data-i="'+i+'" data-f="attr">'+
+        '<td data-l="Jenis"><select class="bvin" data-i="'+i+'" data-f="attr">'+
             '<option value="1"'+(v.attr==1?' selected':'')+'>Warna</option>'+
             '<option value="2"'+(v.attr==2?' selected':'')+'>Ukuran</option>'+
           '</select></td>'+
-        '<td><input class="bvin" data-i="'+i+'" data-f="name" value="'+esc(v.name)+'" placeholder="'+(v.attr==2?'mis. M':'mis. Milling Navy')+'"></td>'+
-        '<td style="width:46px">'+(v.attr==1
+        '<td data-l="Nama"><input class="bvin" data-i="'+i+'" data-f="name" value="'+esc(v.name)+'" placeholder="'+(v.attr==2?'mis. M':'mis. Milling Navy')+'"></td>'+
+        '<td data-l="Kotak warna" style="width:46px">'+(v.attr==1
             ? '<input type="color" class="swin bvin" data-i="'+i+'" data-f="color" value="'+esc(v.color||'#888888')+'" title="Warna kotak di website">'
             : '<span style="color:#666">—</span>')+'</td>'+
-        '<td><input class="bvin" data-i="'+i+'" data-f="rprice" value="'+esc(v.rprice)+'" placeholder="Rp"></td>'+
-        '<td><input class="bvin" data-i="'+i+'" data-f="stock" value="'+esc(v.stock)+'" placeholder="stok"></td>'+
-        '<td style="width:30px"><button class="cbtn" style="padding:1px 6px;border-color:#cc3333;color:#cc3333" onclick="hapusVarBaru('+i+')">✕</button></td></tr>';
+        '<td data-l="Harga Reguler (Rp)"><input class="bvin" data-i="'+i+'" data-f="rprice" value="'+esc(v.rprice)+'" placeholder="Rp"></td>'+
+        '<td data-l="Stok"><input class="bvin" data-i="'+i+'" data-f="stock" value="'+esc(v.stock)+'" placeholder="stok"></td>'+
+        '<td data-l="" style="width:30px"><button class="cbtn" style="padding:1px 6px;border-color:#cc3333;color:#cc3333" onclick="hapusVarBaru('+i+')">✕ Hapus baris</button></td></tr>';
     }).join('');
     return '<div class="pf"><label>Warna / Ukuran <span class="po-hint">dibuat otomatis begitu produknya disimpan</span></label>'+
       '<table class="vtab"><thead><tr><th style="width:90px">Jenis</th><th>Nama</th><th>Kotak</th><th>Harga Reg. (Rp)</th><th>Stok</th><th></th></tr></thead>'+
@@ -1372,11 +1385,11 @@
         var nameCell = t
           ? '<span class="edit" contenteditable="true" data-attr="'+t.attr+'" data-term="'+t.term+'" data-orig="'+esc(v.name)+'" onblur="renameTerm(this)" title="Klik untuk ganti nama — berlaku di semua produk">'+esc(v.name)+'</span>'
           : esc(v.name);
-        return '<tr><td style="width:38px">'+sw+'</td><td>'+nameCell+'</td>'+
-          '<td><input class="vin" data-i="'+i+'" data-f="regular_price" value="'+esc(usdNum2rp(v.regular_price))+'" oninput="usdEcho(this,\'rpv-'+i+'\')"><div class="prp" id="rpv-'+i+'">'+usdEchoTxt(usdNum2rp(v.regular_price))+'</div></td>'+
-          '<td><input class="vin" data-i="'+i+'" data-f="sale_price" value="'+esc(usdNum2rp(v.sale_price))+'" oninput="usdEcho(this,\'rps-'+i+'\')"><div class="prp" id="rps-'+i+'">'+usdEchoTxt(usdNum2rp(v.sale_price))+'</div></td>'+
-          '<td><input class="vin" data-i="'+i+'" data-f="stock" value="'+esc(v.stock)+'"></td>'+
-          '<td style="width:30px"><button class="cbtn" style="padding:1px 6px;border-color:#cc3333;color:#cc3333" title="Hapus variasi ini" onclick="delVariation('+v.id+',\''+esc(v.name)+'\')">✕</button></td></tr>';
+        return '<tr><td data-l="Kotak warna" style="width:38px">'+sw+'</td><td data-l="Variasi">'+nameCell+'</td>'+
+          '<td data-l="Harga Reguler (Rp)"><input class="vin" data-i="'+i+'" data-f="regular_price" value="'+esc(usdNum2rp(v.regular_price))+'" oninput="usdEcho(this,\'rpv-'+i+'\')"><div class="prp" id="rpv-'+i+'">'+usdEchoTxt(usdNum2rp(v.regular_price))+'</div></td>'+
+          '<td data-l="Harga Sale (Rp)"><input class="vin" data-i="'+i+'" data-f="sale_price" value="'+esc(usdNum2rp(v.sale_price))+'" oninput="usdEcho(this,\'rps-'+i+'\')"><div class="prp" id="rps-'+i+'">'+usdEchoTxt(usdNum2rp(v.sale_price))+'</div></td>'+
+          '<td data-l="Stok"><input class="vin" data-i="'+i+'" data-f="stock" value="'+esc(v.stock)+'"></td>'+
+          '<td data-l="" style="width:30px"><button class="cbtn" style="padding:1px 6px;border-color:#cc3333;color:#cc3333" title="Hapus variasi ini" onclick="delVariation('+v.id+',\''+esc(v.name)+'\')">✕</button></td></tr>';
       }).join('')+'</tbody></table>'+
       '<button class="cbtn" style="margin-top:8px;border-color:#16a34a;color:#16a34a" onclick="addVariation()">＋ Tambah Warna</button>'+
       '</div>';
