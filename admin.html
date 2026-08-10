@@ -881,14 +881,19 @@
           '<button class="cbtn" style="border-color:#8a3b3b;color:#d97a7a" title="Hapus foto" onclick="delProdImg('+i+')">✕</button>'+
         '</div></div>';
     }).join('');
+    // Produk baru selalu draft — publish dilakukan nanti dari Edit Produk
+    var statusCell = p.isNew
+      ? '<div class="pf"><label>Status</label><div style="color:#c9a227;font-size:12px;padding:9px 0;line-height:1.4">'+
+          'Dibuat sebagai <b>draft</b><br><span style="color:#888;font-size:11px">publish nanti setelah dicek</span></div></div>'
+      : '<div class="pf"><label>Status</label>'+statusSel(p)+'</div>';
     var priceBlock = simple
       ? '<div class="pgrid">'+
           '<div class="pf"><label>Harga Reguler (Rp)</label><input id="p-rprice" value="'+esc(usdNum2rp(p.regular_price))+'" oninput="usdEcho(this,\'rp-r\')"><div class="prp" id="rp-r">'+usdEchoTxt(usdNum2rp(p.regular_price))+'</div></div>'+
           '<div class="pf"><label>Harga Sale (Rp)</label><input id="p-sprice" value="'+esc(usdNum2rp(p.sale_price))+'" oninput="usdEcho(this,\'rp-s\')"><div class="prp" id="rp-s">'+usdEchoTxt(usdNum2rp(p.sale_price))+'</div></div>'+
           '<div class="pf"><label>Stok</label><input id="p-stock" value="'+esc(p.stock)+'"></div>'+
-          '<div class="pf"><label>Status</label>'+statusSel(p)+'</div>'+
+          statusCell+
         '</div>'
-      : '<div class="pf" style="max-width:200px"><label>Status</label>'+statusSel(p)+'</div>'+ (p.isNew ? '' : varBlock(p));
+      : '<div style="max-width:220px">'+statusCell+'</div>'+ (p.isNew ? '' : varBlock(p));
     var tipeBlock = p.isNew
       ? '<div class="pf"><label>Tipe Produk</label>'+
           '<select id="p-type" onchange="gantiTipeProd(this.value)">'+
@@ -916,6 +921,8 @@
         '<button class="cbtn" onclick="addProdImgUrl()">＋ Tambah</button></div></div>'+
       detailBlock(p)+
       (p.isNew ? '' : '<div style="color:#888;font-size:11px;margin-top:8px">Kategori: '+esc(p.categories||'-')+' · <a class="link" href="'+esc(p.permalink)+'" target="_blank">lihat di web</a></div>');
+    var db=document.getElementById('prodDelBtn');
+    if(db) db.style.display = p.id ? '' : 'none';   // belum dibuat = tidak ada yang bisa dihapus
     pasangDragProd();
   }
 
@@ -1481,6 +1488,7 @@
       images:JSON.stringify(PROD.images.map(function(i){ return i.id?{id:i.id}:{src:i.src}; })) };
     if(PROD.isNew){
       if(!String(PROD.name||'').trim()){ alert('Nama produk wajib diisi.'); btn.disabled=false; btn.textContent=old; return; }
+      payload.status='draft';   // produk baru tidak pernah langsung tayang
       payload.ptype=(PROD.type==='variable')?'variable':'simple';
       if(payload.ptype==='variable'){
         var isi=(PROD.baru||[]).filter(function(v){ return String(v.name||'').trim(); });
@@ -1539,6 +1547,22 @@
         document.getElementById('prodMsg').textContent=ket+(hasil?' · detail halaman tersimpan':' · detail halaman GAGAL tersimpan')+' — cek web';
       });
       loadWoo(); }, 2600);
+  }
+
+  // Hapus produk → masuk Trash WordPress, masih bisa dipulihkan
+  function hapusProduk(btn){
+    if(!PROD || !PROD.id){ alert('Produk ini belum dibuat di website.'); return; }
+    var nama=PROD.name||('#'+PROD.id);
+    if(!confirm('Hapus produk "'+nama+'" dari website?\n\nProduk masuk Trash WordPress dan bisa dipulihkan.\nSemua variasi warna/ukurannya ikut terhapus.')) return;
+    var old=btn.textContent; btn.disabled=true; btn.textContent='Menghapus…';
+    jsonp(WEB_APP_URL+'?page=admin&action=wooProductDelete&id='+PROD.id+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        btn.disabled=false; btn.textContent=old;
+        if(res&&res.ok){
+          document.getElementById('woomsg').textContent='Produk "'+nama+'" dihapus (ada di Trash WordPress)';
+          closeProd(); loadWoo();
+        } else alert((res&&res.error)||'Gagal menghapus produk.');
+      });
   }
 
   // Detail halaman produk ikut tersimpan bareng tombol Simpan
@@ -3162,6 +3186,7 @@
     <div class="inv-bar" style="flex-wrap:wrap">
       <strong style="color:#f5f4ef;margin-right:auto">Edit Produk</strong>
       <span id="prodMsg" style="color:#e0912f;font-size:11px"></span>
+      <button class="cbtn" id="prodDelBtn" style="border-color:#8a3b3b;color:#d97a7a" onclick="hapusProduk(this)">🗑 Hapus Produk</button>
       <button class="inv-save" onclick="saveProd(this)">💾 Simpan ke Web</button>
       <button class="inv-cls" onclick="closeProd()">Tutup</button>
     </div>
