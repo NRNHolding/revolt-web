@@ -195,6 +195,14 @@
     .kchip { background:#1e1e18; border:1px solid #3a3a30; color:#ddd; border-radius:20px; padding:8px 14px; font-size:12.5px; cursor:pointer; }
     .kchip:hover { border-color:#e0912f; color:#e0912f; }
     .kchip.aktif { background:#e0912f; border-color:#e0912f; color:#171712; font-weight:700; }
+    /* Judul kelompok di daftar produk: status + kategori besar */
+    .wgrup { display:flex; align-items:center; gap:9px; margin:20px 0 10px; font-size:12.5px;
+      font-weight:700; letter-spacing:.6px; color:#f5f4ef; text-transform:uppercase;
+      border-bottom:1px solid #2a2a24; padding-bottom:7px; }
+    .wgrup:first-child { margin-top:4px; }
+    .wgs { background:#5a4a22; color:#f0c674; font-size:9.5px; font-weight:800; letter-spacing:.8px;
+      padding:3px 9px; border-radius:10px; }
+    .wgs.on { background:#1f4d2a; color:#8ee5a8; }
     /* Di HP tabel variasi jadi kartu — kalau tetap tabel, kolom namanya cuma 36px */
     @media (max-width: 640px) {
       .vtab thead { display: none; }
@@ -616,6 +624,12 @@
         '<div class="toolbar">' +
           '<input id="qwoo" placeholder="Cari produk…" onkeydown="if(event.key===\'Enter\')loadWoo()">' +
           '<select id="wcat" onchange="loadWoo()"><option value="">Semua kategori</option></select>' +
+          '<select id="wstat" onchange="loadWoo()">' +
+            '<option value="">Semua status</option>' +
+            '<option value="publish">Publish</option>' +
+            '<option value="draft">Draft</option>' +
+            '<option value="private">Private</option>' +
+          '</select>' +
           '<button class="cbtn" onclick="loadWoo()">Muat</button>' +
           '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="openNewProd()">＋ Produk Baru</button>' +
           '<button class="cbtn" style="border-color:#3b82f6;color:#7cb3ff" onclick="openKatalog()">📷 Galeri Foto</button>' +
@@ -733,9 +747,12 @@
         if(!res||!res.ok) return;
         var sel=document.getElementById('wcat'); if(!sel) return;
         var cur=sel.value;
-        sel.innerHTML='<option value="">Semua kategori</option>'+(res.cats||[]).map(function(c){
-          return '<option value="'+c.id+'">'+esc(String(c.name).replace(/&amp;/g,'&'))+' ('+c.count+')</option>';
-        }).join('');
+        // hanya kategori besar — sub-kategori bikin daftar panjang dan tumpang tindih
+        sel.innerHTML='<option value="">Semua kategori</option>'+(res.cats||[])
+          .filter(function(c){ return !c.parent; })
+          .map(function(c){
+            return '<option value="'+c.id+'">'+esc(String(c.name).replace(/&amp;/g,'&'))+'</option>';
+          }).join('');
         sel.value=cur;
       });
   }
@@ -743,8 +760,9 @@
     if(!window.__WOO_LOADED){ window.__WOO_LOADED=true; loadWooCats(); }
     var q=(document.getElementById('qwoo')||{}).value||'';
     var cat=(document.getElementById('wcat')||{}).value||'';
+    var stat=(document.getElementById('wstat')||{}).value||'';
     document.getElementById('wooBody').innerHTML='<div class="loading">Memuat produk…</div>';
-    jsonp(WEB_APP_URL+'?page=admin&action=wooProducts&search='+encodeURIComponent(q)+'&cat='+encodeURIComponent(cat)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+    jsonp(WEB_APP_URL+'?page=admin&action=wooProducts&search='+encodeURIComponent(q)+'&cat='+encodeURIComponent(cat)+'&status='+encodeURIComponent(stat)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
       function(res){
         if(!res||!res.ok){ document.getElementById('wooBody').innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal muat.')+'</div>'; return; }
         if(res.rate) WOO_RATE=res.rate;
@@ -753,9 +771,26 @@
         document.getElementById('wooBody').innerHTML=wooRows(res.items);
       });
   }
+  var STAT_NAMA={publish:'Tayang di web', draft:'Draft', pending:'Menunggu review', private:'Private'};
   function wooRows(items){
     if(!items.length) return '<div class="loading">Tidak ada produk.</div>';
-    return '<div class="wgrid">'+items.map(function(p){
+    // urutan dari server: status → kategori besar → nama. Judul grup disisipkan tiap ganti.
+    var out='', grupTerakhir='';
+    items.forEach(function(p){
+      var grup=(STAT_NAMA[p.status]||p.status)+' · '+(p.mainCat||'Tanpa kategori');
+      if(grup!==grupTerakhir){
+        if(grupTerakhir) out+='</div>';
+        out+='<div class="wgrup"><span class="wgs'+(p.status==='publish'?' on':'')+'">'+
+             esc(STAT_NAMA[p.status]||p.status)+'</span>'+esc(p.mainCat||'Tanpa kategori')+'</div><div class="wgrid">';
+        grupTerakhir=grup;
+      }
+      out+=wooCard(p);
+    });
+    return out+'</div>'+
+      '<div style="color:#888;font-size:11px;margin-top:8px">Diurutkan per status lalu kategori besar · klik kartu / <b>Edit</b> untuk ubah nama, deskripsi, foto, harga, stok &amp; variasi · harga toko dalam USD, Rp = konversi kurs hari ini</div>';
+  }
+  function wooCard(p){
+    return [p].map(function(p){
       var variabel=p.type!=='simple';
       var usd=p.sale_price||p.regular_price||p.price;
       var rp=usd2rp(usd);
@@ -776,8 +811,7 @@
           '</div>'+
         '</div>'+
       '</div>';
-    }).join('')+'</div>'+
-    '<div style="color:#888;font-size:11px;margin-top:8px">Klik kartu / <b>Edit</b> untuk ubah nama, deskripsi, foto, harga, stok & variasi · harga toko dalam USD, Rp = konversi kurs hari ini</div>';
+    }).join('');
   }
   function cleanField(i){
     var ta=document.getElementById('fld-'+i);
