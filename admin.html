@@ -212,6 +212,17 @@
     .vchip .cbtn { padding:1px 7px; font-size:11px; }
     .vadd { display:flex; gap:7px; flex-wrap:wrap; }
     .vadd input { flex:1; min-width:170px; }
+    .vimgbtn { padding:0; border:none; background:none; cursor:pointer; display:block; }
+    .vimgbtn:hover .vimg { outline:2px solid #e0912f; outline-offset:1px; }
+    .fpick { border:1px solid #e0912f; border-radius:9px; padding:11px 13px; margin-bottom:11px; background:#1d1a14; }
+    .fpickgrid { display:flex; flex-wrap:wrap; gap:8px; margin-top:9px; }
+    .fpickitem { padding:0; border:2px solid #33332a; border-radius:8px; overflow:hidden; background:#141410;
+      cursor:pointer; width:76px; }
+    .fpickitem img { width:76px; height:76px; object-fit:cover; display:block; }
+    .fpickitem span { display:block; font-size:10px; color:#999; padding:3px 0; }
+    .fpickitem:hover { border-color:#e0912f; }
+    .fpickitem.aktif { border-color:#16a34a; }
+    .fpickitem.aktif span { color:#8ee5a8; font-weight:700; }
     /* Judul kelompok di daftar produk: status + kategori besar */
     .wgrup { display:flex; align-items:center; gap:9px; margin:20px 0 10px; font-size:12.5px;
       font-weight:700; letter-spacing:.6px; color:#f5f4ef; text-transform:uppercase;
@@ -1525,15 +1536,16 @@
     if(!p.vars.length) return '<div class="pf"><label>Variasi</label><div style="color:#888;font-size:12px">Tidak ada variasi.</div></div>';
     var adaUkuran=p.vars.some(function(v){ return v.ukuran; });
     return '<div class="pf"><label>Variasi — harga ($) &amp; stok per warna'+(adaUkuran?' &amp; ukuran':'')+' '+
-        '<span class="po-hint">nama warna bisa diklik-edit (berlaku di semua produk)</span></label>'+
+        '<span class="po-hint">klik foto untuk memilih dari foto produk · nama warna bisa diklik-edit</span></label>'+
+      pilihFotoBlock(p)+
       '<table class="vtab"><thead><tr><th>Foto</th><th>Warna</th>'+(adaUkuran?'<th>Ukuran</th>':'')+
         '<th>Harga Reg. ($)</th><th>Harga Sale ($)</th><th>Stok</th><th></th></tr></thead><tbody>'+
       p.vars.map(function(v,i){
         var nama=v.warna||v.name;
         var t=(PROD.terms||[]).filter(function(x){ return x.name===nama; })[0];
-        var sw = v.img
-          ? '<img src="'+esc(v.img)+'" class="vimg" title="Foto yang tampil kalau warna ini dipilih">'
-          : '<span class="vimg kosong" title="Belum ada foto untuk warna ini">—</span>';
+        var sw = '<button class="vimgbtn" title="Klik untuk pilih foto warna '+esc(nama)+'" onclick="pilihFotoVariasi(\''+esc(nama).replace(/'/g,"\\'")+'\')">'+
+          (v.img ? '<img src="'+esc(v.img)+'" class="vimg">' : '<span class="vimg kosong">＋</span>')+
+        '</button>';
         var nameCell = t
           ? '<span class="edit" contenteditable="true" data-attr="'+t.attr+'" data-term="'+t.term+'" data-orig="'+esc(nama)+'" onblur="renameTerm(this)" title="Klik untuk ganti nama — berlaku di semua produk">'+esc(nama)+'</span>'
           : esc(nama);
@@ -1547,6 +1559,48 @@
       '<button class="cbtn" style="margin-top:8px;border-color:#16a34a;color:#16a34a" onclick="addVariation()">＋ Tambah Warna</button>'+
       '</div>';
   }
+  // ── Pilih foto untuk sebuah warna (berlaku ke semua ukuran warna itu) ──
+  function pilihFotoVariasi(warna){
+    syncProdForm();
+    PROD.pilihWarna = (PROD.pilihWarna===warna) ? '' : warna;
+    renderProd();
+  }
+  function pilihFotoBlock(p){
+    if(!p.pilihWarna) return '';
+    var imgs=p.images||[];
+    if(!imgs.length) return '<div class="fpick"><b>Foto untuk '+esc(p.pilihWarna)+'</b>'+
+      '<div style="color:#888;font-size:12px;margin-top:6px">Belum ada foto di produk ini. Upload dulu di bagian Foto Produk di bawah.</div></div>';
+    var skr=(p.vars||[]).filter(function(v){ return (v.warna||v.name)===p.pilihWarna; })[0]||{};
+    return '<div class="fpick">'+
+      '<b>Pilih foto untuk warna "'+esc(p.pilihWarna)+'"</b>'+
+      '<span style="color:#888;font-size:11px"> — berlaku ke semua ukuran warna ini</span>'+
+      '<div class="fpickgrid">'+
+        imgs.map(function(im,i){
+          var aktif = (im.id && skr.imgId===im.id) || (!im.id && skr.img===im.src);
+          return '<button class="fpickitem'+(aktif?' aktif':'')+'" title="Foto ke-'+(i+1)+'" onclick="setFotoVariasi('+i+')">'+
+            '<img src="'+esc(im.src)+'"><span>'+(i+1)+(i===0?' · utama':'')+'</span></button>';
+        }).join('')+
+      '</div>'+
+      '<div style="margin-top:8px;display:flex;gap:7px;flex-wrap:wrap">'+
+        '<button class="cbtn" onclick="setFotoVariasi(-1)">Kosongkan</button>'+
+        '<button class="cbtn" onclick="pilihFotoVariasi(\''+esc(p.pilihWarna).replace(/'/g,"\\'")+'\')">Tutup</button>'+
+        '<span style="color:#888;font-size:11px;align-self:center">Klik Simpan supaya tersimpan di website</span>'+
+      '</div></div>';
+  }
+  function setFotoVariasi(idx){
+    if(!PROD||!PROD.pilihWarna) return;
+    syncProdForm();
+    var im = (idx<0) ? {src:'', id:0} : (PROD.images||[])[idx];
+    if(!im) return;
+    var n=0;
+    (PROD.vars||[]).forEach(function(v){
+      if((v.warna||v.name)!==PROD.pilihWarna) return;
+      v.img=im.src||''; v.imgId=im.id||0; v.imgUbah=true; n++;
+    });
+    renderProd();
+    document.getElementById('prodMsg').textContent='Foto "'+PROD.pilihWarna+'" diubah untuk '+n+' variasi — klik Simpan untuk menerapkan';
+  }
+
   function setTermColor(attr, term, color, el){
     el.style.outline='2px solid #e0912f';
     jsonp(WEB_APP_URL+'?page=admin&action=wooTermColor&attr='+attr+'&term='+term+'&color='+encodeURIComponent(color)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
@@ -1753,7 +1807,8 @@
       }
       var q='&rprice='+encodeURIComponent(bersihUsd(v.regular_price))+
             '&sprice='+encodeURIComponent(bersihUsd(v.sale_price))+
-            '&stock='+encodeURIComponent(String(v.stock||''));
+            '&stock='+encodeURIComponent(String(v.stock||''))+
+            (v.imgUbah&&v.imgId ? '&imageId='+encodeURIComponent(v.imgId) : '');
       nVar++;
       jsonp(WEB_APP_URL+'?page=admin&action=wooVarUpdate&pid='+PROD.id+'&vid='+v.id+q+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(), function(){});
     });
