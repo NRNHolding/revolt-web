@@ -180,8 +180,8 @@
     .prp { font-size: 10px; color: #e0912f; margin-top: 3px; min-height: 12px; }
     @media (max-width: 640px) { .wgrid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 9px; } .wname { font-size: 11.5px; } }
 
-    #katModal, #bulkModal, #fldModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 210; display: none; overflow: auto; padding: 20px; }
-    #katModal.show, #bulkModal.show, #fldModal.show { display: block; }
+    #katModal, #bulkModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 210; display: none; overflow: auto; padding: 20px; }
+    #katModal.show, #bulkModal.show { display: block; }
     /* Galeri katalog — alur 3 langkah */
     .kstep { border:1px solid #2a2a24; border-radius:10px; padding:13px 15px; margin-bottom:11px; background:#141410; opacity:.5; }
     .kstep.active { opacity:1; border-color:#e0912f; }
@@ -756,52 +756,18 @@
     }).join('')+'</div>'+
     '<div style="color:#888;font-size:11px;margin-top:8px">Klik kartu / <b>Edit</b> untuk ubah nama, deskripsi, foto, harga, stok & variasi · harga toko dalam USD, Rp = konversi kurs hari ini</div>';
   }
-  // ── Detail produk yang tampil di halaman web (Materials, Warranty, dll) ──
-  var PF=null;
-  function openFields(id, nama){
-    document.getElementById('fldModal').classList.add('show');
-    document.getElementById('fldTitle').textContent='Detail Web — '+(nama||id);
-    document.getElementById('fldMsg').textContent='';
-    document.getElementById('fldBody').innerHTML='<div class="loading">Memuat detail…</div>';
-    jsonp(WEB_APP_URL+'?page=admin&action=wooFields&id='+id+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
-      function(res){
-        if(!res||!res.ok){ document.getElementById('fldBody').innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
-        PF=res; renderFields();
-      });
-  }
-  function closeFields(){ document.getElementById('fldModal').classList.remove('show'); PF=null; }
-  function renderFields(){
-    document.getElementById('fldBody').innerHTML=PF.fields.map(function(f,i){
-      return '<div class="pf"><label>'+esc(f.label)+
-        (f.messy?' <span style="color:#c47f00;font-weight:400">berisi kode sisa copy-paste — klik Rapikan</span>':'')+
-        '</label><textarea id="fld-'+i+'" style="height:'+(f.value.length>400?150:90)+'px">'+esc(f.value)+'</textarea>'+
-        (f.messy?'<button class="cbtn" style="margin-top:5px" onclick="cleanField('+i+')">✨ Rapikan</button>':'')+
-        '</div>';
-    }).join('')+
-    '<div style="color:#888;font-size:11px">Boleh pakai HTML sederhana: &lt;strong&gt;, &lt;ol&gt;&lt;li&gt;, &lt;br&gt;. Perubahan langsung tampil di halaman produk.</div>';
-  }
   function cleanField(i){
     var ta=document.getElementById('fld-'+i);
     var btn=event&&event.target; if(btn){ btn.disabled=true; btn.textContent='Merapikan…'; }
     jsonp(WEB_APP_URL+'?page=admin&action=wooFieldClean&html='+encodeURIComponent(ta.value.slice(0,1800))+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
       function(res){
         if(btn){ btn.disabled=false; btn.textContent='✨ Rapikan'; }
-        if(res&&res.ok){ ta.value=res.text; document.getElementById('fldMsg').textContent='Dirapikan — cek isinya lalu Simpan.'; }
-        else alert((res&&res.error)||'Gagal merapikan.');
+        if(res&&res.ok){
+          ta.value=res.text; syncProdForm();
+          document.getElementById('prodMsg').textContent='Dirapikan — cek isinya lalu klik Simpan.';
+        } else alert((res&&res.error)||'Gagal merapikan.');
       });
   }
-  function saveFields(btn){
-    if(!PF) return;
-    var old=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan…';
-    var payload={ id:PF.id, fields:PF.fields.map(function(f,i){
-      return { key:f.key, value:document.getElementById('fld-'+i).value }; }) };
-    postJson('wooFieldsSave', payload, function(res){
-      btn.disabled=false; btn.textContent=old;
-      if(res&&res.ok){ document.getElementById('fldMsg').textContent='✓ Tersimpan — cek halaman produk di web.'; }
-      else document.getElementById('fldMsg').textContent=(res&&res.error)||'Gagal menyimpan.';
-    });
-  }
-
   // ── Edit harga massal ──
   var BULK=[];
   function openBulk(){
@@ -891,7 +857,8 @@
     jsonp(WEB_APP_URL+'?page=admin&action=wooProduct&id='+id+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
       function(res){
         if(!res||!res.ok){ document.getElementById('prodBody').innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
-        PROD=res.p; PROD.vars=null; PROD.terms=[]; renderProd();
+        PROD=res.p; PROD.vars=null; PROD.terms=[]; PROD.fields=null; renderProd();
+        muatFieldProduk(id);
         if(PROD.type!=='simple'){
           jsonp(WEB_APP_URL+'?page=admin&action=wooVars&id='+id+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
             function(vr){ PROD.vars=(vr&&vr.ok)?(vr.items||[]):[]; renderProd(); });
@@ -947,8 +914,45 @@
         '<div class="pimgs" id="pImgs">'+(imgs||'<span style="color:#888;font-size:11px">belum ada foto</span>')+'</div>'+
         '<div class="purl"><input id="pImgUrl" placeholder="atau tempel URL gambar (https://…)" onkeydown="if(event.key===\'Enter\')addProdImgUrl()">'+
         '<button class="cbtn" onclick="addProdImgUrl()">＋ Tambah</button></div></div>'+
+      detailBlock(p)+
       (p.isNew ? '' : '<div style="color:#888;font-size:11px;margin-top:8px">Kategori: '+esc(p.categories||'-')+' · <a class="link" href="'+esc(p.permalink)+'" target="_blank">lihat di web</a></div>');
     pasangDragProd();
+  }
+
+  // ── Detail yang tampil di halaman produk (Materials, Specifications, dll) ──
+  function detailBlock(p){
+    if(!p.fields) return '<div class="section-title" style="margin-top:20px">Detail Halaman Produk</div>'+
+      '<div style="color:#888;font-size:12px">Memuat…</div>';
+    return '<div class="section-title" style="margin-top:20px">Detail Halaman Produk '+
+        '<span style="font-weight:400;font-size:11px;color:#888">tampil sebagai blok terpisah di bawah harga</span></div>'+
+      p.fields.map(function(f,i){
+        var baku=(p.baku||{})[f.key];
+        return '<div class="pf"><label>'+esc(f.label)+
+          (f.messy?' <span style="color:#c47f00;font-weight:400">berisi kode sisa copy-paste — klik Rapikan</span>':'')+
+          '</label><textarea id="fld-'+i+'" style="height:'+(String(f.value||'').length>400?140:80)+'px" placeholder="satu poin per baris, awali dengan -">'+esc(f.value||'')+'</textarea>'+
+          '<div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap">'+
+            (f.messy?'<button class="cbtn" onclick="cleanField('+i+')">✨ Rapikan</button>':'')+
+            (baku?'<button class="cbtn" onclick="isiBaku('+i+')">Isi teks standar</button>':'')+
+          '</div></div>';
+      }).join('')+
+      '<div style="color:#888;font-size:11px">Boleh pakai HTML sederhana: &lt;strong&gt;, &lt;ol&gt;&lt;li&gt;, &lt;br&gt;. Tersimpan bareng tombol Simpan di atas.</div>';
+  }
+  function isiBaku(i){
+    var f=PROD.fields[i], t=(PROD.baku||{})[f.key];
+    if(!t) return;
+    var ta=document.getElementById('fld-'+i); if(ta) ta.value=t;
+    syncProdForm();
+  }
+  function muatFieldProduk(id){
+    var url = id
+      ? WEB_APP_URL+'?page=admin&action=wooFields&id='+id
+      : WEB_APP_URL+'?page=admin&action=wooFieldDefs';
+    jsonp(url+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(), function(res){
+      if(!PROD) return;
+      if(res&&res.ok){ PROD.fields=res.fields||[]; PROD.baku=res.baku||{}; }
+      else PROD.fields=[];
+      renderProd();
+    });
   }
 
   // ── Tata ulang urutan foto produk ──
@@ -1261,10 +1265,11 @@
   function openNewProd(){
     PROD={ id:0, name:'', sku:'', type:'simple', status:'draft', description:'', short_description:'',
       regular_price:'', sale_price:'', stock:'', weight:'', categories:'', images:[], vars:null, permalink:'',
-      isNew:true, baru:[] };   // baru = daftar warna/ukuran yang akan dibuat
+      isNew:true, baru:[], fields:null };   // baru = daftar warna/ukuran yang akan dibuat
     document.getElementById('prodModal').classList.add('show');
     document.getElementById('prodMsg').textContent='Produk baru — status draft dulu, publish kalau sudah siap';
     renderProd();
+    muatFieldProduk(0);
     if(!window.__CATS) jsonp(WEB_APP_URL+'?page=admin&action=wooCats&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
       function(res){ if(res&&res.ok){ window.__CATS=res.cats||[]; if(PROD&&PROD.isNew) renderProd(); } });
   }
@@ -1385,6 +1390,11 @@
       var i=+inp.getAttribute('data-i'), f=inp.getAttribute('data-f');
       if(PROD.baru && PROD.baru[i]) PROD.baru[i][f] = (f==='attr') ? +inp.value : inp.value;
     });
+    // detail halaman produk
+    (PROD.fields||[]).forEach(function(f,i){
+      var ta=document.getElementById('fld-'+i);
+      if(ta) f.value=ta.value;
+    });
     document.querySelectorAll('.vin').forEach(function(inp){
       var i=+inp.getAttribute('data-i'), f=inp.getAttribute('data-f');
       if(PROD.vars && PROD.vars[i]){ PROD.vars[i][f==='stock'?'stock':f]=inp.value; }
@@ -1492,9 +1502,12 @@
         var m=document.getElementById('prodMsg');
         if(res&&res.ok){
           PROD.isNew=false; PROD.id=res.id; PROD.baru=[]; loadWoo();
-          m.textContent='Produk dibuat ✓ (draft)'+(res.variants?(' · '+res.variants+' warna/ukuran dibuat'):'')+
-            (res.varErr?(' · gagal: '+res.varErr):'')+' — lanjut isi Materials/Specifications lewat tombol 📄 Detail Web di atas';
-          renderProd();
+          var ket='Produk dibuat ✓ (draft)'+(res.variants?(' · '+res.variants+' warna/ukuran dibuat'):'')+
+            (res.varErr?(' · gagal: '+res.varErr):'');
+          m.textContent=ket; renderProd();
+          simpanDetailProduk(res.id, function(hasil){
+            m.textContent=ket+(hasil?' · detail halaman tersimpan':' · detail halaman GAGAL tersimpan');
+          });
         }
         else m.textContent=(res&&res.error)||'Gagal buat produk.';
       });
@@ -1520,7 +1533,21 @@
     add('action','wooSave'); add('key',ADMIN_KEY); add('payload',JSON.stringify(payload));
     document.body.appendChild(form); form.submit();
     setTimeout(function(){ document.body.removeChild(form); btn.disabled=false; btn.textContent=old;
-      document.getElementById('prodMsg').textContent='Tersimpan ✓'+(nVar?' ('+nVar+' variasi)':'')+' — cek web'; loadWoo(); }, 2600);
+      var ket='Tersimpan ✓'+(nVar?' ('+nVar+' variasi)':'');
+      document.getElementById('prodMsg').textContent=ket+' — menyimpan detail halaman…';
+      simpanDetailProduk(PROD.id, function(hasil){
+        document.getElementById('prodMsg').textContent=ket+(hasil?' · detail halaman tersimpan':' · detail halaman GAGAL tersimpan')+' — cek web';
+      });
+      loadWoo(); }, 2600);
+  }
+
+  // Detail halaman produk ikut tersimpan bareng tombol Simpan
+  function simpanDetailProduk(id, done){
+    if(!id || !PROD || !PROD.fields || !PROD.fields.length){ done(true); return; }
+    syncProdForm();
+    var isi=PROD.fields.map(function(f){ return { key:f.key, value:String(f.value||'') }; });
+    if(!isi.some(function(f){ return f.value.trim(); })){ done(true); return; }   // semua kosong → tidak perlu kirim
+    postJson('wooFieldsSave', { id:id, fields:isi }, function(res){ done(!!(res&&res.ok)); });
   }
 
   function saveVar(el){
@@ -3135,7 +3162,6 @@
     <div class="inv-bar" style="flex-wrap:wrap">
       <strong style="color:#f5f4ef;margin-right:auto">Edit Produk</strong>
       <span id="prodMsg" style="color:#e0912f;font-size:11px"></span>
-      <button class="cbtn" onclick="if(PROD&&PROD.id){openFields(PROD.id,PROD.name);}else{alert('Buka produk dulu.');}">📄 Detail Web</button>
       <button class="inv-save" onclick="saveProd(this)">💾 Simpan ke Web</button>
       <button class="inv-cls" onclick="closeProd()">Tutup</button>
     </div>
@@ -3144,17 +3170,6 @@
 </div>
 <input type="file" id="prodImgInput" accept="image/*" multiple style="display:none" onchange="prodImgPick(this)">
 
-<div id="fldModal">
-  <div class="prod-wrap">
-    <div class="inv-bar" style="flex-wrap:wrap">
-      <strong id="fldTitle" style="color:#f5f4ef;margin-right:auto">Detail Web</strong>
-      <span id="fldMsg" style="color:#e0912f;font-size:11px"></span>
-      <button class="inv-save" onclick="saveFields(this)">💾 Simpan ke Web</button>
-      <button class="inv-cls" onclick="closeFields()">Tutup</button>
-    </div>
-    <div id="fldBody"></div>
-  </div>
-</div>
 
 <div id="bulkModal">
   <div style="max-width:960px;margin:0 auto">
