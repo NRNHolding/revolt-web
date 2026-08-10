@@ -206,6 +206,8 @@
       .vtab td[data-l="Harga Reguler (Rp)"], .vtab td[data-l="Harga Sale (Rp)"],
       .vtab td[data-l="Stok"] { flex: 1 1 40%; min-width: 0; }
       .vtab td[data-l="Kotak warna"] { flex: 0 0 auto; }
+      /* biar tidak berdesakan dengan kotak warna di baris yang sama */
+      .vtab td[data-l="Jenis"], .vtab td[data-l="Nama"], .vtab td[data-l="Variasi"] { min-width: 100%; }
       .vtab td[data-l]:not([data-l=""])::before {
         content: attr(data-l); display: block; font-size: 10px; letter-spacing: .6px;
         color: #888; text-transform: uppercase; margin-bottom: 3px; white-space: nowrap;
