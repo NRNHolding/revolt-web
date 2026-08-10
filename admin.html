@@ -914,6 +914,7 @@
     jsonp(WEB_APP_URL+'?page=admin&action=wooProduct&id='+id+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
       function(res){
         if(!res||!res.ok){ document.getElementById('prodBody').innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
+        if(res.p && res.p.rate) WOO_RATE=res.p.rate;   // keterangan Rp pakai kurs hari ini
         PROD=res.p; PROD.vars=null; PROD.terms=[]; PROD.fields=null; renderProd();
         muatFieldProduk(id);
         if(PROD.type!=='simple'){
