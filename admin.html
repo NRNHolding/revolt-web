@@ -197,6 +197,21 @@
     .kchip.aktif { background:#e0912f; border-color:#e0912f; color:#171712; font-weight:700; }
     .vimg { width:40px; height:40px; object-fit:cover; border-radius:6px; border:1px solid #33332a; display:block; }
     .vimg.kosong { display:flex; align-items:center; justify-content:center; color:#666; background:#141410; }
+    .vhapus { opacity:.4; text-decoration:line-through; }
+    .vgrup { border:1px solid #2a2a24; border-radius:9px; padding:11px 13px; margin-bottom:11px; background:#141410; }
+    .vgh { display:flex; align-items:center; gap:8px; font-weight:700; color:#f5f4ef; font-size:12.5px;
+      margin-bottom:8px; flex-wrap:wrap; }
+    .vgn { width:20px; height:20px; border-radius:50%; background:#e0912f; color:#171712;
+      display:flex; align-items:center; justify-content:center; font-size:11px; flex:0 0 20px; }
+    .vchips { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:9px; }
+    .vchip { display:inline-flex; align-items:center; gap:6px; background:#1e1e18; border:1px solid #3a3a30;
+      border-radius:18px; padding:4px 8px 4px 5px; font-size:12.5px; color:#ddd; }
+    .vchip img { width:26px; height:26px; object-fit:cover; border-radius:50%; }
+    .vnoimg { width:26px; height:26px; border-radius:50%; background:#2a2a24; color:#777;
+      display:flex; align-items:center; justify-content:center; font-size:11px; }
+    .vchip .cbtn { padding:1px 7px; font-size:11px; }
+    .vadd { display:flex; gap:7px; flex-wrap:wrap; }
+    .vadd input { flex:1; min-width:170px; }
     /* Judul kelompok di daftar produk: status + kategori besar */
     .wgrup { display:flex; align-items:center; gap:9px; margin:20px 0 10px; font-size:12.5px;
       font-weight:700; letter-spacing:.6px; color:#f5f4ef; text-transform:uppercase;
@@ -1079,40 +1094,127 @@
   var ATTR_LABEL={1:'Warna', 2:'Ukuran'};
   function gantiTipeProd(t){
     syncProdForm(); PROD.type=t;
-    if(t==='variable' && !PROD.baru.length) PROD.baru=[{attr:1,name:'',color:'#888888',rprice:'',stock:''}];
+    if(t!=='variable'){ PROD.warna=[]; PROD.ukuran=[]; PROD.baru=[]; }
     renderProd();
   }
   function variantBaruBlock(p){
     if(p.type!=='variable') return '';
-    var rows=(p.baru||[]).map(function(v,i){
-      return '<tr>'+
-        '<td data-l="Jenis"><select class="bvin" data-i="'+i+'" data-f="attr">'+
-            '<option value="1"'+(v.attr==1?' selected':'')+'>Warna</option>'+
-            '<option value="2"'+(v.attr==2?' selected':'')+'>Ukuran</option>'+
-          '</select></td>'+
-        '<td data-l="Nama"><input class="bvin" data-i="'+i+'" data-f="name" value="'+esc(v.name)+'" placeholder="'+(v.attr==2?'mis. M':'mis. Milling Navy')+'"></td>'+
-        '<td data-l="Kotak warna" style="width:46px">'+(v.attr==1
-            ? '<input type="color" class="swin bvin" data-i="'+i+'" data-f="color" value="'+esc(v.color||'#888888')+'" title="Warna kotak di website">'
-            : '<span style="color:#666">—</span>')+'</td>'+
-        '<td data-l="Harga Reguler ($)"><input class="bvin" data-i="'+i+'" data-f="rprice" value="'+esc(v.rprice)+'" placeholder="mis. 25.90"></td>'+
-        '<td data-l="Stok"><input class="bvin" data-i="'+i+'" data-f="stock" value="'+esc(v.stock)+'" placeholder="stok"></td>'+
-        '<td data-l="" style="width:30px"><button class="cbtn" style="padding:1px 6px;border-color:#cc3333;color:#cc3333" onclick="hapusVarBaru('+i+')">✕ Hapus baris</button></td></tr>';
-    }).join('');
-    return '<div class="pf"><label>Warna / Ukuran <span class="po-hint">dibuat otomatis begitu produknya disimpan</span></label>'+
-      '<table class="vtab"><thead><tr><th style="width:90px">Jenis</th><th>Nama</th><th>Kotak</th><th>Harga Reg. ($)</th><th>Stok</th><th></th></tr></thead>'+
-      '<tbody>'+(rows||'<tr><td colspan="6" style="color:#888">Belum ada. Klik tombol di bawah.</td></tr>')+'</tbody></table>'+
-      '<div style="margin-top:8px;display:flex;gap:7px;flex-wrap:wrap">'+
-        '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="tambahVarBaru(1)">＋ Tambah Warna</button>'+
-        '<button class="cbtn" style="border-color:#3b82f6;color:#7cb3ff" onclick="tambahVarBaru(2)">＋ Tambah Ukuran</button>'+
-        '<span style="color:#888;font-size:11px;align-self:center">Nama yang sudah ada di website akan dipakai ulang, tidak dibuat dobel.</span>'+
-      '</div></div>';
+    var warna=p.warna||[], ukuran=p.ukuran||[];
+
+    // 1) daftar warna — tiap warna punya foto sendiri
+    var kotakWarna='<div class="vgrup"><div class="vgh"><span class="vgn">1</span> Warna</div>'+
+      (warna.length
+        ? '<div class="vchips">'+warna.map(function(w,i){
+            return '<span class="vchip">'+
+              (w.img?'<img src="'+esc(w.img)+'">':'<span class="vnoimg" title="Belum ada foto">?</span>')+
+              esc(w.name)+
+              '<button class="cbtn" title="Pilih foto untuk warna ini" onclick="pilihFotoWarna('+i+')">foto</button>'+
+              '<button class="cbtn" style="border-color:#8a3b3b;color:#d97a7a" onclick="hapusWarna('+i+')">✕</button></span>';
+          }).join('')+'</div>'
+        : '<div style="color:#888;font-size:12px;margin:6px 0">Belum ada warna.</div>')+
+      '<div class="vadd"><input id="vWarnaBaru" placeholder="nama warna, mis. Milling Navy" onkeydown="if(event.key===\'Enter\'){event.preventDefault();tambahWarna();}">'+
+        '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="tambahWarna()">＋ Tambah Warna</button></div></div>';
+
+    // 2) daftar ukuran — boleh dikosongkan
+    var kotakUkuran='<div class="vgrup"><div class="vgh"><span class="vgn">2</span> Ukuran '+
+        '<span class="po-hint">kosongkan kalau produknya satu ukuran</span></div>'+
+      (ukuran.length
+        ? '<div class="vchips">'+ukuran.map(function(u,i){
+            return '<span class="vchip">'+esc(u)+
+              '<button class="cbtn" style="border-color:#8a3b3b;color:#d97a7a" onclick="hapusUkuran('+i+')">✕</button></span>';
+          }).join('')+'</div>'
+        : '<div style="color:#888;font-size:12px;margin:6px 0">Tanpa ukuran.</div>')+
+      '<div class="vadd"><input id="vUkuranBaru" placeholder="mis. S, M, L, XL (pisah koma)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();tambahUkuran();}">'+
+        '<button class="cbtn" style="border-color:#3b82f6;color:#7cb3ff" onclick="tambahUkuran()">＋ Tambah Ukuran</button></div></div>';
+
+    // 3) matriks harga & stok
+    var pas=matriksVarian();
+    var tabel;
+    if(!warna.length){
+      tabel='<div style="color:#888;font-size:12px">Tambahkan warna dulu, tabel harga &amp; stok muncul otomatis.</div>';
+    } else {
+      tabel='<table class="vtab"><thead><tr><th style="width:46px">Foto</th><th>Warna</th>'+
+        (ukuran.length?'<th>Ukuran</th>':'')+'<th>Harga Reg. ($)</th><th>Stok</th></tr></thead><tbody>'+
+        pas.map(function(v,i){
+          var w=warna.filter(function(x){ return x.name===v.warna; })[0]||{};
+          return '<tr><td data-l="Foto" style="width:46px">'+
+              (w.img?'<img src="'+esc(w.img)+'" class="vimg">':'<span class="vimg kosong">—</span>')+'</td>'+
+            '<td data-l="Warna"><b>'+esc(v.warna)+'</b></td>'+
+            (ukuran.length?'<td data-l="Ukuran"><b>'+esc(v.ukuran)+'</b></td>':'')+
+            '<td data-l="Harga Reguler ($)"><input class="bvin" data-i="'+i+'" data-f="rprice" value="'+esc(v.rprice)+'" placeholder="mis. 25.90"></td>'+
+            '<td data-l="Stok"><input class="bvin" data-i="'+i+'" data-f="stock" value="'+esc(v.stock)+'" placeholder="0"></td></tr>';
+        }).join('')+'</tbody></table>'+
+        '<div class="vadd" style="margin-top:9px">'+
+          '<input id="vHargaSemua" placeholder="harga untuk semua, mis. 25.90" style="max-width:210px">'+
+          '<button class="cbtn" onclick="isiSemuaHarga()">Terapkan ke semua</button>'+
+          '<input id="vStokSemua" placeholder="stok untuk semua" style="max-width:170px">'+
+          '<button class="cbtn" onclick="isiSemuaStok()">Terapkan ke semua</button>'+
+        '</div>';
+    }
+
+    return '<div class="pf"><label>Warna &amp; Ukuran <span class="po-hint">'+pas.length+' variasi akan dibuat begitu produknya disimpan</span></label>'+
+      kotakWarna + kotakUkuran +
+      '<div class="vgrup"><div class="vgh"><span class="vgn">3</span> Harga &amp; Stok</div>'+tabel+'</div>'+
+      '</div>';
   }
-  function tambahVarBaru(attr){
+
+  // Pasangan warna x ukuran, nilai lama dipertahankan
+  function matriksVarian(){
+    if(!PROD) return [];
+    var warna=PROD.warna||[], ukuran=PROD.ukuran||[];
+    var lama=PROD.baru||[];
+    var out=[];
+    warna.forEach(function(w){
+      (ukuran.length?ukuran:['']).forEach(function(u){
+        var ada=lama.filter(function(x){ return x.warna===w.name && (x.ukuran||'')===u; })[0]||{};
+        out.push({ warna:w.name, ukuran:u, rprice:ada.rprice||'', stock:ada.stock||'' });
+      });
+    });
+    PROD.baru=out;
+    return out;
+  }
+  function tambahWarna(){
+    var e=document.getElementById('vWarnaBaru');
+    var nm=(e.value||'').trim(); if(!nm){ e.focus(); return; }
     syncProdForm();
-    PROD.baru.push({attr:attr, name:'', color:'#888888', rprice:'', stock:''});
+    PROD.warna=PROD.warna||[];
+    if(!PROD.warna.some(function(w){ return w.name.toLowerCase()===nm.toLowerCase(); }))
+      PROD.warna.push({ name:nm, img:'', imgId:0 });
     renderProd();
   }
-  function hapusVarBaru(i){ syncProdForm(); PROD.baru.splice(i,1); renderProd(); }
+  function hapusWarna(i){ syncProdForm(); PROD.warna.splice(i,1); renderProd(); }
+  function tambahUkuran(){
+    var e=document.getElementById('vUkuranBaru');
+    var teks=(e.value||'').trim(); if(!teks){ e.focus(); return; }
+    syncProdForm();
+    PROD.ukuran=PROD.ukuran||[];
+    teks.split(',').forEach(function(u){
+      u=u.trim(); if(!u) return;
+      if(PROD.ukuran.indexOf(u)<0) PROD.ukuran.push(u);
+    });
+    renderProd();
+  }
+  function hapusUkuran(i){ syncProdForm(); PROD.ukuran.splice(i,1); renderProd(); }
+  function isiSemuaHarga(){
+    var v=(document.getElementById('vHargaSemua').value||'').trim(); if(!v) return;
+    syncProdForm(); PROD.baru.forEach(function(x){ x.rprice=v; }); renderProd();
+  }
+  function isiSemuaStok(){
+    var v=(document.getElementById('vStokSemua').value||'').trim(); if(!v) return;
+    syncProdForm(); PROD.baru.forEach(function(x){ x.stock=v; }); renderProd();
+  }
+  // Foto warna diambil dari foto yang sudah diupload di produk ini
+  function pilihFotoWarna(i){
+    syncProdForm();
+    var imgs=PROD.images||[];
+    if(!imgs.length){ alert('Upload foto produknya dulu di bagian Foto Produk.'); return; }
+    var w=PROD.warna[i];
+    var skr=imgs.map(function(x){ return x.src; }).indexOf(w.img);
+    var next=imgs[(skr+1)%imgs.length];          // klik lagi = foto berikutnya
+    w.img=next.src; w.imgId=next.id||0;
+    renderProd();
+    document.getElementById('prodMsg').textContent='Foto "'+w.name+'" → foto ke-'+(((skr+1)%imgs.length)+1)+' · klik lagi untuk ganti';
+  }
 
   function statusSel(p){
     return '<select id="p-status"><option value="publish"'+(p.status==='publish'?' selected':'')+'>publish</option><option value="draft"'+(p.status==='draft'?' selected':'')+'>draft</option><option value="private"'+(p.status==='private'?' selected':'')+'>private</option></select>';
@@ -1336,7 +1438,7 @@
   function openNewProd(){
     PROD={ id:0, name:'', sku:'', type:'simple', status:'draft', description:'', short_description:'',
       regular_price:'', sale_price:'', stock:'', weight:'', categories:'', images:[], vars:null, permalink:'',
-      isNew:true, baru:[], fields:null };   // baru = daftar warna/ukuran yang akan dibuat
+      isNew:true, baru:[], warna:[], ukuran:[], fields:null };   // warna & ukuran → matriks variasi
     document.getElementById('prodModal').classList.add('show');
     document.getElementById('prodMsg').textContent='Produk baru — status draft dulu, publish kalau sudah siap';
     renderProd();
@@ -1435,12 +1537,12 @@
         var nameCell = t
           ? '<span class="edit" contenteditable="true" data-attr="'+t.attr+'" data-term="'+t.term+'" data-orig="'+esc(nama)+'" onblur="renameTerm(this)" title="Klik untuk ganti nama — berlaku di semua produk">'+esc(nama)+'</span>'
           : esc(nama);
-        return '<tr><td data-l="Foto" style="width:46px">'+sw+'</td><td data-l="Warna">'+nameCell+'</td>'+
+        return '<tr'+(v.hapus?' class="vhapus"':'')+'><td data-l="Foto" style="width:46px">'+sw+'</td><td data-l="Warna">'+nameCell+'</td>'+
           (adaUkuran?'<td data-l="Ukuran"><b>'+esc(v.ukuran||'—')+'</b></td>':'')+
           '<td data-l="Harga Reguler ($)"><input class="vin" data-i="'+i+'" data-f="regular_price" value="'+esc(v.regular_price)+'" oninput="rpEcho(this,\'rpv-'+i+'\')"><div class="prp" id="rpv-'+i+'">'+usd2rp(v.regular_price)+'</div></td>'+
           '<td data-l="Harga Sale ($)"><input class="vin" data-i="'+i+'" data-f="sale_price" value="'+esc(v.sale_price)+'" oninput="rpEcho(this,\'rps-'+i+'\')"><div class="prp" id="rps-'+i+'">'+usd2rp(v.sale_price)+'</div></td>'+
           '<td data-l="Stok"><input class="vin" data-i="'+i+'" data-f="stock" value="'+esc(v.stock)+'"></td>'+
-          '<td data-l="" style="width:30px"><button class="cbtn" style="padding:1px 6px;border-color:#cc3333;color:#cc3333" title="Hapus variasi ini" onclick="delVariation('+v.id+',\''+esc(v.name)+'\')">✕</button></td></tr>';
+          '<td data-l="" style="width:34px"><button class="cbtn" style="padding:1px 6px;border-color:'+(v.hapus?'#c47f00;color:#f0c674':'#8a3b3b;color:#d97a7a')+'" title="'+(v.hapus?'Batalkan tanda hapus':'Tandai hapus — diterapkan saat Simpan')+'" onclick="delVariation('+v.id+')">'+(v.hapus?'↺':'✕')+'</button></td></tr>';
       }).join('')+'</tbody></table>'+
       '<button class="cbtn" style="margin-top:8px;border-color:#16a34a;color:#16a34a" onclick="addVariation()">＋ Tambah Warna</button>'+
       '</div>';
@@ -1466,11 +1568,18 @@
         else { msg.textContent=''; alert((res&&res.error)||'Gagal menambah warna.'); }
       });
   }
-  function delVariation(vid, nama){
-    if(!PROD||!PROD.id) return;
-    if(!confirm('Hapus variasi "'+nama+'" dari produk ini?\n(Warna tetap ada di daftar warna global.)')) return;
-    jsonp(WEB_APP_URL+'?page=admin&action=wooVarDel&id='+PROD.id+'&vid='+vid+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
-      function(res){ if(res&&res.ok) openProd(PROD.id, PROD.name); else alert((res&&res.error)||'Gagal hapus.'); });
+  // Tandai dulu, hapus beneran saat Simpan — biar tidak loading tiap klik
+  function delVariation(vid){
+    if(!PROD||!PROD.vars) return;
+    syncProdForm();
+    var v=PROD.vars.filter(function(x){ return x.id===vid; })[0];
+    if(!v) return;
+    v.hapus=!v.hapus;
+    renderProd();
+    var n=PROD.vars.filter(function(x){ return x.hapus; }).length;
+    document.getElementById('prodMsg').textContent = n
+      ? (n+' variasi ditandai hapus — klik Simpan untuk menerapkan')
+      : 'Tanda hapus dibatalkan';
   }
   function renameTerm(el){
     var v=el.textContent.trim(), orig=el.getAttribute('data-orig');
@@ -1501,7 +1610,7 @@
     // baris warna/ukuran produk baru
     document.querySelectorAll('.bvin').forEach(function(inp){
       var i=+inp.getAttribute('data-i'), f=inp.getAttribute('data-f');
-      if(PROD.baru && PROD.baru[i]) PROD.baru[i][f] = (f==='attr') ? +inp.value : inp.value;
+      if(PROD.baru && PROD.baru[i]) PROD.baru[i][f]=inp.value;
     });
     // detail halaman produk
     (PROD.fields||[]).forEach(function(f,i){
@@ -1597,10 +1706,12 @@
       payload.status='draft';   // produk baru tidak pernah langsung tayang
       payload.ptype=(PROD.type==='variable')?'variable':'simple';
       if(payload.ptype==='variable'){
-        var isi=(PROD.baru||[]).filter(function(v){ return String(v.name||'').trim(); });
-        if(!isi.length){ alert('Tambahkan minimal satu warna atau ukuran dulu.'); btn.disabled=false; btn.textContent=old; return; }
+        var isi=matriksVarian();
+        if(!isi.length){ alert('Tambahkan minimal satu warna dulu.'); btn.disabled=false; btn.textContent=old; return; }
+        var petaFoto={};
+        (PROD.warna||[]).forEach(function(w){ if(w.imgId) petaFoto[w.name]=w.imgId; });
         payload.variants=JSON.stringify(isi.map(function(v){
-          return { attr:v.attr||1, name:String(v.name).trim(), color:(v.attr==1?v.color:'')||'',
+          return { warna:v.warna, ukuran:v.ukuran||'', imageId:petaFoto[v.warna]||0,
             rprice:bersihUsd(v.rprice), stock:String(v.stock||'').replace(/[^0-9]/g,'') };
         }));
       } else {
@@ -1632,9 +1743,14 @@
       payload.sprice=bersihUsd(PROD.sale_price);
       payload.stock =String(PROD.stock).replace(/[^0-9]/g,'');
     }
-    // Variasi: kirim yang berubah (GET/JSONP per variasi) — nilai form Rupiah → USD
-    var nVar=0;
+    // Variasi: yang ditandai hapus dibuang, sisanya diperbarui — semua sekali jalan
+    var nVar=0, nHapus=0;
     (PROD.vars||[]).forEach(function(v){
+      if(v.hapus){
+        nHapus++;
+        jsonp(WEB_APP_URL+'?page=admin&action=wooVarDel&id='+PROD.id+'&vid='+v.id+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(), function(){});
+        return;
+      }
       var q='&rprice='+encodeURIComponent(bersihUsd(v.regular_price))+
             '&sprice='+encodeURIComponent(bersihUsd(v.sale_price))+
             '&stock='+encodeURIComponent(String(v.stock||''));
@@ -1647,7 +1763,8 @@
     add('action','wooSave'); add('key',ADMIN_KEY); add('payload',JSON.stringify(payload));
     document.body.appendChild(form); form.submit();
     setTimeout(function(){ document.body.removeChild(form); btn.disabled=false; btn.textContent=old;
-      var ket='Tersimpan ✓'+(nVar?' ('+nVar+' variasi)':'');
+      var ket='Tersimpan ✓'+(nVar?' ('+nVar+' variasi)':'')+(nHapus?' · '+nHapus+' variasi dihapus':'');
+      if(nHapus) setTimeout(function(){ openProd(PROD.id, PROD.name); }, 2500);
       document.getElementById('prodMsg').textContent=ket+' — menyimpan detail halaman…';
       simpanDetailProduk(PROD.id, function(hasil){
         document.getElementById('prodMsg').textContent=ket+(hasil?' · detail halaman tersimpan':' · detail halaman GAGAL tersimpan')+' — cek web';
