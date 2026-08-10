@@ -833,9 +833,10 @@
     BULK=items.map(function(p){
       var reg=parseFloat(p.regular_price||p.price||0)||0;
       var sal=parseFloat(p.sale_price||0)||0;
+      // semua nilai di editor massal dalam dollar, sama seperti kolom harga lain
       return { id:p.id, name:p.name, type:p.type, cats:p.cats, img:p.img,
-        rpReg:reg?Math.round(reg*WOO_RATE):'', rpSale:sal?Math.round(sal*WOO_RATE):'',
-        oReg:reg?Math.round(reg*WOO_RATE):'', oSale:sal?Math.round(sal*WOO_RATE):'', pick:true };
+        rpReg:reg?String(reg):'', rpSale:sal?String(sal):'',
+        oReg:reg?String(reg):'', oSale:sal?String(sal):'', pick:true };
     });
     document.getElementById('bulkModal').classList.add('show');
     renderBulk();
@@ -879,11 +880,13 @@
         if(target==='reg' && f!=='rpReg') return;
         if(target==='sale' && f!=='rpSale') return;
         var cur=parseFloat(b[f]||0)||0;
-        if(mode==='set') b[f]=String(Math.round(v));
-        else if(mode==='pct') { if(cur) b[f]=String(Math.round(cur*(1+v/100))); }
-        else if(mode==='pctdown'){ if(cur) b[f]=String(Math.round(cur*(1-v/100))); }
-        else if(mode==='add'){ if(cur||mode==='add') b[f]=String(Math.round(cur+v)); }
-        else if(mode==='sub'){ if(cur) b[f]=String(Math.max(0,Math.round(cur-v))); }
+        // dollar pakai 2 angka di belakang koma — dibulatkan ke rupiah bikin harga meleset
+        var bulat=function(n){ return String(Math.round(n*100)/100); };
+        if(mode==='set') b[f]=bulat(v);
+        else if(mode==='pct') { if(cur) b[f]=bulat(cur*(1+v/100)); }
+        else if(mode==='pctdown'){ if(cur) b[f]=bulat(cur*(1-v/100)); }
+        else if(mode==='add'){ b[f]=bulat(cur+v); }
+        else if(mode==='sub'){ if(cur) b[f]=bulat(Math.max(0,cur-v)); }
       });
     });
     renderBulk();
