@@ -856,8 +856,8 @@
           '<td><input type="checkbox" '+(b.pick?'checked':'')+' onchange="BULK['+i+'].pick=this.checked;renderBulkCount()"></td>'+
           '<td><b>'+esc(b.name)+'</b><div style="font-size:9px;color:#999">'+esc(b.cats||'')+'</div></td>'+
           '<td>'+esc(b.type)+(b.type!=='simple'?'<div style="font-size:9px;color:#999">semua variasi</div>':'')+'</td>'+
-          '<td class="num"><input class="vin" style="width:120px" value="'+esc(b.rpReg)+'" oninput="BULK['+i+'].rpReg=this.value.replace(/[^0-9]/g,\'\');renderBulkCount()"><div class="prp">'+(b.rpReg?('= $'+rp2usd(b.rpReg)):'')+'</div></td>'+
-          '<td class="num"><input class="vin" style="width:120px" value="'+esc(b.rpSale)+'" oninput="BULK['+i+'].rpSale=this.value.replace(/[^0-9]/g,\'\');renderBulkCount()"><div class="prp">'+(b.rpSale?('= $'+rp2usd(b.rpSale)):'')+'</div></td>'+
+          '<td class="num"><input class="vin" style="width:110px" value="'+esc(b.rpReg)+'" oninput="BULK['+i+'].rpReg=this.value.replace(/[^0-9.]/g,\'\');renderBulkCount()"><div class="prp">'+(b.rpReg?usd2rp(b.rpReg):'')+'</div></td>'+
+          '<td class="num"><input class="vin" style="width:110px" value="'+esc(b.rpSale)+'" oninput="BULK['+i+'].rpSale=this.value.replace(/[^0-9.]/g,\'\');renderBulkCount()"><div class="prp">'+(b.rpSale?usd2rp(b.rpSale):'')+'</div></td>'+
         '</tr>';
       }).join('')+'</tbody></table></div>';
     labelTables();
@@ -896,7 +896,7 @@
     if(!confirm('Simpan '+items.length+' produk ke website?'+(nVar?('\n\n'+nVar+' produk variable — SEMUA variasinya akan diset harga yang sama.'):'')+'\n\nPerubahan langsung live.')) return;
     var old=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan…';
     var payload={ items: items.map(function(b){
-      return { id:b.id, type:b.type, rprice:rp2usd(b.rpReg), sprice:b.rpSale?rp2usd(b.rpSale):'' }; }) };
+      return { id:b.id, type:b.type, rprice:bersihUsd(b.rpReg), sprice:bersihUsd(b.rpSale) }; }) };
     postJson('wooBulk', payload, function(res){
       btn.disabled=false; btn.textContent=old;
       if(res&&res.ok){ alert('Selesai — '+res.updated+' produk terupdate'+(res.failed?(', '+res.failed+' gagal'):'')+'.');
@@ -945,8 +945,8 @@
       : '<div class="pf"><label>Status</label>'+statusSel(p)+'</div>';
     var priceBlock = simple
       ? '<div class="pgrid">'+
-          '<div class="pf"><label>Harga Reguler (Rp)</label><input id="p-rprice" value="'+esc(usdNum2rp(p.regular_price))+'" oninput="usdEcho(this,\'rp-r\')"><div class="prp" id="rp-r">'+usdEchoTxt(usdNum2rp(p.regular_price))+'</div></div>'+
-          '<div class="pf"><label>Harga Sale (Rp)</label><input id="p-sprice" value="'+esc(usdNum2rp(p.sale_price))+'" oninput="usdEcho(this,\'rp-s\')"><div class="prp" id="rp-s">'+usdEchoTxt(usdNum2rp(p.sale_price))+'</div></div>'+
+          '<div class="pf"><label>Harga Reguler ($)</label><input id="p-rprice" value="'+esc(p.regular_price)+'" placeholder="mis. 25.90" oninput="rpEcho(this,\'rp-r\')"><div class="prp" id="rp-r">'+usd2rp(p.regular_price)+'</div></div>'+
+          '<div class="pf"><label>Harga Sale ($)</label><input id="p-sprice" value="'+esc(p.sale_price)+'" placeholder="kosongkan kalau tidak diskon" oninput="rpEcho(this,\'rp-s\')"><div class="prp" id="rp-s">'+usd2rp(p.sale_price)+'</div></div>'+
           '<div class="pf"><label>Stok</label><input id="p-stock" value="'+esc(p.stock)+'"></div>'+
           statusCell+
         '</div>'
@@ -1087,12 +1087,12 @@
         '<td data-l="Kotak warna" style="width:46px">'+(v.attr==1
             ? '<input type="color" class="swin bvin" data-i="'+i+'" data-f="color" value="'+esc(v.color||'#888888')+'" title="Warna kotak di website">'
             : '<span style="color:#666">—</span>')+'</td>'+
-        '<td data-l="Harga Reguler (Rp)"><input class="bvin" data-i="'+i+'" data-f="rprice" value="'+esc(v.rprice)+'" placeholder="Rp"></td>'+
+        '<td data-l="Harga Reguler ($)"><input class="bvin" data-i="'+i+'" data-f="rprice" value="'+esc(v.rprice)+'" placeholder="mis. 25.90"></td>'+
         '<td data-l="Stok"><input class="bvin" data-i="'+i+'" data-f="stock" value="'+esc(v.stock)+'" placeholder="stok"></td>'+
         '<td data-l="" style="width:30px"><button class="cbtn" style="padding:1px 6px;border-color:#cc3333;color:#cc3333" onclick="hapusVarBaru('+i+')">✕ Hapus baris</button></td></tr>';
     }).join('');
     return '<div class="pf"><label>Warna / Ukuran <span class="po-hint">dibuat otomatis begitu produknya disimpan</span></label>'+
-      '<table class="vtab"><thead><tr><th style="width:90px">Jenis</th><th>Nama</th><th>Kotak</th><th>Harga Reg. (Rp)</th><th>Stok</th><th></th></tr></thead>'+
+      '<table class="vtab"><thead><tr><th style="width:90px">Jenis</th><th>Nama</th><th>Kotak</th><th>Harga Reg. ($)</th><th>Stok</th><th></th></tr></thead>'+
       '<tbody>'+(rows||'<tr><td colspan="6" style="color:#888">Belum ada. Klik tombol di bawah.</td></tr>')+'</tbody></table>'+
       '<div style="margin-top:8px;display:flex;gap:7px;flex-wrap:wrap">'+
         '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="tambahVarBaru(1)">＋ Tambah Warna</button>'+
@@ -1407,18 +1407,16 @@
         if(res&&res.ok) loadWoo(); });
   }
   // Rupiah ⇄ USD (kurs live WOO_RATE)
-  function usdNum2rp(usd){ var n=parseFloat(String(usd).replace(/[^0-9.]/g,'')); return (!n||isNaN(n))?'':String(Math.round(n*WOO_RATE)); }
-  function rp2usd(rp){ var n=parseFloat(String(rp).replace(/[^0-9]/g,'')); return (!n||isNaN(n))?'':String(Math.round(n/WOO_RATE*100)/100); }
-  function usdEchoTxt(rp){ var u=rp2usd(rp); return u?('= $'+u):''; }
-  function usdEcho(inp,id){ var e=document.getElementById(id); if(e) e.textContent=usdEchoTxt(inp.value); }
+  // Angka dari kolom harga sudah dalam dollar — cuma dibersihkan, tidak dikonversi
+  function bersihUsd(v){ var n=parseFloat(String(v==null?'':v).replace(/[^0-9.]/g,'')); return (!n||isNaN(n))?'':String(n); }
   function rpEcho(inp,id){ var e=document.getElementById(id); if(e) e.textContent=usd2rp(inp.value); }
 
   function varBlock(p){
     if(p.vars===null) return '<div class="pf"><label>Variasi</label><div style="color:#888;font-size:12px">Memuat variasi…</div></div>';
     if(!p.vars.length) return '<div class="pf"><label>Variasi</label><div style="color:#888;font-size:12px">Tidak ada variasi.</div></div>';
-    return '<div class="pf"><label>Variasi — harga (Rp) &amp; stok per ukuran/warna '+
+    return '<div class="pf"><label>Variasi — harga ($) &amp; stok per ukuran/warna '+
         '<span class="po-hint">nama variasi bisa diklik-edit (berlaku di semua produk)</span></label>'+
-      '<table class="vtab"><thead><tr><th>Warna</th><th>Variasi</th><th>Harga Reg. (Rp)</th><th>Harga Sale (Rp)</th><th>Stok</th><th></th></tr></thead><tbody>'+
+      '<table class="vtab"><thead><tr><th>Warna</th><th>Variasi</th><th>Harga Reg. ($)</th><th>Harga Sale ($)</th><th>Stok</th><th></th></tr></thead><tbody>'+
       p.vars.map(function(v,i){
         var t=(PROD.terms||[]).filter(function(x){ return x.name===v.name; })[0];
         var sw = t
@@ -1429,8 +1427,8 @@
           ? '<span class="edit" contenteditable="true" data-attr="'+t.attr+'" data-term="'+t.term+'" data-orig="'+esc(v.name)+'" onblur="renameTerm(this)" title="Klik untuk ganti nama — berlaku di semua produk">'+esc(v.name)+'</span>'
           : esc(v.name);
         return '<tr><td data-l="Kotak warna" style="width:38px">'+sw+'</td><td data-l="Variasi">'+nameCell+'</td>'+
-          '<td data-l="Harga Reguler (Rp)"><input class="vin" data-i="'+i+'" data-f="regular_price" value="'+esc(usdNum2rp(v.regular_price))+'" oninput="usdEcho(this,\'rpv-'+i+'\')"><div class="prp" id="rpv-'+i+'">'+usdEchoTxt(usdNum2rp(v.regular_price))+'</div></td>'+
-          '<td data-l="Harga Sale (Rp)"><input class="vin" data-i="'+i+'" data-f="sale_price" value="'+esc(usdNum2rp(v.sale_price))+'" oninput="usdEcho(this,\'rps-'+i+'\')"><div class="prp" id="rps-'+i+'">'+usdEchoTxt(usdNum2rp(v.sale_price))+'</div></td>'+
+          '<td data-l="Harga Reguler ($)"><input class="vin" data-i="'+i+'" data-f="regular_price" value="'+esc(v.regular_price)+'" oninput="rpEcho(this,\'rpv-'+i+'\')"><div class="prp" id="rpv-'+i+'">'+usd2rp(v.regular_price)+'</div></td>'+
+          '<td data-l="Harga Sale ($)"><input class="vin" data-i="'+i+'" data-f="sale_price" value="'+esc(v.sale_price)+'" oninput="rpEcho(this,\'rps-'+i+'\')"><div class="prp" id="rps-'+i+'">'+usd2rp(v.sale_price)+'</div></td>'+
           '<td data-l="Stok"><input class="vin" data-i="'+i+'" data-f="stock" value="'+esc(v.stock)+'"></td>'+
           '<td data-l="" style="width:30px"><button class="cbtn" style="padding:1px 6px;border-color:#cc3333;color:#cc3333" title="Hapus variasi ini" onclick="delVariation('+v.id+',\''+esc(v.name)+'\')">✕</button></td></tr>';
       }).join('')+'</tbody></table>'+
@@ -1447,11 +1445,11 @@
     if(!PROD||!PROD.id) return;
     var nm=prompt('Nama warna baru (mis. "Milling Navy"):'); if(!nm) return;
     var col=prompt('Kode warna kotak di website (hex, mis. #1b2a4a):','#888888')||'';
-    var rp=prompt('Harga reguler dalam Rupiah (boleh dikosongkan):','')||'';
+    var rp=prompt('Harga reguler dalam Dollar, mis. 25.90 (boleh dikosongkan):','')||'';
     var st=prompt('Stok (boleh dikosongkan):','')||'';
     var msg=document.getElementById('prodMsg'); msg.textContent='Menambah warna…';
     jsonp(WEB_APP_URL+'?page=admin&action=wooVarAdd&id='+PROD.id+'&attr=1&name='+encodeURIComponent(nm)+
-      '&color='+encodeURIComponent(col)+'&rprice='+encodeURIComponent(rp?rp2usd(rp):'')+'&stock='+encodeURIComponent(st.replace(/[^0-9]/g,''))+
+      '&color='+encodeURIComponent(col)+'&rprice='+encodeURIComponent(bersihUsd(rp))+'&stock='+encodeURIComponent(st.replace(/[^0-9]/g,''))+
       '&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
       function(res){
         if(res&&res.ok){ msg.textContent='✓ Warna "'+nm+'" ditambahkan'; openProd(PROD.id, PROD.name); }
@@ -1593,11 +1591,11 @@
         if(!isi.length){ alert('Tambahkan minimal satu warna atau ukuran dulu.'); btn.disabled=false; btn.textContent=old; return; }
         payload.variants=JSON.stringify(isi.map(function(v){
           return { attr:v.attr||1, name:String(v.name).trim(), color:(v.attr==1?v.color:'')||'',
-            rprice:v.rprice?rp2usd(v.rprice):'', stock:String(v.stock||'').replace(/[^0-9]/g,'') };
+            rprice:bersihUsd(v.rprice), stock:String(v.stock||'').replace(/[^0-9]/g,'') };
         }));
       } else {
-        payload.rprice=rp2usd(PROD.regular_price);
-        payload.sprice=rp2usd(PROD.sale_price);
+        payload.rprice=bersihUsd(PROD.regular_price);
+        payload.sprice=bersihUsd(PROD.sale_price);
         payload.stock =String(PROD.stock||'').replace(/[^0-9]/g,'');
       }
       var picked=kategoriTerpilih();
@@ -1620,15 +1618,15 @@
       return;
     }
     if(PROD.type==='simple'){   // form diisi Rupiah → simpan sebagai USD
-      payload.rprice=rp2usd(PROD.regular_price);
-      payload.sprice=rp2usd(PROD.sale_price);
+      payload.rprice=bersihUsd(PROD.regular_price);
+      payload.sprice=bersihUsd(PROD.sale_price);
       payload.stock =String(PROD.stock).replace(/[^0-9]/g,'');
     }
     // Variasi: kirim yang berubah (GET/JSONP per variasi) — nilai form Rupiah → USD
     var nVar=0;
     (PROD.vars||[]).forEach(function(v){
-      var q='&rprice='+encodeURIComponent(rp2usd(v.regular_price))+
-            '&sprice='+encodeURIComponent(rp2usd(v.sale_price))+
+      var q='&rprice='+encodeURIComponent(bersihUsd(v.regular_price))+
+            '&sprice='+encodeURIComponent(bersihUsd(v.sale_price))+
             '&stock='+encodeURIComponent(String(v.stock||''));
       nVar++;
       jsonp(WEB_APP_URL+'?page=admin&action=wooVarUpdate&pid='+PROD.id+'&vid='+v.id+q+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(), function(){});
