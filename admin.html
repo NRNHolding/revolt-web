@@ -219,10 +219,24 @@
     .pf input:focus, .pf textarea:focus { outline: none; border-color: #e0912f; }
     .pf input:disabled { color: #777; }
     .pgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
-    .pimgs { display: flex; flex-wrap: wrap; gap: 8px; }
-    .pimg { position: relative; width: 82px; height: 82px; border: 1px solid #33332a; border-radius: 7px; overflow: hidden; }
-    .pimg img { width: 100%; height: 100%; object-fit: cover; }
-    .pimg button { position: absolute; top: 2px; right: 2px; padding: 0 5px; }
+    .pimgs { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 10px; }
+    .pimg { position: relative; width: 104px; border: 1px solid #33332a; border-radius: 8px; overflow: hidden;
+      background: #141410; cursor: grab; }
+    .pimg img { width: 104px; height: 104px; object-fit: cover; display: block; }
+    .pimg.pdrag { opacity: .35; }
+    .pimg.pover { outline: 2px dashed #e0912f; outline-offset: 2px; }
+    .pno { position: absolute; top: 5px; left: 5px; background: rgba(0,0,0,.75); color: #fff; font-size: 11px;
+      font-weight: 800; border-radius: 50%; width: 21px; height: 21px; display: flex; align-items: center;
+      justify-content: center; }
+    .pmain { position: absolute; top: 5px; right: 5px; background: #e0912f; color: #171712; font-size: 9px;
+      font-weight: 800; letter-spacing: .5px; padding: 2px 6px; border-radius: 9px; text-transform: uppercase; }
+    .pact { display: flex; gap: 3px; padding: 4px; justify-content: center; }
+    .pact button { padding: 2px 7px; font-size: 12px; line-height: 1.3; }
+    .pdrop { margin-top: 9px; border: 2px dashed #3a3a30; border-radius: 10px; padding: 18px 14px; text-align: center;
+      color: #ddd; cursor: pointer; background: #171712; }
+    .pdrop:hover, .pdrop.over { border-color: #e0912f; background: #1d1a14; }
+    .purl { display: flex; gap: 7px; margin-top: 9px; flex-wrap: wrap; }
+    .purl input { flex: 1; min-width: 200px; }
     .pmain { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(224,145,47,.9); color: #141414; font-size: 9px; font-weight: 700; text-align: center; }
     .vtab { width: 100%; border-collapse: collapse; }
     .vtab th { font-size: 9px; text-transform: uppercase; color: #8a8a80; text-align: left; padding: 3px 4px; }
@@ -890,7 +904,15 @@
   function renderProd(){
     var p=PROD, simple=(p.type==='simple');
     var imgs=(p.images||[]).map(function(im,i){
-      return '<div class="pimg"><img src="'+esc(im.src)+'"><button class="cbtn" onclick="delProdImg('+i+')">✕</button>'+(i===0?'<span class="pmain">utama</span>':'')+'</div>';
+      return '<div class="pimg" draggable="true" data-i="'+i+'">'+
+        '<img src="'+esc(im.src)+'" loading="lazy">'+
+        '<span class="pno">'+(i+1)+'</span>'+
+        (i===0?'<span class="pmain">utama</span>':'')+
+        '<div class="pact">'+
+          '<button class="cbtn" title="Geser ke kiri" onclick="prodGeser('+i+',-1)">◀</button>'+
+          '<button class="cbtn" title="Geser ke kanan" onclick="prodGeser('+i+',1)">▶</button>'+
+          '<button class="cbtn" style="border-color:#8a3b3b;color:#d97a7a" title="Hapus foto" onclick="delProdImg('+i+')">✕</button>'+
+        '</div></div>';
     }).join('');
     var priceBlock = simple
       ? '<div class="pgrid">'+
@@ -906,11 +928,67 @@
       priceBlock + catPicker() +
       '<div class="pf"><label>Deskripsi Singkat</label><textarea id="p-sdesc" style="height:80px">'+esc(p.short_description.replace(/<[^>]+>/g,'').trim())+'</textarea></div>'+
       '<div class="pf"><label>Deskripsi Lengkap (boleh HTML)</label><textarea id="p-desc" style="height:150px">'+esc(p.description)+'</textarea></div>'+
-      '<div class="pf"><label>Foto Produk <span style="color:#888;font-weight:400">(pertama = utama)</span></label>'+
-        '<div class="pimgs">'+(imgs||'<span style="color:#888;font-size:11px">belum ada foto</span>')+'</div>'+
-        '<div style="margin-top:7px"><button class="cbtn" onclick="document.getElementById(\'prodImgInput\').click()">＋ Upload Foto</button> '+
-        '<button class="cbtn" onclick="addProdImgUrl()">＋ dari URL</button></div></div>'+
+      '<div class="pf"><label>Foto Produk <span style="color:#888;font-weight:400">(nomor 1 = foto utama)</span></label>'+
+        '<div class="pdrop" id="pDrop" onclick="document.getElementById(\'prodImgInput\').click()">'+
+          '<div style="font-size:24px">📷</div>'+
+          '<div style="font-weight:700;margin-top:4px">Tarik foto ke sini, atau klik untuk memilih</div>'+
+          '<div style="font-size:11px;color:#888;margin-top:3px">Bisa banyak foto sekaligus · otomatis dikecilkan · seret kartunya untuk menata urutan</div>'+
+        '</div>'+
+        '<div class="pimgs" id="pImgs">'+(imgs||'<span style="color:#888;font-size:11px">belum ada foto</span>')+'</div>'+
+        '<div class="purl"><input id="pImgUrl" placeholder="atau tempel URL gambar (https://…)" onkeydown="if(event.key===\'Enter\')addProdImgUrl()">'+
+        '<button class="cbtn" onclick="addProdImgUrl()">＋ Tambah</button></div></div>'+
       (p.isNew ? '' : '<div style="color:#888;font-size:11px;margin-top:8px">Kategori: '+esc(p.categories||'-')+' · <a class="link" href="'+esc(p.permalink)+'" target="_blank">lihat di web</a></div>');
+    pasangDragProd();
+  }
+
+  // ── Tata ulang urutan foto produk ──
+  function pasangDragProd(){
+    var dz=document.getElementById('pDrop');
+    if(dz){
+      dz.addEventListener('dragover', function(e){ e.preventDefault(); dz.classList.add('over'); });
+      dz.addEventListener('dragleave', function(){ dz.classList.remove('over'); });
+      dz.addEventListener('drop', function(e){
+        e.preventDefault(); dz.classList.remove('over');
+        prodImgTambah(Array.prototype.slice.call((e.dataTransfer||{}).files||[]));
+      });
+    }
+    var grid=document.getElementById('pImgs'); if(!grid) return;
+    var seret=null;
+    grid.querySelectorAll('.pimg').forEach(function(c){
+      c.addEventListener('dragstart', function(e){
+        seret=c; c.classList.add('pdrag');
+        try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',''); }catch(err){}
+      });
+      c.addEventListener('dragend', function(){
+        c.classList.remove('pdrag');
+        grid.querySelectorAll('.pover').forEach(function(x){ x.classList.remove('pover'); });
+        if(seret){ seret=null; terapkanUrutanProd(); }
+      });
+      c.addEventListener('dragover', function(e){
+        if(!seret || seret===c) return;
+        e.preventDefault(); c.classList.add('pover');
+        var r=c.getBoundingClientRect();
+        grid.insertBefore(seret, (e.clientX-r.left)>r.width/2 ? c.nextSibling : c);
+      });
+      c.addEventListener('dragleave', function(){ c.classList.remove('pover'); });
+      c.addEventListener('drop', function(e){ e.preventDefault(); c.classList.remove('pover'); });
+    });
+  }
+  // Urutan di layar → urutan asli PROD.images
+  function terapkanUrutanProd(){
+    var grid=document.getElementById('pImgs'); if(!grid || !PROD) return;
+    var urut=[].map.call(grid.querySelectorAll('.pimg'), function(c){ return PROD.images[+c.getAttribute('data-i')]; });
+    if(urut.length!==PROD.images.length || urut.some(function(x){ return !x; })) return;
+    syncProdForm(); PROD.images=urut; renderProd();
+    document.getElementById('prodMsg').textContent='Urutan foto diubah — klik Simpan supaya tersimpan di website';
+  }
+  function prodGeser(i, arah){
+    var j=i+arah;
+    if(!PROD || j<0 || j>=PROD.images.length) return;
+    syncProdForm();
+    var t=PROD.images[i]; PROD.images[i]=PROD.images[j]; PROD.images[j]=t;
+    renderProd();
+    document.getElementById('prodMsg').textContent='Urutan foto diubah — klik Simpan supaya tersimpan di website';
   }
   function statusSel(p){
     return '<select id="p-status"><option value="publish"'+(p.status==='publish'?' selected':'')+'>publish</option><option value="draft"'+(p.status==='draft'?' selected':'')+'>draft</option><option value="private"'+(p.status==='private'?' selected':'')+'>private</option></select>';
@@ -1256,19 +1334,42 @@
     });
   }
   function delProdImg(i){ syncProdForm(); PROD.images.splice(i,1); renderProd(); }
-  function addProdImgUrl(){ var u=prompt('URL gambar (https://…):'); if(u) { syncProdForm(); PROD.images.push({src:u}); renderProd(); } }
+  function addProdImgUrl(){
+    var e=document.getElementById('pImgUrl');
+    var u=(e&&e.value||'').trim();
+    if(!u){ if(e) e.focus(); return; }
+    syncProdForm(); PROD.images.push({src:u}); renderProd();
+  }
   function prodImgPick(input){
-    var f=input.files&&input.files[0]; if(!f) return; input.value='';
-    var r=new FileReader();
-    r.onload=function(e){
-      var b64=e.target.result.split(',')[1];
-      var msg=document.getElementById('prodMsg'); msg.textContent='Upload foto…';
-      postFileCb('wooUpload', f.name, f.type, b64, function(res){
-        if(res&&res.ok&&res.src){ syncProdForm(); PROD.images.push({id:res.id,src:res.src}); renderProd(); msg.textContent='Foto terupload ✓'; }
-        else msg.textContent=(res&&res.error)||'Upload gagal (cek WP Application Password).';
+    prodImgTambah(Array.prototype.slice.call(input.files||[]));
+    input.value='';
+  }
+  // Banyak foto sekaligus: dikecilkan dulu, lalu diunggah satu per satu.
+  // Kalau dikirim barengan, sebagian ditolak Apps Script.
+  function prodImgTambah(files){
+    files=files.filter(function(f){ return /^image\//.test(f.type); });
+    if(!files.length || !PROD) return;
+    var msg=document.getElementById('prodMsg');
+    var i=0, gagal=0, pesanGagal='';
+    (function next(){
+      if(i>=files.length){
+        msg.textContent = gagal
+          ? ('Selesai — '+(files.length-gagal)+' foto masuk, '+gagal+' gagal'+(pesanGagal?' ('+pesanGagal+')':''))
+          : ('✓ '+files.length+' foto siap · seret kartunya untuk menata urutan, lalu klik Simpan');
+        return;
+      }
+      msg.textContent='Mengunggah '+(i+1)+'/'+files.length+'…';
+      shrinkImage(files[i], 2000, 0.9, function(b64){
+        // dikecilkan jadi JPEG — namanya ikut .jpg biar tidak beda dengan isinya
+        var nama=String(files[i].name||'foto').replace(/\.[^.]+$/,'')+'.jpg';
+        postFileCb('wooUpload', nama, 'image/jpeg', b64, function(res){
+          if(res&&res.ok&&res.src){
+            syncProdForm(); PROD.images.push({id:res.id, src:res.src}); renderProd();
+          } else { gagal++; if(res&&res.error&&!pesanGagal) pesanGagal=res.error; }
+          i++; next();
+        });
       });
-    };
-    r.readAsDataURL(f);
+    })();
   }
   // POST payload JSON + ambil hasil via token
   function postJson(action, payload, done){
@@ -2967,7 +3068,7 @@
     <div id="prodBody"></div>
   </div>
 </div>
-<input type="file" id="prodImgInput" accept="image/*" style="display:none" onchange="prodImgPick(this)">
+<input type="file" id="prodImgInput" accept="image/*" multiple style="display:none" onchange="prodImgPick(this)">
 
 <div id="fldModal">
   <div class="prod-wrap">
