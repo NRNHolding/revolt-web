@@ -198,15 +198,22 @@
     /* Di HP tabel variasi jadi kartu — kalau tetap tabel, kolom namanya cuma 36px */
     @media (max-width: 640px) {
       .vtab thead { display: none; }
-      .vtab, .vtab tbody, .vtab tr, .vtab td { display: block; width: 100%; }
-      .vtab tr { border: 1px solid #33332a; border-radius: 9px; padding: 9px 11px; margin-bottom: 10px; background: #141410; }
-      .vtab td { padding: 5px 0 !important; border: none !important; width: auto !important; }
+      .vtab, .vtab tbody { display: block; width: 100%; }
+      .vtab tr { display: flex; flex-wrap: wrap; gap: 4px 9px; border: 1px solid #33332a; border-radius: 9px;
+        padding: 9px 11px; margin-bottom: 10px; background: #141410; }
+      .vtab td { display: block; padding: 4px 0 !important; border: none !important;
+        width: auto !important; flex: 1 1 100%; }
+      .vtab td[data-l="Harga Reguler (Rp)"], .vtab td[data-l="Harga Sale (Rp)"],
+      .vtab td[data-l="Stok"], .vtab td[data-l="Jenis"] { flex: 1 1 42%; }
+      .vtab td[data-l="Kotak warna"] { flex: 0 0 auto; }
       .vtab td[data-l]:not([data-l=""])::before {
         content: attr(data-l); display: block; font-size: 10px; letter-spacing: .6px;
-        color: #888; text-transform: uppercase; margin-bottom: 3px;
+        color: #888; text-transform: uppercase; margin-bottom: 3px; white-space: nowrap;
       }
-      .vtab td input:not([type=color]), .vtab td select { width: 100%; }
+      .vtab td input:not([type=color]), .vtab td select { width: 100% !important; }
+      .vtab td input[type=color] { width: 46px !important; height: 30px; }
       .vtab td .edit { display: inline-block; min-width: 120px; }
+      .vtab td .prp { font-size: 10px; }
     }
     .kdrop { margin-top:11px; border:2px dashed #3a3a30; border-radius:11px; padding:24px 14px; text-align:center; color:#ddd; cursor:pointer; background:#171712; }
     .kdrop:hover, .kdrop.over { border-color:#e0912f; background:#1d1a14; }
