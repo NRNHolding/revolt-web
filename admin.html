@@ -73,6 +73,37 @@
     .loading, .error { text-align: center; padding: 60px; color: #888; }
 
     /* ── Invoice modal ── */
+    /* Papan per fase. Kolomnya digulir menyamping karena tujuh fase tidak
+       muat di layar mana pun tanpa mengecilkan kartunya sampai tak terbaca. */
+    .pipa { display:flex; gap:10px; overflow-x:auto; padding:2px 2px 10px; }
+    .pipa-kol { flex:0 0 214px; background:#141410; border:1px solid #26261f;
+      border-radius:10px; display:flex; flex-direction:column; max-height:66vh; }
+    .pipa-h { padding:9px 11px; border-bottom:1px solid #26261f; font-size:11px; font-weight:700;
+      letter-spacing:.4px; display:flex; justify-content:space-between; align-items:center; gap:6px; }
+    .pipa-n { background:#2a2a22; color:#b5b5aa; border-radius:9px; padding:1px 7px; font-size:10.5px; flex:none; }
+    .pipa-b { padding:8px; overflow-y:auto; display:flex; flex-direction:column; gap:7px; }
+    .kartu { background:#1c1c17; border:1px solid #2b2b23; border-left:3px solid #666;
+      border-radius:8px; padding:8px 9px; cursor:pointer; }
+    .kartu:hover { border-color:#3d3d31; background:#20201a; }
+    .kartu .jud { font-size:12px; font-weight:700; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+    .kartu .prod { color:#c9c9bd; font-size:11.5px; margin-top:4px; line-height:1.35; }
+    .kartu .baris { display:flex; justify-content:space-between; gap:6px; margin-top:5px;
+      color:#8f8f84; font-size:10.5px; }
+    .pipa-kosong { color:#55554e; font-size:11px; text-align:center; padding:16px 4px; }
+    .cbtn.aktif { border-color:#e0912f; color:#e0912f; background:#241d12; }
+    @media (max-width:640px){ .pipa-kol { flex:0 0 82vw; } }
+
+    /* Menu melayang, bukan menempel di barisnya: baris tabel ada di dalam
+       kotak yang bisa digulir, jadi menu yang menempel akan terpotong. */
+    #bayarMenu { position: fixed; z-index: 300; min-width: 178px; padding: 5px;
+      background: #1c1c17; border: 1px solid #3a3a2e; border-radius: 9px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.55); display: none; }
+    #bayarMenu.show { display: block; }
+    #bayarMenu button { display: block; width: 100%; text-align: left; background: none;
+      border: 0; color: #ddd; font: inherit; font-size: 12.5px; padding: 8px 11px;
+      border-radius: 6px; cursor: pointer; }
+    #bayarMenu button:hover { background: #2a2a22; color: #e0912f; }
+    #bayarMenu .pisah { height: 1px; background: #2f2f26; margin: 4px 6px; }
     #invModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
     #invModal.show { display: block; }
     .inv-wrap { max-width: 860px; margin: 0 auto; }
@@ -273,6 +304,34 @@
     #prodModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
     #prodModal.show { display: block; }
     .prod-wrap { max-width: 720px; margin: 0 auto; background: #1c1c17; border: 1px solid #2a2a22; border-radius: 12px; padding: 16px 18px; }
+    /* ── Katalog aksesoris ── */
+    .akgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:11px; }
+    .akcard { background:#1c1c17; border:1px solid #2a2a22; border-radius:9px; overflow:hidden; display:flex; flex-direction:column; }
+    .akcard:hover { border-color:#e0912f; }
+    .akph { background:#0f0f0c; aspect-ratio:1/1; display:grid; place-items:center; cursor:zoom-in; position:relative; }
+    .akph img { width:100%; height:100%; object-fit:cover; display:block; }
+    .aksku { position:absolute; left:0; bottom:0; background:rgba(0,0,0,.72); color:#ddd;
+      font-size:9px; letter-spacing:.5px; padding:2px 6px; border-top-right-radius:5px; }
+    .akbody { padding:8px 9px 9px; display:flex; flex-direction:column; gap:5px; flex:1; }
+    .aknm { font-size:12px; font-weight:700; color:#ececec; line-height:1.25; }
+    .akchips { display:flex; gap:4px; flex-wrap:wrap; }
+    .akchip { font-size:9px; letter-spacing:.4px; text-transform:uppercase; border:1px solid #3a3a30;
+      border-radius:3px; padding:1px 5px; color:#a5a598; white-space:nowrap; }
+    .akchip.mat { border-color:#3f5a69; color:#8fb0c1; }
+    .akchip.col { border-color:#8a6b2a; color:#d2a247; }
+    .akdim { font-size:10px; color:#86867c; margin-top:auto; }
+    .akpick { position:absolute; left:6px; top:6px; width:22px; height:22px; border-radius:5px;
+      border:1.5px solid rgba(255,255,255,.5); background:rgba(0,0,0,.55); display:grid;
+      place-items:center; color:transparent; font-size:14px; font-weight:800; cursor:pointer; z-index:2; }
+    .akcard.dipilih { border-color:#e0912f; box-shadow:0 0 0 2px rgba(224,145,47,.25); }
+    .akcard.dipilih .akpick { background:#e0912f; border-color:#e0912f; color:#141410; }
+    .aklb { position:fixed; inset:0; background:rgba(8,8,6,.94); z-index:120; display:none; place-items:center; padding:24px; }
+    .aklb.on { display:grid; }
+    .aklb img { max-width:min(700px,92vw); max-height:74vh; border-radius:8px; border:1px solid #333; display:block; }
+    .aklb .cap { color:#ddd; font-size:12px; margin-top:11px; text-align:center; line-height:1.6; }
+    .aklb .x { position:absolute; top:14px; right:18px; background:none; border:0; color:#ddd; font-size:30px; cursor:pointer; }
+    @media (max-width:640px){ .akgrid { grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:8px; } }
+
     .pf { margin-bottom: 11px; }
     .pf label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: #8a8a80; font-weight: 700; margin-bottom: 4px; }
     .pf input, .pf textarea, .pf select { width: 100%; background: #14140f; border: 1px solid #33332a; border-radius: 7px; color: #ececec; padding: 8px 10px; font-size: 13px; font-family: inherit; }
@@ -454,9 +513,11 @@
     document.getElementById('ts').textContent = 'Update: ' + d.generatedAt;
     var html =
       '<div class="tabs">' +
+        '<button class="tab" onclick="showTab(3,this)">Inquiry <span id="inqBadge" class="nbadge" style="display:none">0</span></button>' +
         '<button class="tab active" onclick="showTab(1,this)">Operasional</button>' +
         '<button class="tab" onclick="showTab(2,this)">Administrasi</button>' +
         '<button class="tab" id="tabKatalog" onclick="showTab(4,this)">Website <span id="ordBadge" class="nbadge" style="display:none">0</span></button>' +
+        '<button class="tab" onclick="showTab(5,this)">Aksesoris</button>' +
       '</div>' +
       '<div id="page1">' + buildOperasional(d) + '</div>' +
       '<div id="page2" style="display:none">' +
@@ -467,9 +528,16 @@
         '<div id="adm1">' + buildLaporan(d) + '</div>' +
         '<div id="adm2" style="display:none">' + buildCustomerDB(d) + '</div>' +
       '</div>' +
-      '<div id="page4" style="display:none">' + buildCatalog() + '</div>';
+      '<div id="page3" style="display:none">' + buildInquiry(d) + '</div>' +
+      '<div id="page4" style="display:none">' + buildCatalog() + '</div>' +
+      '<div id="page5" style="display:none"><div id="akBody"><div class="loading">Buka tab untuk memuat…</div></div></div>';
     document.getElementById('content').innerHTML = html;
     labelTables();
+    filterInquiry();
+    renderPipeline();
+    var bel=(d.inquiries||[]).filter(function(q){ return inqGrup(q.status)==='aktif'; }).length;
+    var bd=document.getElementById('inqBadge');
+    if(bd && bel){ bd.textContent=bel; bd.style.display=''; }
     checkNewOrders();
   }
 
@@ -538,12 +606,15 @@
   function showTab(n, btn){
     document.getElementById('page1').style.display = n===1 ? '' : 'none';
     document.getElementById('page2').style.display = n===2 ? '' : 'none';
+    var p3=document.getElementById('page3'); if(p3) p3.style.display = n===3 ? '' : 'none';
     var p4=document.getElementById('page4'); if(p4) p4.style.display = n===4 ? '' : 'none';
+    var p5=document.getElementById('page5'); if(p5) p5.style.display = n===5 ? '' : 'none';
     var tabs = document.querySelectorAll('.tabs > .tab');
     for (var i=0;i<tabs.length;i++) tabs[i].classList.remove('active');
     btn.classList.add('active');
     if (n===2) { renderEval(); filterReport(); }
     if (n===4 && !window.__WOO_LOADED) loadWoo();
+    if (n===5 && !window.__AKS) { window.__AKS=1; loadAksesoris(); }
   }
 
   // ── PAGE 3: Database Customer ──
@@ -648,6 +719,9 @@
         '<button class="stab" onclick="wooTab(4,this)">Laporan Web</button>' +
         '<button class="stab" onclick="wooTab(5,this)">Shipping</button>' +
         '<button class="stab" onclick="wooTab(6,this)">Pembayaran</button>' +
+        '<button class="stab" onclick="wooTab(9,this)">Diskon</button>' +
+        '<button class="stab" onclick="wooTab(10,this)">Cadangan</button>' +
+        '<button class="stab" onclick="wooTab(8,this)">Discord</button>' +
       '</div>' +
       '<div id="wtab1">' +
         '<div class="toolbar">' +
@@ -683,13 +757,23 @@
           '<button class="cbtn" onclick="loadWooReport()">Muat</button></div><div id="repBody"></div></div>' +
       '<div id="wtab5" style="display:none"><div id="wooShipBox"></div></div>' +
       '<div id="wtab6" style="display:none"><div id="payBody"></div></div>' +
+      '<div id="wtab8" style="display:none"><div id="dcBody"><div class="loading">Memuat…</div></div></div>' +
+      '<div id="wtab10" style="display:none"><div id="cdBody"><div class="loading">Memuat…</div></div></div>' +
+      '<div id="wtab9" style="display:none"><div class="toolbar">' +
+          '<select id="dkPeriod" onchange="loadDiskon()">' +
+            '<option value="all">Semua</option><option value="year">Tahun ini</option>' +
+            '<option value="month">Bulan ini</option><option value="week">Minggu ini</option>' +
+          '</select>' +
+          '<button class="cbtn" onclick="loadDiskon()">Muat</button>' +
+          '<span style="color:#888;font-size:11px">Potongan harga yang diberikan ke customer — masuk hitungan marketing expense</span>' +
+        '</div><div id="dkBody"></div></div>' +
       '<div id="wtab7" style="display:none"><div class="toolbar"><button class="cbtn" onclick="loadProofs()">↻ Muat ulang</button>' +
         '<span style="color:#888;font-size:11px">Bukti transfer yang dikirim customer dari halaman konfirmasi</span></div>' +
         '<div id="proofBody"></div></div>' +
       '';
   }
   function wooTab(n, btn){
-    for(var i=1;i<=8;i++){ var el=document.getElementById('wtab'+i); if(el) el.style.display=(i===n?'':'none'); }
+    for(var i=1;i<=10;i++){ var el=document.getElementById('wtab'+i); if(el) el.style.display=(i===n?'':'none'); }
     document.querySelectorAll('.stab').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
     if(n===2 && !window.__ORD) { window.__ORD=1; loadOrders(); }
@@ -698,6 +782,592 @@
     if(n===5 && !window.__SHIP){ window.__SHIP=1; loadWooShip(); }
     if(n===6 && !window.__PAY) { window.__PAY=1; loadGateways(); }
     if(n===7) loadProofs();
+    if(n===8) loadDiscord();
+    if(n===9 && !window.__DK){ window.__DK=1; loadDiskon(); }
+    if(n===10) loadCadangan();
+  }
+
+  // ── Katalog aksesoris (buckle, ring, hook, keychain) ──
+  var AKS=[];
+  function loadAksesoris(segar){
+    var el=document.getElementById('akBody'); if(!el) return;
+    el.innerHTML='<div class="loading">Memuat katalog aksesoris…</div>';
+    jsonp(WEB_APP_URL+'?page=admin&action='+(segar?'aksRefresh':'aksList')+'&key='+encodeURIComponent(ADMIN_KEY),
+      function(res){
+        if(!res||!res.ok){ el.innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
+        AKS=res.items||[];
+        renderAksesoris(res);
+      });
+  }
+  function akOpsi(kunci){
+    var s={}; AKS.forEach(function(x){ if(x[kunci]) s[x[kunci]]=1; });
+    return Object.keys(s).sort();
+  }
+  function renderAksesoris(d){
+    var el=document.getElementById('akBody');
+    function sel(id,kunci,label){
+      return '<select id="'+id+'" onchange="saringAks()"><option value="">'+label+'</option>'+
+        akOpsi(kunci).map(function(v){ return '<option>'+esc(v)+'</option>'; }).join('')+'</select>';
+    }
+    el.innerHTML=
+      '<div class="section-title">Katalog Aksesoris <span class="po-hint">'+AKS.length+' item · '+
+        akOpsi('product').length+' produk · diperbarui '+esc(d.diperbarui||'-')+
+        ' · ukuran ± diukur dari foto</span></div>'+
+      '<div class="toolbar">'+
+        '<input id="akQ" placeholder="Cari SKU, nama, file…" oninput="saringAks()">'+
+        sel('akCat','category','Semua kategori')+
+        sel('akProd','product','Semua produk')+
+        sel('akMat','material','Semua bahan')+
+        sel('akCol','color','Semua warna')+
+        '<button class="cbtn" onclick="akTampil(\'grid\')" id="akBg">Grid</button>'+
+        '<button class="cbtn" onclick="akTampil(\'tabel\')" id="akBt">Tabel</button>'+
+        '<button class="cbtn" onclick="akCsv()">Export CSV</button>'+
+        '<button class="cbtn" onclick="loadAksesoris(1)">↻ Muat ulang</button>'+
+        '<span id="akMsg" style="color:#888;font-size:11px"></span>'+
+      '</div>'+
+      '<div id="akBarPilih" style="display:none;background:#1c1c17;border:1px solid #e0912f;'+
+        'border-radius:9px;padding:10px 12px;margin-bottom:12px;display:none">'+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
+          '<b id="akPilihJml" style="color:#e0912f;font-size:12px"></b>'+
+          '<input id="akNama" placeholder="Nama customer" style="max-width:180px">'+
+          '<input id="akNote" placeholder="Catatan untuk customer (opsional)" style="max-width:280px">'+
+          '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="akBuatLink(this)">Buat tautan</button>'+
+          '<button class="cbtn" onclick="akBersihkan()">Batal pilih</button>'+
+        '</div>'+
+        '<div id="akHasil" style="margin-top:9px"></div>'+
+      '</div>'+
+      '<div id="akIsi"></div>'+
+      '<div id="akKirim" style="margin-top:22px"></div>'+
+      '<div class="aklb" id="akLb" onclick="akTutup(event)">'+
+        '<button class="x" onclick="akTutup(event,1)">&times;</button>'+
+        '<div><img id="akLbImg" alt=""><div class="cap" id="akLbCap"></div></div>'+
+      '</div>';
+    window.__akMode='grid';
+    saringAks();
+    akBarPilih();
+    loadKiriman();
+  }
+  function akCocok(){
+    var q=(document.getElementById('akQ').value||'').toLowerCase().trim();
+    var c=document.getElementById('akCat').value, p=document.getElementById('akProd').value;
+    var m=document.getElementById('akMat').value, w=document.getElementById('akCol').value;
+    return AKS.filter(function(x){
+      if(c && x.category!==c) return false;
+      if(p && x.product!==p) return false;
+      if(m && x.material!==m) return false;
+      if(w && x.color!==w) return false;
+      if(!q) return true;
+      return ((x.sku||'')+' '+(x.product||'')+' '+(x.variant||'')+' '+(x.newfile||'')+' '+(x.file||'')).toLowerCase().indexOf(q)>-1;
+    });
+  }
+  function akTampil(mode){ window.__akMode=mode; saringAks(); }
+  function saringAks(){
+    var list=akCocok(), box=document.getElementById('akIsi');
+    document.getElementById('akMsg').textContent=list.length+' dari '+AKS.length+' item';
+    var g=document.getElementById('akBg'), t=document.getElementById('akBt');
+    if(g&&t){ var on='border-color:#e0912f;color:#e0912f', off='';
+      g.setAttribute('style', window.__akMode==='grid'?on:off);
+      t.setAttribute('style', window.__akMode==='tabel'?on:off); }
+    if(!list.length){ box.innerHTML='<div class="loading">Tidak ada yang cocok.</div>'; return; }
+
+    if(window.__akMode==='tabel'){
+      box.innerHTML='<div class="table-scroll tall"><table class="rtable"><thead><tr>'+
+        '<th>Foto</th><th>SKU</th><th>Produk</th><th>Kategori</th><th>Bahan</th><th>Warna</th>'+
+        '<th>Varian</th><th class="num">Ukuran</th><th>Nama File</th></tr></thead><tbody>'+
+        list.map(function(x,i){
+          return '<tr><td><img src="'+esc(x.thumb)+'" loading="lazy" style="width:40px;height:40px;object-fit:cover;'+
+              'border-radius:3px;background:#0f0f0c;cursor:zoom-in" onclick="akBuka('+akIdx(x)+')"></td>'+
+            '<td class="num" style="font-size:11px">'+esc(x.sku)+'</td><td>'+esc(x.product)+'</td>'+
+            '<td>'+esc(x.category)+'</td><td>'+esc(x.material)+'</td><td>'+esc(x.color)+'</td>'+
+            '<td>'+esc(x.variant||'-')+'</td>'+
+            '<td class="num" style="font-size:11px">'+(akMm(x)||'-')+'</td>'+
+            '<td style="font-size:10.5px;color:#888">'+esc(x.newfile||'-')+'</td></tr>';
+        }).join('')+'</tbody></table></div>';
+      labelTables();
+      return;
+    }
+
+    box.innerHTML='<div class="akgrid">'+list.map(function(x){
+      return '<div class="akcard'+(AKPILIH[x.sku]?' dipilih':'')+'" data-sku="'+esc(x.sku)+'">'+
+        '<div class="akph" onclick="akBuka('+akIdx(x)+')">'+
+          '<span class="akpick" onclick="akCentang(event,\''+esc(x.sku)+'\')" title="Pilih untuk dikirim">&#10003;</span>'+
+          '<img src="'+esc(x.thumb)+'" loading="lazy" alt="'+esc(x.product)+'">'+
+          '<span class="aksku">'+esc(x.sku)+'</span>'+
+        '</div>'+
+        '<div class="akbody">'+
+          '<div class="aknm">'+esc(x.product)+'</div>'+
+          '<div class="akchips">'+
+            '<span class="akchip mat">'+esc(x.material)+'</span>'+
+            '<span class="akchip col">'+esc(x.color)+'</span>'+
+            (x.variant?'<span class="akchip">'+esc(x.variant)+'</span>':'')+
+          '</div>'+
+          '<div class="akdim">'+esc(x.category)+akMm(x,' · ')+'</div>'+
+        '</div></div>';
+    }).join('')+'</div>';
+  }
+  /* Pilihan disimpan per SKU, bukan per posisi di daftar - kalau saringannya
+     berubah, yang sudah dicentang tidak ikut bergeser atau hilang. */
+  var AKPILIH={};
+  function akCentang(e, sku){
+    e.stopPropagation();
+    if(AKPILIH[sku]) delete AKPILIH[sku]; else AKPILIH[sku]=1;
+    var kartu=document.querySelector('.akcard[data-sku="'+sku+'"]');
+    if(kartu) kartu.classList.toggle('dipilih', !!AKPILIH[sku]);
+    akBarPilih();
+  }
+  function akBersihkan(){
+    AKPILIH={};
+    document.querySelectorAll('.akcard.dipilih').forEach(function(k){ k.classList.remove('dipilih'); });
+    akBarPilih();
+  }
+  function akBarPilih(){
+    var n=Object.keys(AKPILIH).length;
+    var bar=document.getElementById('akBarPilih'); if(!bar) return;
+    bar.style.display = n ? 'block' : 'none';
+    var t=document.getElementById('akPilihJml'); if(t) t.textContent=n+' item dipilih';
+    if(!n){ var hs=document.getElementById('akHasil'); if(hs) hs.innerHTML=''; }
+  }
+  function akBuatLink(btn){
+    var nama=(document.getElementById('akNama').value||'').trim();
+    var hasil=document.getElementById('akHasil');
+    if(!nama){ hasil.innerHTML='<span style="color:#d97a7a;font-size:11.5px">Nama customer wajib diisi.</span>';
+      document.getElementById('akNama').focus(); return; }
+    var skus=Object.keys(AKPILIH);
+    var t=btn.textContent; btn.disabled=true; btn.textContent='Membuat…';
+    jsonp(WEB_APP_URL+'?page=admin&action=kirimBuat&key='+encodeURIComponent(ADMIN_KEY)+
+          '&nama='+encodeURIComponent(nama)+
+          '&note='+encodeURIComponent((document.getElementById('akNote').value||'').trim())+
+          '&skus='+encodeURIComponent(skus.join(',')),
+      function(res){
+        btn.disabled=false; btn.textContent=t;
+        if(!res||!res.ok){ hasil.innerHTML='<span style="color:#d97a7a;font-size:11.5px">'+esc((res&&res.error)||'Gagal.')+'</span>'; return; }
+        var wa='https://wa.me/?text='+encodeURIComponent('Halo '+nama+', ini pilihan hardware dari Revolt Industry:\n'+res.url);
+        hasil.innerHTML=
+          '<div style="background:#141410;border:1px solid #2a2a22;border-radius:7px;padding:9px 11px">'+
+            '<div style="font-size:11px;color:#888;margin-bottom:5px">Tautan untuk '+esc(nama)+' · '+res.jml+' item</div>'+
+            '<input readonly value="'+esc(res.url)+'" onclick="this.select()" style="width:100%;font-size:11.5px">'+
+            '<div style="display:flex;gap:7px;margin-top:8px;flex-wrap:wrap">'+
+              '<button class="cbtn" onclick="akSalin(this)">Salin tautan</button>'+
+              '<a class="cbtn" style="text-decoration:none" href="'+esc(wa)+'" target="_blank">Kirim via WhatsApp</a>'+
+              '<a class="cbtn" style="text-decoration:none" href="'+esc(res.url)+'" target="_blank">Lihat seperti customer</a>'+
+            '</div></div>';
+        akBersihkan();
+        document.getElementById('akNama').value=''; document.getElementById('akNote').value='';
+        loadKiriman();
+      });
+  }
+  function akSalin(btn){
+    var inp=btn.parentNode.parentNode.querySelector('input');
+    inp.select(); inp.setSelectionRange(0,99999);
+    try{ document.execCommand('copy'); btn.textContent='Tersalin ✓'; }catch(e){ btn.textContent='Salin manual'; }
+    setTimeout(function(){ btn.textContent='Salin tautan'; },1800);
+  }
+  function loadKiriman(){
+    var el=document.getElementById('akKirim'); if(!el) return;
+    jsonp(WEB_APP_URL+'?page=admin&action=kirimList&key='+encodeURIComponent(ADMIN_KEY),
+      function(res){
+        if(!res||!res.ok){ el.innerHTML=''; return; }
+        var L=res.items||[];
+        if(!L.length){ el.innerHTML='<div class="section-title">Tautan Terkirim</div>'+
+          '<div class="loading">Belum ada tautan. Centang beberapa item di atas untuk membuatnya.</div>'; return; }
+        el.innerHTML='<div class="section-title">Tautan Terkirim ('+L.length+')</div>'+
+          '<div class="table-scroll"><table class="rtable"><thead><tr><th>Customer</th><th class="num">Item</th>'+
+          '<th>Dibuat</th><th>Status</th><th>Tautan</th><th>Aksi</th></tr></thead><tbody>'+
+          L.map(function(x){
+            var st = x.dibuka
+              ? '<span class="badge" style="background:#16a34a">dibuka '+x.dibuka+'×</span>'+
+                (x.akhir?'<div class="osub">'+esc(x.akhir)+'</div>':'')
+              : '<span class="badge" style="background:#6b7280">belum dibuka</span>';
+            return '<tr><td><b>'+esc(x.nama)+'</b>'+(x.note?'<div class="osub">'+esc(x.note)+'</div>':'')+'</td>'+
+              '<td class="num">'+x.jml+'</td><td>'+esc(x.dibuat)+'</td><td>'+st+'</td>'+
+              '<td><a class="link" href="'+esc(x.url)+'" target="_blank">buka</a></td>'+
+              '<td><button class="cbtn" style="border-color:#8a3b3b;color:#d97a7a" '+
+                'onclick="hapusKirim(\''+esc(x.token)+'\',\''+esc(x.nama)+'\')">✕</button></td></tr>';
+          }).join('')+'</tbody></table></div>';
+        labelTables();
+      });
+  }
+  function hapusKirim(token, nama){
+    if(!confirm('Hapus tautan untuk '+nama+'?\nCustomer yang membukanya akan melihat halaman kosong.')) return;
+    jsonp(WEB_APP_URL+'?page=admin&action=kirimHapus&key='+encodeURIComponent(ADMIN_KEY)+
+          '&token='+encodeURIComponent(token), function(){ loadKiriman(); });
+  }
+
+  function akIdx(x){ return AKS.indexOf(x); }
+  /* Ukuran perkiraan, diukur dari foto lalu dikalibrasi dengan satu barang asli.
+     Ditulis "±" supaya tidak dikira angka spesifikasi pabrik. */
+  function akMm(x, awalan){
+    if(!x.mmW || !x.mmH) return '';
+    return (awalan||'')+'± '+x.mmW+' × '+x.mmH+' mm';
+  }
+  function akBuka(i){
+    var x=AKS[i]; if(!x) return;
+    document.getElementById('akLbImg').src=x.besar||x.thumb;
+    document.getElementById('akLbCap').innerHTML=
+      '<b>'+esc(x.product)+'</b> · '+esc(x.sku)+'<br>'+
+      esc(x.material)+' · '+esc(x.color)+(x.variant?' · '+esc(x.variant):'')+'<br>'+
+      (akMm(x)? '<span style="color:#d2a247">'+akMm(x)+'</span><br>' : '')+
+      '<span style="color:#888;font-size:11px">'+esc(x.newfile||'')+'</span>';
+    document.getElementById('akLb').classList.add('on');
+  }
+  function akTutup(e,paksa){
+    if(!paksa && e && e.target && e.target.tagName==='IMG') return;
+    document.getElementById('akLb').classList.remove('on');
+  }
+  function akCsv(){
+    var list=akCocok();
+    var kol=['sku','category','product','material','color','variant','mmW','mmH','newfile','file','note'];
+    var baris=[kol.join(',')].concat(list.map(function(x){
+      return kol.map(function(k){ return '"'+String(x[k]==null?'':x[k]).replace(/"/g,'""')+'"'; }).join(',');
+    }));
+    var b=new Blob([baris.join('\n')],{type:'text/csv;charset=utf-8'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(b); a.download='katalog-aksesoris.csv'; a.click();
+    document.getElementById('akMsg').textContent='CSV diunduh ('+list.length+' baris).';
+  }
+
+  // ── Cadangan data ──
+  function loadCadangan(){
+    var el=document.getElementById('cdBody'); if(!el) return;
+    el.innerHTML='<div class="loading">Memuat daftar cadangan…</div>';
+    jsonp(WEB_APP_URL+'?page=admin&action=cadanganList&key='+encodeURIComponent(ADMIN_KEY),
+      function(res){
+        if(!res||!res.ok){ el.innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
+        renderCadangan(res);
+      });
+  }
+  function kb(n){ n=Number(n)||0; return n<1024 ? n+' B' : (n<1048576 ? (n/1024).toFixed(0)+' KB' : (n/1048576).toFixed(1)+' MB'); }
+  function renderCadangan(d){
+    var el=document.getElementById('cdBody');
+    var segar = d.umurJam>=0 && d.umurJam<36;
+    var lencana = d.umurJam<0
+      ? '<span class="badge" style="background:#cc3333">belum ada cadangan</span>'
+      : '<span class="badge" style="background:'+(segar?'#16a34a':'#c47f00')+'">'+
+        (d.umurJam<1?'baru saja':d.umurJam+' jam lalu')+'</span>';
+
+    var baris = d.items.length
+      ? '<div class="table-scroll"><table class="rtable"><thead><tr><th>Waktu</th><th>Berkas</th>'+
+          '<th class="num">Ukuran</th><th>Buka</th></tr></thead><tbody>'+
+        d.items.map(function(x){
+          return '<tr><td>'+esc(x.waktu)+'</td><td>'+esc(x.nama)+'</td>'+
+            '<td class="num">'+kb(x.ukuran)+'</td>'+
+            '<td><a class="link" href="'+esc(x.url)+'" target="_blank">unduh</a></td></tr>';
+        }).join('')+'</tbody></table></div>'
+      : '<div class="loading">Belum ada berkas cadangan.</div>';
+
+    el.innerHTML=
+      '<div class="ocard" style="max-width:720px">'+
+        '<div class="ohead" style="margin-bottom:10px"><div><b>Cadangan otomatis</b> '+lencana+
+          '<div class="osub">Seluruh sheet disalin apa adanya ke satu berkas JSON di Drive, tiap hari sekitar jam 2 pagi. '+
+          (d.jml||0)+' berkas tersimpan, '+d.simpan+' terbaru dipertahankan.</div>'+
+          '<div class="osub">Yang diselamatkan tidak ada di Trello: Inquiry, arsip order terkirim, bukti transfer, catatan diskon, dan log order dihapus.</div>'+
+          (d.trigger?'':'<div class="onote" style="color:#d97a7a">Trigger harian belum terpasang — tekan tombol di bawah sekali untuk memasangnya.</div>')+
+          (function(){
+            // Cadangan yang tidak pernah dibuka bukan cadangan. Isi berkas terbaru
+            // dibaca ulang di server, hasilnya ditampilkan di sini.
+            var v=d.periksa||{};
+            if(!d.items||!d.items.length) return '';
+            if(!v.terbaca) return '<div class="onote" style="color:#d97a7a">Berkas terbaru TIDAK terbaca'+
+              (v.error?' — '+esc(v.error):'')+'. Cadangannya perlu diperiksa.</div>';
+            var tot=v.sheet.reduce(function(a,b){return a+b.baris;},0);
+            return '<div class="onote" style="color:#9fe3bb">Berkas terbaru terbaca utuh: '+
+              v.sheet.length+' sheet, '+tot+' baris — '+
+              v.sheet.map(function(x){ return esc(x.nama)+' '+x.baris; }).join(' · ')+'</div>';
+          })()+
+        '</div></div>'+
+        '<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:11px">'+
+          '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="cadanganSekarang(this)">Cadangkan sekarang</button>'+
+          '<a class="cbtn" style="text-decoration:none" href="'+esc(d.folder)+'" target="_blank">Buka folder Drive</a>'+
+          '<button class="cbtn" onclick="loadCadangan()">↻ Muat ulang</button>'+
+          '<span id="cdMsg" style="color:#888;font-size:11px"></span>'+
+        '</div>'+
+        baris+
+      '</div>';
+    labelTables();
+  }
+  function cadanganSekarang(btn){
+    var m=document.getElementById('cdMsg');
+    var t=btn.textContent; btn.disabled=true; btn.textContent='Menyalin…';
+    m.textContent='';
+    jsonp(WEB_APP_URL+'?page=admin&action=cadanganBuat&key='+encodeURIComponent(ADMIN_KEY),
+      function(res){
+        btn.disabled=false; btn.textContent=t;
+        if(!res||!res.ok){ m.textContent=(res&&res.error)||'Gagal.'; return; }
+        m.textContent='Tersimpan: '+res.jmlSheet+' sheet, '+res.jmlBaris+' baris.';
+        setTimeout(loadCadangan, 600);
+      });
+  }
+
+  // ── Diskon ke customer (calon marketing expense) ──
+  function loadDiskon(){
+    var el=document.getElementById('dkBody'); if(!el) return;
+    el.innerHTML='<div class="loading">Menarik data diskon…</div>';
+    var per=(document.getElementById('dkPeriod')||{}).value||'month';
+    jsonp(WEB_APP_URL+'?page=admin&action=diskonReport&period='+encodeURIComponent(per)+
+          '&key='+encodeURIComponent(ADMIN_KEY),
+      function(res){
+        if(!res||!res.ok){ el.innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
+        renderDiskon(res);
+      });
+  }
+  function renderDiskon(d){
+    var el=document.getElementById('dkBody');
+
+    var kpi='<div class="kpis">'+
+      kpiCard('Total Diskon', rp(d.totalIdr), 'accent')+
+      kpiCard('Diskon Web', '$'+d.webUsd+'<div class="wrp" style="font-size:11px;color:#888">'+rp(d.webIdr)+'</div>')+
+      kpiCard('Diskon Invoice Manual', rp(d.manualIdr))+
+      kpiCard('% dari Penjualan Web', d.pctJual+'%')+
+    '</div>';
+
+    // ringkasan per kode kupon
+    var kup = d.kupon.length
+      ? '<div class="table-scroll"><table class="rtable"><thead><tr><th>Kode Kupon</th>'+
+          '<th class="num">Dipakai</th><th class="num">Total Diskon</th><th class="num">Setara Rp</th></tr></thead><tbody>'+
+        d.kupon.map(function(k){
+          return '<tr><td><b>'+esc(k.code)+'</b></td><td class="num">'+k.pakai+'x</td>'+
+            '<td class="num">$'+(Math.round(k.usd*100)/100)+'</td>'+
+            '<td class="num">'+rp(Math.round(k.usd*d.rate))+'</td></tr>';
+        }).join('')+'</tbody></table></div>'
+      : '<div class="loading">Belum ada kupon terpakai di periode ini.</div>';
+
+    // rincian pesanan web
+    var web = d.web.length
+      ? '<div class="table-scroll tall"><table class="rtable"><thead><tr><th>Tanggal</th><th>Order</th>'+
+          '<th>Customer</th><th>Kupon</th><th class="num">Dibayar</th><th class="num">Diskon</th>'+
+          '<th class="num">%</th><th>Status</th></tr></thead><tbody>'+
+        d.web.map(function(o){
+          return '<tr'+(o.batal?' style="opacity:.45"':'')+'>'+
+            '<td>'+esc(o.date)+'</td><td><b>#'+esc(o.number)+'</b></td><td>'+esc(o.nama)+'</td>'+
+            '<td>'+esc(o.kupon)+'</td><td class="num">$'+o.total+'</td>'+
+            '<td class="num" style="color:#e0912f;font-weight:700">$'+o.disc+'</td>'+
+            '<td class="num">'+o.pct+'%</td><td>'+esc(o.status)+
+            (o.batal?' <span style="color:#cc3333;font-size:10px">tidak dihitung</span>':'')+'</td></tr>';
+        }).join('')+'</tbody></table></div>'
+      : '<div class="loading">Tidak ada pesanan web berdiskon di periode ini.</div>';
+
+    // rincian custom order — dari invoice yang disimpan, atau dicatat tangan
+    function labelTipe(t){ return t==='dp' ? 'Invoice DP' : t==='custom' ? 'Dicatat tangan' : 'Invoice Pelunasan'; }
+    var man = d.manual.length
+      ? '<div class="table-scroll"><table class="rtable"><thead><tr><th>Tanggal</th><th>Order</th>'+
+          '<th>Customer</th><th>Sumber</th><th class="num">Subtotal</th><th class="num">Diskon</th>'+
+          '<th class="num">%</th><th>Catatan</th><th>Aksi</th></tr></thead><tbody>'+
+        d.manual.map(function(m){
+          return '<tr><td>'+esc(m.date)+'</td><td><b>'+esc(m.order)+'</b></td><td>'+esc(m.nama)+'</td>'+
+            '<td>'+esc(labelTipe(m.tipe))+'</td><td class="num">'+rp(m.sub)+'</td>'+
+            '<td class="num" style="color:#e0912f;font-weight:700">'+rp(m.disc)+'</td>'+
+            '<td class="num">'+m.pct+'%</td><td>'+esc(m.note||'')+'</td>'+
+            '<td><button class="cbtn" style="border-color:#8a3b3b;color:#d97a7a" onclick="hapusDiskon(\''+
+              esc(m.order)+'\',\''+esc(m.tipe)+'\')">✕ Hapus</button></td></tr>';
+        }).join('')+'</tbody></table></div>'
+      : '<div class="loading">Belum ada diskon custom order tercatat di periode ini.</div>';
+
+    var formCustom =
+      '<div class="ocard" style="max-width:660px;margin-top:10px">'+
+        '<div style="font-size:11px;font-weight:700;color:#e0912f;letter-spacing:.5px;margin-bottom:8px">'+
+          'CATAT DISKON CUSTOM ORDER</div>'+
+        '<div class="pgrid" style="grid-template-columns:repeat(2,1fr);gap:9px">'+
+          '<div class="pf"><label>Order ID</label><input id="dkOrder" placeholder="mis. RVLT-0123"></div>'+
+          '<div class="pf"><label>Customer</label><input id="dkNama" placeholder="nama customer"></div>'+
+          '<div class="pf"><label>Subtotal (Rp)</label><input id="dkSub" placeholder="mis. 2.000.000"></div>'+
+          '<div class="pf"><label>Diskon (Rp)</label><input id="dkDisc" placeholder="mis. 250.000"></div>'+
+        '</div>'+
+        '<div class="pf"><label>Catatan</label><input id="dkNote" placeholder="alasan diskon, mis. repeat order"></div>'+
+        '<div style="display:flex;gap:7px;align-items:center">'+
+          '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="simpanDiskon()">Simpan</button>'+
+          '<span id="dkMsg" style="color:#888;font-size:11px">Satu catatan per Order ID — simpan ulang menimpa yang lama.</span>'+
+        '</div>'+
+      '</div>';
+
+    var catatan =
+      '<div class="warn-box" style="margin-top:10px"><div class="warn-h">Kenapa invoice lama tidak ada di sini</div>'+
+      '<div style="font-size:11.5px;color:#bbb;padding:2px 0 0;line-height:1.6">'+
+      'Invoice yang terbit sebelum fitur ini disimpan sebagai gambar JPG — angka Disc-nya ikut ter-render jadi piksel, '+
+      'tidak pernah tersimpan sebagai data, jadi tidak bisa ditarik balik. '+
+      'Sekarang ada dua jalan masuk: tombol <b>Simpan ke Drive</b> di invoice mencatat otomatis, '+
+      'atau isi manual lewat formulir di atas.</div></div>';
+
+    el.innerHTML = kpi +
+      sec('Per Kode Kupon ('+d.kupon.length+')', kup, true) +
+      sec('Pesanan Web Berdiskon ('+d.web.length+')', web, true) +
+      sec('Custom Order ('+d.manual.length+')', man + formCustom + catatan, true);
+    labelTables();
+  }
+
+  function simpanDiskon(){
+    var m=document.getElementById('dkMsg');
+    var order=(document.getElementById('dkOrder').value||'').trim();
+    if(!order){ m.textContent='Order ID wajib diisi.'; document.getElementById('dkOrder').focus(); return; }
+    m.textContent='Menyimpan…';
+    jsonp(WEB_APP_URL+'?page=admin&action=diskonSave&key='+encodeURIComponent(ADMIN_KEY)+
+          '&order='+encodeURIComponent(order)+
+          '&nama='+encodeURIComponent((document.getElementById('dkNama').value||'').trim())+
+          '&subtotal='+encodeURIComponent((document.getElementById('dkSub').value||'').trim())+
+          '&disc='+encodeURIComponent((document.getElementById('dkDisc').value||'').trim())+
+          '&note='+encodeURIComponent((document.getElementById('dkNote').value||'').trim()),
+      function(res){
+        if(!res||!res.ok){ m.textContent=(res&&res.error)||'Gagal.'; return; }
+        loadDiskon();
+      });
+  }
+  function hapusDiskon(order, tipe){
+    if(!confirm('Hapus catatan diskon untuk '+order+'?')) return;
+    // diskon nol = barisnya dihapus; tipe invoice ikut dikirim biar yang benar yang kena
+    jsonp(WEB_APP_URL+'?page=admin&action=diskonSave&key='+encodeURIComponent(ADMIN_KEY)+
+          '&order='+encodeURIComponent(order)+'&tipe='+encodeURIComponent(tipe)+'&disc=0',
+      function(res){ loadDiskon(); });
+  }
+
+  // ── Discord: satu webhook untuk semua pemberitahuan ──
+  function loadDiscord(){
+    var el=document.getElementById('dcBody'); if(!el) return;
+    el.innerHTML='<div class="loading">Memuat pengaturan…</div>';
+    jsonp(WEB_APP_URL+'?page=admin&action=discordCfg&key='+encodeURIComponent(ADMIN_KEY),
+      function(res){
+        if(!res||!res.ok){ el.innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
+        renderDiscord(res);
+        muatBot();
+      });
+  }
+
+  // ── Bot: channel per customer (yang dipakai untuk kerja bareng Radja) ──
+  function muatBot(){
+    var el=document.getElementById('dcBot');
+    if(!el){ var b=document.createElement('div'); b.id='dcBot';
+      var host=document.getElementById('dcBody'); host.insertBefore(b, host.firstChild); el=b; }
+    el.innerHTML='<div class="loading">Mengecek bot…</div>';
+    jsonp(WEB_APP_URL+'?page=admin&action=discordBot&key='+encodeURIComponent(ADMIN_KEY),
+      function(b){
+        if(!b||!b.ok){ el.innerHTML='<div class="error">'+esc((b&&b.error)||'Gagal.')+'</div>'; return; }
+        renderBot(b);
+      });
+  }
+  function renderBot(b){
+    var el=document.getElementById('dcBot');
+    var siap = b.adaToken && b.adaGuild && !b.error;
+    var lencana = siap
+      ? '<span class="badge" style="background:#16a34a">tersambung</span>'
+      : '<span class="badge" style="background:#cc3333">belum jalan</span>';
+
+    var langkah='';
+    if(!b.adaToken || !b.adaGuild){
+      langkah='<div style="font-size:11.5px;color:#bbb;line-height:1.7;margin-top:8px">'+
+        'Isi dulu di <b>Apps Script → Project Settings → Script Properties</b>:'+
+        '<div style="margin:6px 0 0;font-family:monospace;font-size:11px;color:#ddd">'+
+          (b.adaToken?'✓':'✕')+' DISCORD_BOT_TOKEN<br>'+
+          (b.adaGuild?'✓':'✕')+' DISCORD_GUILD'+
+        '</div>'+
+        '<div style="margin-top:7px">Token diisi langsung di sana, bukan lewat halaman ini — '+
+        'biar tidak pernah lewat jaringan dashboard.</div></div>';
+    } else if(b.error){
+      langkah='<div class="onote" style="color:#d97a7a;margin-top:8px">'+esc(b.error)+'</div>';
+    }
+
+    var kat = (b.kategori||[]).map(function(k){
+      return '<div style="font-size:12px;margin:3px 0;color:'+(k.ada?'#9fe3bb':'#d97a7a')+'">'+
+        (k.ada?'✓':'✕')+' '+esc(k.nama)+
+        '<span style="color:#777"> — '+
+        (k.peran==='pricing'?'channel baru masuk sini':'tujuan setelah harga deal')+'</span></div>';
+    }).join('');
+
+    el.innerHTML=
+      '<div class="ocard" style="max-width:660px">'+
+        '<div class="ohead" style="margin-bottom:8px"><div><b>Bot — channel per customer</b> '+lencana+
+          (b.bot?'<div class="osub">Bot: '+esc(b.bot)+(b.server?' · Server: '+esc(b.server):'')+'</div>':'')+
+          '<div class="osub">Inquiry masuk → channel dibuat di kategori pricing. '+
+          'Harga deal → card Trello dibuat, channel pindah sendiri.</div></div></div>'+
+        (kat?'<div style="margin:10px 0 0">'+kat+'</div>':'')+
+        langkah+
+        '<div class="ofoot" style="margin-top:11px">Nama channel: <b>kode-nama-produk-qty</b>, '+
+        'mis. <code>inq0042-budi-santoso-tote-bag-50pcs</code>. Customer yang sudah punya channel '+
+        'tidak dibuatkan yang baru.</div>'+
+        '<div style="text-align:right;margin-top:8px">'+
+          '<button class="cbtn" onclick="muatBot()">↻ Cek ulang</button></div>'+
+      '</div>';
+  }
+  function renderDiscord(c){
+    window.__DC=c;
+    var el=document.getElementById('dcBody');
+    var status = c.aktif
+      ? '<span class="badge" style="background:#16a34a">tersambung</span> <span style="color:#888;font-size:11px">'+esc(c.petunjuk)+'</span>'
+      : '<span class="badge" style="background:#cc3333">belum tersambung</span>';
+
+    el.innerHTML=
+      '<div class="ocard" style="max-width:620px">'+
+        '<div class="ohead" style="margin-bottom:10px"><div><b>Webhook — notifikasi (opsional)</b> '+status+
+          '<div class="osub">Terpisah dari bot di atas. Ini cuma mengirim kabar ke satu channel tetap. '+
+          'Boleh dibiarkan kosong kalau yang dipakai hanya channel per customer.</div></div></div>'+
+
+        '<div class="pf" style="background:#171712;border:1px solid #33332a;border-radius:8px;padding:10px 12px">'+
+          '<label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;'+
+            'font-size:13px;color:#ddd;font-weight:400;margin:0">'+
+            '<input type="checkbox" id="dcVendor" style="width:auto"'+(c.vendor?' checked':'')+' onchange="renderDcEvents()">'+
+            '<b>Channel ini dipakai bareng Radja</b></label>'+
+          '<div class="osub">Kalau dicentang, nama pembeli, nominal, dan bukti transfer tidak pernah ikut terkirim. '+
+          'Radja cuma dapat apa yang harus diproduksi. Matikan hanya kalau channelnya khusus tim Revolt.</div></div>'+
+
+        '<div class="pf"><label>Webhook URL</label>'+
+          '<input id="dcUrl" placeholder="https://discord.com/api/webhooks/…" autocomplete="off">'+
+          '<div class="osub">Discord → klik kanan channel → <b>Edit Channel</b> → <b>Integrations</b> → <b>Webhooks</b> → '+
+          '<b>New Webhook</b> → <b>Copy Webhook URL</b>. Kosongkan kalau tidak mau diganti; isi <b>-</b> untuk memutus.</div></div>'+
+
+        '<div class="pf"><label>ID Role yang di-mention (opsional)</label>'+
+          '<input id="dcRole" value="'+esc(c.role||'')+'" placeholder="mis. 1234567890123456" autocomplete="off">'+
+          '<div class="osub">Dipakai untuk kejadian penting (pesanan baru, bukti transfer, inquiry) supaya ada yang ke-tag. '+
+          'Ambil di Discord: <b>Server Settings → Roles</b> → klik kanan role → <b>Copy Role ID</b> '+
+          '(nyalakan dulu Developer Mode di Settings → Advanced). Kosongkan kalau tidak perlu.</div></div>'+
+
+        '<div class="pf"><label>Kejadian yang dikirim</label><div id="dcEvents"></div></div>'+
+
+        '<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:12px">'+
+          '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="saveDiscord()">Simpan</button>'+
+          '<button class="cbtn" onclick="testDiscordKirim()"'+(c.aktif?'':' disabled')+'>Kirim tes</button>'+
+          '<span id="dcMsg" style="color:#888;font-size:11px"></span>'+
+        '</div>'+
+
+        '<div class="ofoot" style="margin-top:12px">Pesanan web baru dicek tiap 5 menit '+
+          (c.trigger?'<span style="color:#16a34a">(trigger aktif)</span>':'<span style="color:#c47f00">(trigger belum terpasang — akan dipasang otomatis saat webhook disimpan)</span>')+
+          '. Kejadian lain terkirim saat itu juga.</div>'+
+      '</div>';
+    renderDcEvents();
+  }
+  // Kejadian internal (uang / data pembeli) tidak berlaku di channel bareng vendor
+  function renderDcEvents(){
+    var box=document.getElementById('dcEvents'); if(!box||!window.__DC) return;
+    var vendor=document.getElementById('dcVendor').checked;
+    var dulu={}; box.querySelectorAll('.dcev').forEach(function(x){ dulu[x.value]=x.checked; });
+    box.innerHTML=window.__DC.events.map(function(e){
+      var mati = vendor && e.internal;
+      var on = (dulu[e.key]===undefined) ? e.on : dulu[e.key];
+      return '<label style="display:flex;gap:8px;align-items:center;font-size:13px;text-transform:none;'+
+        'letter-spacing:0;font-weight:400;margin-bottom:5px;color:'+(mati?'#6b6b62':'#ddd')+'">'+
+        '<input type="checkbox" class="dcev" value="'+esc(e.key)+'" style="width:auto"'+
+          (on?' checked':'')+(mati?' disabled':'')+'>'+
+        esc(e.label)+
+        (mati?' <span style="color:#c47f00;font-size:11px">— internal, tidak dikirim ke Radja</span>':'')+
+        '</label>';
+    }).join('');
+  }
+  function saveDiscord(){
+    var m=document.getElementById('dcMsg'); m.textContent='Menyimpan…';
+    var ev=[].slice.call(document.querySelectorAll('.dcev:checked')).map(function(x){ return x.value; }).join(',');
+    var url=(document.getElementById('dcUrl').value||'').trim();
+    var role=(document.getElementById('dcRole').value||'').trim();
+    var vendor=document.getElementById('dcVendor').checked?'1':'0';
+    jsonp(WEB_APP_URL+'?page=admin&action=discordSave&key='+encodeURIComponent(ADMIN_KEY)+
+          '&url='+encodeURIComponent(url)+'&role='+encodeURIComponent(role)+
+          '&vendor='+vendor+'&ev='+encodeURIComponent(ev),
+      function(res){
+        if(!res||!res.ok){ m.textContent=(res&&res.error)||'Gagal.'; return; }
+        m.textContent='Tersimpan.';
+        renderDiscord(res);
+        document.getElementById('dcMsg').textContent='Tersimpan.';
+      });
+  }
+  function testDiscordKirim(){
+    var m=document.getElementById('dcMsg'); m.textContent='Mengirim…';
+    jsonp(WEB_APP_URL+'?page=admin&action=discordTest&key='+encodeURIComponent(ADMIN_KEY),
+      function(res){ m.textContent=(res&&res.ok)?'Terkirim — cek channelnya.':((res&&res.error)||'Gagal.'); });
   }
 
   // ── Bukti transfer dari customer ──
@@ -1939,8 +2609,11 @@
         '<select id="fpay" onchange="filterOrders()"><option value="">Semua bayar</option><option>Belum</option><option>DP</option><option>Lunas</option></select>' +
         '<select id="fdl" onchange="filterOrders()"><option value="">Semua deadline</option><option value="near">≤ 3 hari</option><option value="over">Terlewat</option></select>' +
         '<label style="color:#e0912f;font-size:12px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="fwarn" onchange="filterOrders()"> Cuma yang ⚠</label>' +
+        '<button class="cbtn aktif" id="vPipa" onclick="ubahTampilan(\'pipa\')">Pipeline</button>' +
+        '<button class="cbtn" id="vTabel" onclick="ubahTampilan(\'tabel\')">Tabel</button>' +
       '</div>' +
-      '<div class="table-scroll tall"><table id="orders" class="rtable"><thead><tr>' +
+      '<div id="ordPipa"></div>' +
+      '<div id="ordTabel" style="display:none"><div class="table-scroll tall"><table id="orders" class="rtable"><thead><tr>' +
         '<th class="sortable" onclick="sortT(this,0)">Order</th>' +
         '<th class="sortable" onclick="sortT(this,1)">Customer</th>' +
         '<th>Produk</th><th>Tipe</th><th>Kategori</th>' +
@@ -1953,11 +2626,115 @@
         '<th class="sortable" onclick="sortT(this,11)">Deadline</th>' +
         '<th class="sortable" onclick="sortT(this,12)">Status</th>' +
         '<th>Link</th><th>Dok</th>' +
-      '</tr></thead><tbody>' + orderRows(d.orders) + '</tbody></table></div>';
+      '</tr></thead><tbody>' + orderRows(d.orders) + '</tbody></table></div></div>';
 
-    var inquiryBody =
-      '<div style="color:#888;font-size:11px;margin-bottom:8px">Klik sel Nama/Email/Lahir/Alamat/Produk/Spesifikasi untuk edit</div>' +
-      '<div class="table-scroll"><table id="inquiries" class="rtable"><thead><tr>' +
+    return '<div class="kpis">' + kpis + '</div>' +
+      '<div id="ordAlert"></div>' +
+      warnBanner(d.orders) +
+      sec('Order Aktif (' + d.orders.length + ')', ordersBody, true);
+  }
+
+  /* ── Papan per fase ──
+     Urutannya sama dengan pipeline di Code.gs. Papan ini hanya menampilkan;
+     memindahkan order tetap lewat Trello, karena Trello yang jadi sumber
+     datanya - dua tempat yang sama-sama bisa memindahkan cepat berselisih. */
+  var PIPA_FASE = ['Order Received','Proses Desain','Approval Desain','Produksi','Review Customer','Quality Check','Shipped'];
+  var ORD_VIEW = 'pipa';
+
+  function ubahTampilan(v){
+    ORD_VIEW = v;
+    var t=document.getElementById('ordTabel'), p=document.getElementById('ordPipa');
+    if(t) t.style.display = v==='tabel' ? '' : 'none';
+    if(p) p.style.display = v==='pipa'  ? '' : 'none';
+    var bt=document.getElementById('vTabel'), bp=document.getElementById('vPipa');
+    if(bt) bt.className = 'cbtn' + (v==='tabel' ? ' aktif' : '');
+    if(bp) bp.className = 'cbtn' + (v==='pipa'  ? ' aktif' : '');
+    if(v==='pipa') renderPipeline();
+  }
+
+  /* Yang tampil di papan mengikuti baris tabel yang lolos saringan, bukan
+     menyaring ulang sendiri. Satu aturan saja, jadi papan dan tabel tidak
+     mungkin memperlihatkan isi yang berbeda. */
+  function renderPipeline(){
+    var el=document.getElementById('ordPipa');
+    if(!el || !DATA) return;
+    var tampil={}, rows=document.querySelectorAll('#orders tbody tr');
+    for(var i=0;i<rows.length;i++){
+      var id=rows[i].getAttribute('data-id');
+      if(id && rows[i].style.display!=='none') tampil[id]=1;
+    }
+    var kolom={}, fase=PIPA_FASE.slice(), lain=[];
+    fase.forEach(function(f){ kolom[f]=[]; });
+    (DATA.orders||[]).forEach(function(o){
+      if(!tampil[o.orderId]) return;
+      if(kolom[o.status]) kolom[o.status].push(o); else lain.push(o);
+    });
+    // Status di luar tujuh fase tetap ditampilkan, tidak dibuang diam-diam
+    if(lain.length){ kolom['Lainnya']=lain; fase.push('Lainnya'); }
+
+    var jml=0; fase.forEach(function(f){ jml+=kolom[f].length; });
+    if(!jml){ el.innerHTML='<div class="loading">Tidak ada order yang cocok dengan saringan.</div>'; return; }
+
+    el.innerHTML='<div class="pipa">'+ fase.map(function(f){
+      var w=STATUS_COLOR[f]||'#6b7280';
+      return '<div class="pipa-kol">'+
+        '<div class="pipa-h" style="color:'+w+'"><span>'+esc(f)+'</span><span class="pipa-n">'+kolom[f].length+'</span></div>'+
+        '<div class="pipa-b">'+
+          (kolom[f].length ? kolom[f].map(function(o){ return kartuPipa(o,w); }).join('')
+                           : '<div class="pipa-kosong">kosong</div>')+
+        '</div></div>';
+    }).join('') +'</div>';
+  }
+
+  function kartuPipa(o, warna){
+    var days = o.estMs ? Math.ceil((o.estMs-Date.now())/86400000) : null;
+    // Sheet menulis "-" untuk order tanpa deadline, jadi itu bukan tanggal
+    var adaDl = o.estCompletion && String(o.estCompletion).trim() !== '-';
+    var dl = adaDl
+      ? '<span'+(days!==null&&days<0 ? ' style="color:#cc3333;font-weight:700"'
+              : (days!==null&&days<=3 ? ' style="color:#e0912f;font-weight:700"' : ''))+'>'+
+        esc(o.estCompletion)+(days!==null&&days<0?' ⚠':'')+'</span>'
+      : '<span style="color:#55554e">tanpa deadline</span>';
+    var sisa = Number(o.sisaTagihan)||0;
+    return '<div class="kartu" style="border-left-color:'+warna+'" title="Klik untuk riwayat" '+
+      'onclick="openTimeline(\''+esc(o.orderId)+'\')">'+
+      '<div class="jud"><span>'+esc(o.orderId)+'</span>'+payBadge(o.paymentStatus)+'</div>'+
+      '<div class="prod">'+esc(o.product||'-')+'</div>'+
+      '<div class="baris"><span>'+esc(o.customer||'-')+'</span><span>'+rp(o.hargaJual)+'</span></div>'+
+      '<div class="baris">'+dl+'<span>'+(sisa?'sisa '+rp(sisa):'lunas')+'</span></div>'+
+    '</div>';
+  }
+
+  /* ── PAGE 3: Inquiry ──
+     Dipisah dari Operasional karena inquiry belum tentu jadi order - kalau
+     dicampur, yang sudah jadi order ikut menumpuk di daftar yang seharusnya
+     tinggal ditindaklanjuti. */
+  var INQ_GRUP = [
+    { k:'aktif', label:'Belum jadi order' },
+    { k:'order', label:'Sudah jadi order' },
+    { k:'tutup', label:'Ditolak / Batal'  }
+  ];
+  var INQ_AKTIF = 'aktif';
+
+  // Status tak dikenal jatuh ke 'aktif', supaya tidak ada inquiry yang hilang
+  function inqGrup(st){
+    if(st==='Jadi Order') return 'order';
+    if(st==='Ditolak' || st==='Batal') return 'tutup';
+    return 'aktif';
+  }
+
+  function buildInquiry(d){
+    var list = d.inquiries || [];
+    var n = { aktif:0, order:0, tutup:0 };
+    list.forEach(function(q){ n[inqGrup(q.status)]++; });
+    return '<div class="subtabs">'+
+        INQ_GRUP.map(function(g){
+          return '<button class="stab'+(g.k===INQ_AKTIF?' active':'')+'" onclick="inqTab(\''+g.k+'\',this)">'+
+                 g.label+' ('+n[g.k]+')</button>';
+        }).join('')+
+      '</div>'+
+      '<div style="color:#888;font-size:11px;margin:2px 0 8px">Klik sel Nama/Email/Lahir/Alamat/Produk/Spesifikasi untuk edit</div>' +
+      '<div class="table-scroll tall"><table id="inquiries" class="rtable"><thead><tr>' +
         '<th class="sortable" onclick="sortT(this,0)">Waktu</th>' +
         '<th class="sortable" onclick="sortT(this,1)">ID</th>' +
         '<th class="sortable" onclick="sortT(this,2)">Nama</th>' +
@@ -1966,13 +2743,28 @@
         '<th>Lahir</th><th>Alamat</th><th>Produk</th><th>Spesifikasi</th><th class="num">Qty</th>' +
         '<th>Bhs</th><th>Gambar</th>' +
         '<th class="sortable" onclick="sortT(this,12)">Status</th><th>Aksi</th>' +
-      '</tr></thead><tbody>' + inquiryRows(d.inquiries || [], d.inqStatuses || []) + '</tbody></table></div>';
+      '</tr></thead><tbody>' + inquiryRows(d.inquiries || [], d.inqStatuses || []) + '</tbody></table></div>' +
+      '<div id="inqKosong" class="loading" style="display:none">Tidak ada inquiry di kelompok ini.</div>';
+  }
 
-    return '<div class="kpis">' + kpis + '</div>' +
-      '<div id="ordAlert"></div>' +
-      warnBanner(d.orders) +
-      sec('Order Aktif (' + d.orders.length + ')', ordersBody, true) +
-      sec('Inquiry Masuk (' + (d.inquiries ? d.inquiries.length : 0) + ')', inquiryBody, false);
+  function inqTab(k, btn){
+    INQ_AKTIF = k;
+    document.querySelectorAll('#page3 .subtabs .stab').forEach(function(b){ b.classList.remove('active'); });
+    if(btn) btn.classList.add('active');
+    filterInquiry();
+  }
+
+  function filterInquiry(){
+    var rows=document.querySelectorAll('#inquiries tbody tr'), ada=0;
+    for(var i=0;i<rows.length;i++){
+      var st=rows[i].getAttribute('data-st');
+      if(st===null) continue;                       // baris "belum ada inquiry"
+      var ok = inqGrup(st)===INQ_AKTIF;
+      rows[i].style.display = ok ? '' : 'none';
+      if(ok) ada++;
+    }
+    var kos=document.getElementById('inqKosong');
+    if(kos) kos.style.display = ada ? 'none' : '';
   }
 
   // ── PAGE 2: Summary & Laporan ──
@@ -2088,7 +2880,7 @@
       if (w.aging) wTip.push('Sudah '+w.ageDays+' hari sejak inquiry masuk');
       if (w.overdue) wTip.push('Lewat deadline '+w.overdueDays+' hari');
       var wBadge = wTip.length ? ' <span class="warn-badge" title="'+esc(wTip.join(' · '))+'">⚠ '+(w.aging?w.ageDays+'h':'lewat')+'</span>' : '';
-      return '<tr data-s="'+esc(search)+'" data-pay="'+esc(o.paymentStatus)+'" data-days="'+(days===null?'':days)+'" data-warn="'+(wTip.length?'1':'')+'">' +
+      return '<tr data-id="'+esc(o.orderId)+'" data-s="'+esc(search)+'" data-pay="'+esc(o.paymentStatus)+'" data-days="'+(days===null?'':days)+'" data-warn="'+(wTip.length?'1':'')+'">' +
         '<td data-v="'+num+'"><b>'+esc(o.orderId)+'</b>'+wBadge+'</td>' +
         '<td>'+esc(o.customer)+'</td>' +
         '<td>'+esc(o.product)+'</td>' +
@@ -2103,7 +2895,7 @@
         '<td data-v="'+(o.estMs||0)+'"'+dlStyle+'>'+esc(o.estCompletion)+(days!==null&&days<0?' ⚠':'')+'</td>' +
         '<td data-v="'+esc(o.status)+'">'+statusBadge(o.status)+'</td>' +
         '<td>'+link+'</td>' +
-        '<td><button class="cbtn" style="border-color:#3b82f6;color:#7cb3ff" onclick="pickOrderPhoto(\''+esc(o.orderId)+'\')">📷 Foto</button> <button class="cbtn" onclick="openTimeline(\''+esc(o.orderId)+'\')">Riwayat</button> <button class="cbtn" onclick="openInvoice(\''+esc(o.orderId)+'\',\'dp\')">DP</button> <button class="cbtn" onclick="openInvoice(\''+esc(o.orderId)+'\',\'lunas\')">Lunas</button> <button class="cbtn" onclick="openSheet(\''+esc(o.orderId)+'\')">Sheet</button>' +
+        '<td><button class="cbtn" style="border-color:#3b82f6;color:#7cb3ff" onclick="pickOrderPhoto(\''+esc(o.orderId)+'\')">📷 Foto</button> <button class="cbtn" onclick="openTimeline(\''+esc(o.orderId)+'\')">Riwayat</button> <button class="cbtn" onclick="menuBayar(this,\''+esc(o.orderId)+'\')">Pembayaran &#9662;</button> <button class="cbtn" onclick="openSheet(\''+esc(o.orderId)+'\')">Sheet</button>' +
           ' <button class="cbtn" style="border-color:#e0912f;color:#e0912f" onclick="openPO(\''+esc(o.orderId)+'\')">PO</button></td>' +
       '</tr>';
     }).join('');
@@ -2126,6 +2918,7 @@
       var okW = !wOnly || r.getAttribute('data-warn')==='1';
       r.style.display = (okQ && okP && okD && okW) ? '' : 'none';
     }
+    if(ORD_VIEW==='pipa') renderPipeline();
   }
 
   // ── Evaluasi Bulanan ──
@@ -2295,7 +3088,7 @@
           ? '<span style="color:#16a34a;font-size:11px;font-weight:700">✓ order</span>'
           : (q.status === 'Batal' ? '<span style="color:#cc3333;font-size:11px;font-weight:700">batal</span>'
           : '<button class="cbtn" onclick="openDraft(\''+esc(q.id)+'\')">Draft</button> <button class="cbtn" onclick="convertInquiry(\''+esc(q.id)+'\', this)">→ Order</button>');
-      return '<tr>' +
+      return '<tr data-st="'+esc(q.status||'')+'">' +
         '<td data-v="'+num+'">'+esc(q.time)+'</td>' +
         '<td data-v="'+num+'"><b>'+esc(q.id)+'</b></td>' +
         ed('nama', q.nama) +
@@ -2408,10 +3201,17 @@
       function(res){ el.disabled=false; if (!res || !res.ok){ alert((res && res.error) || 'Gagal mengubah status.'); } });
   }
 
+  // Jenis order menentukan channel Discord-nya pindah ke kategori mana
+  function tanyaJenis(id){
+    return confirm('Jenis order untuk ' + id + '?\n\nOK = CUSTOM ORDER\nCancel = WHOLE SALE')
+      ? 'custom' : 'wholesale';
+  }
+
   function convertInquiry(id, btn){
     if (!confirm('Buat card Trello untuk ' + id + '?\nCard masuk list "TIMO (LENGKAPI)" dan status inquiry jadi "Jadi Order".')) return;
+    var jenis = tanyaJenis(id);
     btn.disabled = true; btn.textContent = '…';
-    jsonp(WEB_APP_URL + '?page=admin&action=convertInquiry&id=' + encodeURIComponent(id) + '&key=' + encodeURIComponent(ADMIN_KEY),
+    jsonp(WEB_APP_URL + '?page=admin&action=convertInquiry&id=' + encodeURIComponent(id) + '&jenis=' + jenis + '&key=' + encodeURIComponent(ADMIN_KEY),
       function(res){
         if (res && res.ok){ btn.outerHTML = '<span style="color:#16a34a;font-size:11px;font-weight:700">✓ terbuat</span>'; if (res.cardUrl) window.open(res.cardUrl, '_blank'); }
         else { alert((res && res.error) || 'Gagal convert.'); btn.disabled=false; btn.textContent='→ Order'; }
@@ -2461,7 +3261,7 @@
     if(!confirm('Simpan draft ini lalu buat card Trello untuk '+DRAFT_ID+'?')) return;
     var old=btn.textContent; btn.disabled=true; btn.textContent='Memproses…';
     postDraft(DRAFT_ID, document.getElementById('draftText').value, function(){
-      jsonp(WEB_APP_URL+'?page=admin&action=convertInquiry&id='+encodeURIComponent(DRAFT_ID)+'&key='+encodeURIComponent(ADMIN_KEY),
+      jsonp(WEB_APP_URL+'?page=admin&action=convertInquiry&id='+encodeURIComponent(DRAFT_ID)+'&jenis='+tanyaJenis(DRAFT_ID)+'&key='+encodeURIComponent(ADMIN_KEY),
         function(res){
           btn.disabled=false; btn.textContent=old;
           if(res && res.ok){ closeDraft(); if(res.cardUrl) window.open(res.cardUrl,'_blank'); loadData(); }
@@ -2470,8 +3270,104 @@
     });
   }
 
-  // ── Invoice generator (DP / Pelunasan) → JPG, editable ──
-  var INV_TYPE='dp', INV_ORDERID='';
+  // ── Menu Pembayaran: empat dokumen dari satu tombol ──
+  var DOK_MENU = [
+    { t:'dp',    n:'DP' },
+    { t:'lunas', n:'Pelunasan' },
+    { t:'quo',   n:'Quotation' },
+    { t:'kwt',   n:'Cash Receipt' }
+  ];
+  function menuBayar(btn, orderId){
+    var m=document.getElementById('bayarMenu');
+    if(!m){ m=document.createElement('div'); m.id='bayarMenu'; document.body.appendChild(m); }
+    if(m.classList.contains('show') && m.getAttribute('data-utk')===orderId){ tutupMenuBayar(); return; }
+    m.setAttribute('data-utk', orderId);
+    m.innerHTML = DOK_MENU.map(function(d,i){
+      return (i===2?'<div class="pisah"></div>':'')+
+        '<button onclick="tutupMenuBayar();openInvoice(\''+esc(orderId)+'\',\''+d.t+'\')">'+d.n+'</button>';
+    }).join('');
+    m.classList.add('show');
+
+    // Dipasang setelah menunya punya ukuran, supaya baris paling bawah membuka
+    // ke atas dan menunya tidak berakhir di luar layar.
+    var r=btn.getBoundingClientRect(), tg=m.offsetHeight, lb=m.offsetWidth;
+    var atas = (r.bottom+tg+8 > window.innerHeight) && (r.top-tg-6 > 0);
+    m.style.top  = (atas ? r.top-tg-6 : r.bottom+6)+'px';
+    m.style.left = Math.max(8, Math.min(r.left, window.innerWidth-lb-8))+'px';
+  }
+  function tutupMenuBayar(){
+    var m=document.getElementById('bayarMenu');
+    if(m){ m.classList.remove('show'); m.setAttribute('data-utk',''); }
+  }
+  document.addEventListener('click', function(e){
+    var m=document.getElementById('bayarMenu');
+    if(!m || !m.classList.contains('show') || m.contains(e.target)) return;
+    var t=e.target, oc=(t.getAttribute && t.getAttribute('onclick')) || '';
+    if(oc.indexOf('menuBayar')!==0) tutupMenuBayar();
+  }, true);
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') tutupMenuBayar(); });
+  window.addEventListener('scroll', tutupMenuBayar, true);
+  window.addEventListener('resize', tutupMenuBayar);
+
+  /* Kwitansi di sini lazim mencantumkan nilai dalam huruf. Gunanya bukan
+     hiasan: angka gampang diubah sepihak, tulisan tidak. */
+  function terbilang(n){
+    n = Math.floor(Math.abs(Number(n)||0));
+    if(!n) return 'Nol rupiah';
+    var s=['','satu','dua','tiga','empat','lima','enam','tujuh','delapan','sembilan','sepuluh','sebelas'];
+    function k(x){
+      if(x<12)   return s[x];
+      if(x<20)   return k(x-10)+' belas';
+      if(x<100)  return k(Math.floor(x/10))+' puluh'+(x%10?' '+k(x%10):'');
+      if(x<200)  return 'seratus'+(x%100?' '+k(x%100):'');
+      if(x<1000) return k(Math.floor(x/100))+' ratus'+(x%100?' '+k(x%100):'');
+      if(x<2000) return 'seribu'+(x%1000?' '+k(x%1000):'');
+      if(x<1e6)  return k(Math.floor(x/1e3))+' ribu'+(x%1e3?' '+k(x%1e3):'');
+      if(x<1e9)  return k(Math.floor(x/1e6))+' juta'+(x%1e6?' '+k(x%1e6):'');
+      if(x<1e12) return k(Math.floor(x/1e9))+' miliar'+(x%1e9?' '+k(x%1e9):'');
+      return k(Math.floor(x/1e12))+' triliun'+(x%1e12?' '+k(x%1e12):'');
+    }
+    var t=k(n).replace(/\s+/g,' ').trim();
+    return t.charAt(0).toUpperCase()+t.slice(1)+' rupiah';
+  }
+
+  // ── Generator dokumen (DP / Pelunasan / Quotation / Cash Receipt) → JPG ──
+  var INV_TYPE='dp', INV_ORDERID='', INV_NAMA='', INV_NOMOR='';
+  var INV_JUDUL = { dp:'Invoice-DP', lunas:'Invoice-Pelunasan', quo:'Quotation', kwt:'Cash-Receipt' };
+
+  function invEd(id,val,extra){ return '<span class="ed" id="'+id+'" contenteditable="true"'+(extra||'')+'>'+esc(val==null?'':String(val))+'</span>'; }
+  function invRow(l,v,b,ac){ return '<div style="display:flex;justify-content:space-between;padding:4px 0;'+(b?'font-weight:700;':'')+(ac?'color:#b5762e;':'')+'"><span>'+l+'</span><span>'+v+'</span></div>'; }
+  function invTgl(plus){ var t=new Date(); if(plus) t.setDate(t.getDate()+plus);
+    return ('0'+t.getDate()).slice(-2)+'/'+('0'+(t.getMonth()+1)).slice(-2)+'/'+t.getFullYear(); }
+  function invKop(judul, sub){
+    return '<div style="display:flex;justify-content:space-between;align-items:flex-start">'+
+        '<img src="'+LOGO_B64+'" style="height:58px">'+
+        '<div style="text-align:right;font-size:13px">Date: '+invEd('inv-date',invTgl())+'</div>'+
+      '</div>'+
+      '<div style="text-align:right;font-weight:800;font-size:20px;margin-top:6px;color:#b5762e">'+judul+'</div>'+
+      '<div style="text-align:right;font-size:12px;color:#555" id="inv-nomor">No. <i style="color:#aaa">otomatis saat disimpan</i></div>'+
+      '<div style="text-align:right;font-size:12px;color:#555">'+sub+'</div>';
+  }
+  function invKaki(){
+    return '<div style="margin-top:36px;text-align:right;font-size:13px">Signed<br><img src="'+LOGO_B64+'" style="height:32px;opacity:0.45;margin:6px 0"><br><i>M. Yaumal Yusril</i></div>'+
+      '<div style="margin-top:28px;text-align:center;font-size:12px;color:#333;border-top:1px solid #ccc;padding-top:10px"><b>REVOLT INDUSTRY</b><br>Jl.tenggilis Bar.I no.21,Kendangsari ,tenggilis Mejoyo Surabaya<br>+62821 3292 2625 / info@revoltindustry.com</div>';
+  }
+  /* Harga Jual di sheet adalah nilai SATU ORDER, bukan harga satuan - itu yang
+     dipakai sisa tagihan, preset DP, dan laporan. Dipasang apa adanya sebagai
+     Price, barisnya jadi qty x nilai order: RI-069 yang qty 13 tercetak
+     Rp 77.064.000 padahal ordernya Rp 5.928.000. Jadi dibagi dulu.
+     Qty juga dibersihkan karena ada baris lama yang isinya "1 pcs". */
+  function barisPertama_(o){
+    var q = parseInt(o.qty, 10) || 1;
+    var nilai = Number(o.hargaJual) || 0;
+    return { item:o.product||'', qty:q, price: q > 1 ? Math.round(nilai / q) : nilai };
+  }
+  function invTabel(o){
+    return '<table style="width:100%;border-collapse:collapse;margin-top:24px;font-size:13px">'+
+        '<thead><tr style="border-bottom:2px solid #111"><th style="text-align:left;padding:6px 4px">No.</th><th style="text-align:left">Item</th><th>Color</th><th>Size</th><th>Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Item Total</th><th class="inv-x" style="border:none"></th></tr></thead>'+
+        '<tbody id="invRows">'+ invItemRow(barisPertama_(o)) +'</tbody>'+
+      '</table>';
+  }
   function invNum(id){ var el=document.getElementById(id); return el ? (Number(String(el.textContent).replace(/[^0-9]/g,''))||0) : 0; }
   function invSet(id,v){ var e=document.getElementById(id); if(e) e.textContent=v; }
   function rpv(n){ return 'Rp '+(Number(n)||0).toLocaleString('id-ID'); }
@@ -2479,20 +3375,71 @@
   function openInvoice(orderId, type){
     var o=null; ((DATA&&DATA.orders)||[]).forEach(function(x){ if(String(x.orderId)===String(orderId)) o=x; });
     if(!o){ alert('Order tidak ditemukan.'); return; }
-    INV_TYPE=type; INV_ORDERID=orderId;
-    document.getElementById('invPaper').innerHTML = buildInvoiceHTML(o, type);
+    INV_TYPE=type; INV_ORDERID=orderId; INV_NAMA=o.customer||''; INV_NOMOR='';
+    document.getElementById('invPaper').innerHTML =
+      type==='quo' ? buildQuoHTML(o) : type==='kwt' ? buildKwtHTML(o) : buildInvoiceHTML(o, type);
+    // Kwitansi tidak punya tabel item, jadi tombol tambah item tidak ada gunanya
+    var ai=document.getElementById('invAddItem'); if(ai) ai.style.display = (type==='kwt') ? 'none' : '';
     document.getElementById('invModal').classList.add('show');
     recalcInvoice();
   }
   function closeInvoice(){ document.getElementById('invModal').classList.remove('show'); }
 
+  /* PENAWARAN — belum deal, jadi tidak ada nomor rekening dan tidak ada baris
+     DP. Penggantinya masa berlaku, lama pengerjaan, dan syarat bayar: tiga hal
+     yang selalu ditanyakan berbarengan dengan harga. */
+  function buildQuoHTML(o){
+    var kotak =
+      '<div style="border:1px solid #111;padding:12px 14px;max-width:320px;font-size:12.5px;line-height:1.7">'+
+        '<div>Valid until: <b>'+invEd('quo-valid',invTgl(14))+'</b></div>'+
+        '<div>Production time: '+invEd('quo-lama','14 working days after down payment')+'</div>'+
+        '<div>Payment terms: '+invEd('quo-syarat','50% down payment, balance before delivery')+'</div>'+
+      '</div>';
+    var totals =
+      invRow('Total','<span id="inv-subtotal-v">Rp 0</span>') +
+      invRow('Disc','Rp '+invEd('inv-disc','0',' oninput="recalcInvoice()"')) +
+      invRow('Shipping Fee','Rp '+invEd('inv-ship','0',' oninput="recalcInvoice()"')) +
+      '<div style="border-top:1px solid #111;margin:4px 0"></div>' +
+      invRow('Grand Total','<span id="inv-grand-v">Rp 0</span>', true);
+
+    return invKop('QUOTATION','Custom Order / Pre-Order &middot; '+esc(o.orderId))+
+      '<div style="display:flex;justify-content:space-between;margin-top:26px;gap:20px">'+
+        '<div><div style="font-weight:700;font-size:17px">'+invEd('inv-cust',o.customer||'')+'</div>'+
+        '<div style="font-size:13px;color:#333;margin-top:8px">No. HP: '+invEd('inv-phone','')+'</div></div>'+
+        kotak+
+      '</div>'+
+      invTabel(o)+
+      '<div style="margin-top:16px;margin-left:auto;width:360px;font-size:13px">'+totals+'</div>'+
+      '<div style="clear:both;margin-top:24px;font-size:12px;font-style:italic;text-align:center;border-top:1px solid #111;border-bottom:1px solid #111;padding:10px">* This is a quotation, not an invoice. Prices are valid until the date stated above and may change afterwards. Production starts once the down payment is received.</div>'+
+      '<div style="margin-top:12px;font-size:13px">Extra Note: '+invEd('inv-note','')+'</div>'+
+      invKaki();
+  }
+
+  /* KWITANSI — bukti uang sudah diterima. Tanpa rincian item: yang perlu
+     dipastikan cuma siapa, berapa, lewat apa, dan untuk apa. */
+  function buildKwtHTML(o){
+    var nilai = Number(o.dp)>0 ? Number(o.dp) : (Number(o.hargaJual)||0);
+    function baris(l,isi){
+      return '<div style="display:flex;gap:14px;padding:9px 0;border-bottom:1px solid #e3e3e3;font-size:13.5px">'+
+        '<div style="width:150px;color:#555;flex:none">'+l+'</div><div style="flex:1">'+isi+'</div></div>';
+    }
+    return invKop('CASH RECEIPT','Custom Order / Pre-Order &middot; '+esc(o.orderId))+
+      '<div style="margin-top:28px">'+
+        baris('Received from', '<b style="font-size:15px">'+invEd('kwt-dari',o.customer||'')+'</b>')+
+        baris('Amount', '<b style="font-size:19px;color:#b5762e">Rp '+invEd('kwt-amount',String(nilai),' oninput="recalcInvoice()"')+'</b>'+
+          '<div style="font-size:12.5px;font-style:italic;color:#444;margin-top:5px" id="kwt-terbilang">&mdash;</div>')+
+        baris('Payment method', invEd('kwt-cara','Bank Transfer BCA'))+
+        baris('For payment of', invEd('kwt-untuk',(o.orderId||'')+(o.product?' \u2014 '+o.product:'')))+
+      '</div>'+
+      '<div style="margin-top:26px;font-size:12px;font-style:italic;text-align:center;border-top:1px solid #111;border-bottom:1px solid #111;padding:10px">* This receipt confirms that the amount stated above has been received. Please keep it as proof of payment.</div>'+
+      '<div style="margin-top:12px;font-size:13px">Extra Note: '+invEd('inv-note','')+'</div>'+
+      invKaki();
+  }
+
   function buildInvoiceHTML(o, type){
-    var t=new Date(), dd=('0'+t.getDate()).slice(-2), mm=('0'+(t.getMonth()+1)).slice(-2);
-    var dateStr=dd+'/'+mm+'/'+t.getFullYear();
     var title = type==='dp' ? 'INVOICE — DOWN PAYMENT' : 'INVOICE — PELUNASAN';
     var dpPre = type==='dp' ? (o.dp>0 ? o.dp : Math.round((Number(o.hargaJual)||0)*0.5)) : (o.dp||0);
-    function ed(id,val,extra){ return '<span class="ed" id="'+id+'" contenteditable="true"'+(extra||'')+'>'+esc(val)+'</span>'; }
-    function row(l,v,b,ac){ return '<div style="display:flex;justify-content:space-between;padding:4px 0;'+(b?'font-weight:700;':'')+(ac?'color:#b5762e;':'')+'"><span>'+l+'</span><span>'+v+'</span></div>'; }
+    var ed=invEd, row=invRow;
 
     var totals =
       row('Total','<span id="inv-subtotal-v">Rp 0</span>') +
@@ -2509,27 +3456,17 @@
                 row('PELUNASAN (Jatuh Tempo)','<span id="inv-remain-v">Rp 0</span>', true, true);
     }
 
-    return ''+
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start">'+
-        '<img src="'+LOGO_B64+'" style="height:58px">'+
-        '<div style="text-align:right;font-size:13px">Date: '+ed('inv-date',dateStr)+'</div>'+
-      '</div>'+
-      '<div style="text-align:right;font-weight:800;font-size:20px;margin-top:6px;color:#b5762e">'+title+'</div>'+
-      '<div style="text-align:right;font-size:12px;color:#555">Custom Order / Pre-Order · '+esc(o.orderId)+'</div>'+
+    return invKop(title,'Custom Order / Pre-Order &middot; '+esc(o.orderId))+
       '<div style="display:flex;justify-content:space-between;margin-top:26px;gap:20px">'+
         '<div><div style="font-weight:700;font-size:17px">'+ed('inv-cust',o.customer||'')+'</div>'+
         '<div style="font-size:13px;color:#333;margin-top:8px">No. HP: '+ed('inv-phone','')+'</div></div>'+
         '<div style="border:1px solid #111;padding:14px 16px;max-width:300px;font-size:13px">Please make payment to:<br><br><b>BCA account number 7883702788 (Nandhi Adipati Bhumi CV)</b></div>'+
       '</div>'+
-      '<table style="width:100%;border-collapse:collapse;margin-top:24px;font-size:13px">'+
-        '<thead><tr style="border-bottom:2px solid #111"><th style="text-align:left;padding:6px 4px">No.</th><th style="text-align:left">Item</th><th>Color</th><th>Size</th><th>Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Item Total</th><th class="inv-x" style="border:none"></th></tr></thead>'+
-        '<tbody id="invRows">'+ invItemRow({ item:o.product||'', qty:o.qty||1, price:Number(o.hargaJual)||0 }) +'</tbody>'+
-      '</table>'+
+      invTabel(o)+
       '<div style="margin-top:16px;margin-left:auto;width:360px;font-size:13px">'+totals+'</div>'+
       '<div style="clear:both;margin-top:24px;font-size:12px;font-style:italic;text-align:center;border-top:1px solid #111;border-bottom:1px solid #111;padding:10px">* Please note: All orders are final. Once the payment is received, we will no longer accept any changes or additions on the products.</div>'+
       '<div style="margin-top:12px;font-size:13px">Extra Note: '+ed('inv-note','')+'</div>'+
-      '<div style="margin-top:36px;text-align:right;font-size:13px">Signed<br><img src="'+LOGO_B64+'" style="height:32px;opacity:0.45;margin:6px 0"><br><i>M. Yaumal Yusril</i></div>'+
-      '<div style="margin-top:28px;text-align:center;font-size:12px;color:#333;border-top:1px solid #ccc;padding-top:10px"><b>REVOLT INDUSTRY</b><br>Jl.tenggilis Bar.I no.21,Kendangsari ,tenggilis Mejoyo Surabaya<br>+62821 3292 2625 / info@revoltindustry.com</div>';
+      invKaki();
   }
 
   // Satu baris item invoice (pakai class, bukan id, biar bisa banyak baris)
@@ -2550,6 +3487,7 @@
   function addInvItem(){ document.getElementById('invRows').insertAdjacentHTML('beforeend', invItemRow({})); recalcInvoice(); }
 
   function recalcInvoice(){
+    if(INV_TYPE==='kwt'){ invSet('kwt-terbilang', terbilang(invNum('kwt-amount'))); return; }
     var rows=document.querySelectorAll('#invRows tr'), sub=0;
     for(var i=0;i<rows.length;i++){
       var tr=rows[i];
@@ -2571,22 +3509,53 @@
     }
   }
 
+  /* Nomor diambil tepat sebelum gambarnya dirender, supaya nomornya ikut
+     terbaca di JPG. Membuka pratinjau lalu menutupnya tidak memakai nomor,
+     dan menyimpan ulang dokumen yang sama memakai nomor yang sudah ada. */
+  function nilaiDokumen(){ return INV_TYPE==='kwt' ? invNum('kwt-amount') : invNum('inv-grand-v'); }
+  function siapkanNomor(lanjut){
+    jsonp(WEB_APP_URL+'?page=admin&action=dokNomor&key='+encodeURIComponent(ADMIN_KEY)+
+          '&jenis='+encodeURIComponent(INV_TYPE)+'&id='+encodeURIComponent(INV_ORDERID)+
+          '&nama='+encodeURIComponent(INV_NAMA)+'&nilai='+encodeURIComponent(nilaiDokumen()),
+      function(res){
+        var slot=document.getElementById('inv-nomor');
+        if(res && res.ok){
+          INV_NOMOR=res.nomor;
+          if(slot) slot.innerHTML='No. <b>'+esc(res.nomor)+'</b>';
+        } else if(slot){
+          // Gagal ambil nomor bukan alasan membatalkan dokumennya
+          INV_NOMOR='';
+          slot.innerHTML='';
+        }
+        lanjut();
+      });
+  }
+  function namaBerkas(){
+    return (INV_JUDUL[INV_TYPE]||'Dokumen')+'-'+INV_ORDERID+
+           (INV_NOMOR?'-'+INV_NOMOR.replace(/\//g,'-'):'')+'.jpg';
+  }
+
   function downloadInvoiceJPG(){
     if(typeof html2canvas==='undefined'){ alert('html2canvas belum termuat — cek koneksi internet.'); return; }
-    var p=document.getElementById('invPaper'); p.classList.add('exporting');
-    html2canvas(p, {scale:2, backgroundColor:'#ffffff'}).then(function(canvas){
-      p.classList.remove('exporting');
-      var a=document.createElement('a');
-      a.href=canvas.toDataURL('image/jpeg', 0.92);
-      a.download='Invoice-'+(INV_TYPE==='dp'?'DP':'Pelunasan')+'-'+INV_ORDERID+'.jpg';
-      a.click();
-    }).catch(function(e){ p.classList.remove('exporting'); alert('Gagal render JPG: '+e.message); });
+    siapkanNomor(function(){
+      var p=document.getElementById('invPaper'); p.classList.add('exporting');
+      html2canvas(p, {scale:2, backgroundColor:'#ffffff'}).then(function(canvas){
+        p.classList.remove('exporting');
+        var a=document.createElement('a');
+        a.href=canvas.toDataURL('image/jpeg', 0.92);
+        a.download=namaBerkas();
+        a.click();
+      }).catch(function(e){ p.classList.remove('exporting'); alert('Gagal render JPG: '+e.message); });
+    });
   }
 
   // Simpan invoice ke folder Drive client (POST via hidden form → replace file lama tipe sama)
   function saveInvoiceDrive(btn){
     if(typeof html2canvas==='undefined'){ alert('html2canvas belum termuat.'); return; }
     var old=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan…';
+    siapkanNomor(function(){ simpanDokumen_(btn, old); });
+  }
+  function simpanDokumen_(btn, old){
     var p=document.getElementById('invPaper'); p.classList.add('exporting');
     html2canvas(p, {scale:2, backgroundColor:'#ffffff'}).then(function(canvas){
       p.classList.remove('exporting');
@@ -2595,9 +3564,12 @@
       var form=document.createElement('form'); form.method='POST'; form.action=WEB_APP_URL; form.target=frameName;
       function add(n,v){ var i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; form.appendChild(i); }
       add('action','saveInvoice'); add('key',ADMIN_KEY); add('id',INV_ORDERID); add('type',INV_TYPE); add('data',b64);
+      // Angka invoice ikut dikirim: kalau tidak, diskonnya cuma jadi piksel di JPG
+      add('disc', invNum('inv-disc')); add('subtotal', invNum('inv-subtotal-v'));
+      add('grand', invNum('inv-grand-v')); add('nama', INV_NAMA);
       document.body.appendChild(form); form.submit();
       setTimeout(function(){ document.body.removeChild(form); btn.disabled=false; btn.textContent=old;
-        alert('Invoice dikirim ke folder Drive client ✅\n(File lama tipe sama otomatis diganti.)'); }, 1500);
+        alert((INV_NOMOR?INV_NOMOR+' ':'')+'dikirim ke folder Drive client ✅\n(File lama jenis yang sama otomatis diganti.)'); }, 1500);
     }).catch(function(e){ p.classList.remove('exporting'); btn.disabled=false; btn.textContent=old; alert('Gagal: '+e.message); });
   }
 
@@ -3373,17 +4345,61 @@
   }
 
   // ── Load ──
-  function showErr(msg){ document.getElementById('content').innerHTML = '<div class="error">'+esc(msg)+'</div>'; }
+  function showErr(msg, bisaUlang){
+    document.getElementById('content').innerHTML =
+      '<div class="error">' + esc(msg) +
+      (bisaUlang ? '<div style="margin-top:14px"><button class="cbtn" onclick="loadData()">↻ Coba Lagi</button></div>' : '') +
+      '</div>';
+  }
+  function showMuat(teks){
+    document.getElementById('content').innerHTML = '<div class="loading">' + esc(teks) + '</div>';
+  }
+
+  /* Panggilan ini membaca seluruh spreadsheet, jadi wajar makan 5-10 detik dan
+     lebih lama lagi kalau Apps Script baru bangun. Sekali gagal jangan langsung
+     menyerah: satu gangguan jaringan sesaat sebelumnya membuat layar mati total
+     sampai di-refresh tangan. */
+  var MUAT_KE = 0;
   function loadData(){
     if (WEB_APP_URL.indexOf('PASTE_URL') > -1){ showErr('WEB_APP_URL belum diisi.'); return; }
-    var cbName = 'cb_' + Date.now();
-    var s = document.createElement('script');
-    var timeout = setTimeout(function(){ cleanup(); showErr('Timeout — cek URL /exec, akses "Anyone", dan sudah redeploy.'); }, 15000);
-    function cleanup(){ clearTimeout(timeout); delete window[cbName]; if (s.parentNode) s.parentNode.removeChild(s); }
-    window[cbName] = function(d){ cleanup(); if (d && d.error){ showErr(d.error); return; } render(d); };
-    s.onerror = function(){ cleanup(); showErr('Gagal konek ke server.'); };
-    s.src = WEB_APP_URL + '?page=admin&format=json&callback=' + cbName + '&key=' + encodeURIComponent(ADMIN_KEY) + '&_=' + Date.now();
-    document.body.appendChild(s);
+    var maksimal = 3;
+    MUAT_KE++;
+    var percobaan = 0;
+
+    function coba(){
+      percobaan++;
+      showMuat(percobaan === 1 ? 'Memuat data…' : 'Sambungan gagal, mencoba lagi (' + percobaan + '/' + maksimal + ')…');
+
+      var cbName = 'cb_' + MUAT_KE + '_' + percobaan + '_' + Date.now();
+      var s = document.createElement('script');
+      var selesai = false;
+      // 40 detik: panggilan normal 5-10 detik, cold start bisa dua kali lipat
+      var timer = setTimeout(function(){ gagal('Server tidak menjawab dalam 40 detik.'); }, 40000);
+
+      function bersih(){
+        clearTimeout(timer);
+        try { delete window[cbName]; } catch(e) { window[cbName] = undefined; }
+        if (s.parentNode) s.parentNode.removeChild(s);
+      }
+      function gagal(pesan){
+        if (selesai) return; selesai = true;
+        bersih();
+        if (percobaan < maksimal) setTimeout(coba, 1500);
+        else showErr(pesan + ' Dicoba ' + maksimal + ' kali.', true);
+      }
+
+      window[cbName] = function(d){
+        if (selesai) return; selesai = true;
+        bersih();
+        if (d && d.error){ showErr(d.error, true); return; }   // ditolak server: mengulang tidak menolong
+        render(d);
+      };
+      s.onerror = function(){ gagal('Gagal konek ke server.'); };
+      s.src = WEB_APP_URL + '?page=admin&format=json&callback=' + cbName +
+              '&key=' + encodeURIComponent(ADMIN_KEY) + '&_=' + Date.now();
+      document.body.appendChild(s);
+    }
+    coba();
   }
   loadData();
 </script>
@@ -3391,7 +4407,7 @@
 <div id="invModal">
   <div class="inv-wrap">
     <div class="inv-bar">
-      <button class="cbtn" onclick="addInvItem()">+ Item</button>
+      <button class="cbtn" id="invAddItem" onclick="addInvItem()">+ Item</button>
       <button class="inv-dl" onclick="downloadInvoiceJPG()">⬇ Download JPG</button>
       <button class="inv-save" onclick="saveInvoiceDrive(this)">💾 Simpan ke Drive</button>
       <button class="inv-cls" onclick="closeInvoice()">Tutup</button>
