@@ -92,6 +92,8 @@
       padding: 9px 12px; margin-bottom: 6px; font-size: 12.5px; }
     .ksub { color: #8a8a80; font-size: 10.5px; margin-top: 2px; }
     .kkosong { color: #6b6b62; font-size: 12px; padding: 8px 2px; }
+    .kform { display: grid; grid-template-columns: 108px 1fr; gap: 6px 9px; align-items: center; }
+    .kform label { color: #9a9a8e; font-size: 11.5px; }
     @media (max-width:640px){ .kgrid { grid-template-columns: 1fr; } #kartuModal { padding: 8px; } }
 
     /* Papan per fase. Kolomnya digulir menyamping karena tujuh fase tidak
@@ -114,17 +116,6 @@
     .cbtn.aktif { border-color:#e0912f; color:#e0912f; background:#241d12; }
     @media (max-width:640px){ .pipa-kol { flex:0 0 82vw; } }
 
-    /* Menu melayang, bukan menempel di barisnya: baris tabel ada di dalam
-       kotak yang bisa digulir, jadi menu yang menempel akan terpotong. */
-    #bayarMenu { position: fixed; z-index: 300; min-width: 178px; padding: 5px;
-      background: #1c1c17; border: 1px solid #3a3a2e; border-radius: 9px;
-      box-shadow: 0 10px 30px rgba(0,0,0,.55); display: none; }
-    #bayarMenu.show { display: block; }
-    #bayarMenu button { display: block; width: 100%; text-align: left; background: none;
-      border: 0; color: #ddd; font: inherit; font-size: 12.5px; padding: 8px 11px;
-      border-radius: 6px; cursor: pointer; }
-    #bayarMenu button:hover { background: #2a2a22; color: #e0912f; }
-    #bayarMenu .pisah { height: 1px; background: #2f2f26; margin: 4px 6px; }
     #invModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; overflow: auto; padding: 20px; }
     #invModal.show { display: block; }
     .inv-wrap { max-width: 860px; margin: 0 auto; }
@@ -527,10 +518,33 @@
   function kpiCard(label,val,cls){ return '<div class="kpi '+(cls||'')+'"><label>'+label+'</label><div class="val '+(cls?'money':'')+'">'+val+'</div></div>'; }
 
   var DATA = null;
+
+  /* Order cuma menyimpan nama customer, nomornya ada di inquiry. Petanya
+     dibangun sekali di sini supaya invoice dan panel order tidak
+     masing-masing mengulang pencocokan yang sama. Sekitar 62% order cocok;
+     sisanya nama order dan nama inquiry memang beda tulisan. */
+  var HP_PETA = {};
+  function hpKunci(s){ return String(s==null?'':s).replace(/\s+/g,' ').trim().toLowerCase(); }
+  function hpRapi(p){
+    var x=String(p||'').replace(/[^0-9]/g,'');
+    if(!x) return '';
+    if(x.charAt(0)==='0') return '62'+x.slice(1);
+    if(x.charAt(0)==='8') return '62'+x;
+    return x;
+  }
+  function bangunPetaHP(d){
+    HP_PETA = {};
+    (d.inquiries||[]).forEach(function(q){
+      var k=hpKunci(q.nama), p=hpRapi(q.phone);
+      if(k && p && !HP_PETA[k]) HP_PETA[k]=p;
+    });
+  }
+  function hpCustomer(nama){ return HP_PETA[hpKunci(nama)] || ''; }
   var LOGO_B64 = 'data:image/png;base64,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';
 
   function render(d){
     DATA = d;
+    bangunPetaHP(d);
     document.getElementById('ts').textContent = 'Update: ' + d.generatedAt;
     var html =
       '<div class="tabs">' +
@@ -545,9 +559,23 @@
         '<div class="subtabs">' +
           '<button class="stab active" onclick="admTab(1,this)">Summary &amp; Laporan</button>' +
           '<button class="stab" onclick="admTab(2,this)">Database Customer</button>' +
+          '<button class="stab" onclick="admTab(3,this)">Diskon</button>' +
+          '<button class="stab" onclick="admTab(4,this)">Cadangan</button>' +
         '</div>' +
         '<div id="adm1">' + buildLaporan(d) + '</div>' +
         '<div id="adm2" style="display:none">' + buildCustomerDB(d) + '</div>' +
+        /* Diskon dan cadangan pindah ke sini dari tab Website. Dua-duanya
+           bukan urusan toko online: diskon itu catatan biaya marketing,
+           cadangan itu perawatan sistem. */
+        '<div id="adm3" style="display:none"><div class="toolbar">' +
+          '<select id="dkPeriod" onchange="loadDiskon()">' +
+            '<option value="all">Semua</option><option value="year">Tahun ini</option>' +
+            '<option value="month">Bulan ini</option><option value="week">Minggu ini</option>' +
+          '</select>' +
+          '<button class="cbtn" onclick="loadDiskon()">Muat</button>' +
+          '<span style="color:#888;font-size:11px">Potongan harga yang diberikan ke customer — masuk hitungan marketing expense</span>' +
+        '</div><div id="dkBody"></div></div>' +
+        '<div id="adm4" style="display:none"><div id="cdBody"><div class="loading">Memuat…</div></div></div>' +
       '</div>' +
       '<div id="page3" style="display:none">' + buildInquiry(d) + '</div>' +
       '<div id="page4" style="display:none">' + buildCatalog() + '</div>' +
@@ -564,12 +592,12 @@
 
   // Sub-tab Administrasi
   function admTab(n, btn){
-    var a1=document.getElementById('adm1'), a2=document.getElementById('adm2');
-    if(a1) a1.style.display = n===1 ? '' : 'none';
-    if(a2) a2.style.display = n===2 ? '' : 'none';
+    for(var i=1;i<=4;i++){ var el=document.getElementById('adm'+i); if(el) el.style.display=(i===n?'':'none'); }
     document.querySelectorAll('#page2 > .subtabs .stab').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
     if(n===1){ renderEval(); filterReport(); }
+    if(n===3 && !window.__DK){ window.__DK=1; loadDiskon(); }
+    if(n===4) loadCadangan();
   }
 
   // ── Notif pesanan web yang butuh tindakan ──
@@ -740,8 +768,6 @@
         '<button class="stab" onclick="wooTab(4,this)">Laporan Web</button>' +
         '<button class="stab" onclick="wooTab(5,this)">Shipping</button>' +
         '<button class="stab" onclick="wooTab(6,this)">Pembayaran</button>' +
-        '<button class="stab" onclick="wooTab(9,this)">Diskon</button>' +
-        '<button class="stab" onclick="wooTab(10,this)">Cadangan</button>' +
         '<button class="stab" onclick="wooTab(8,this)">Discord</button>' +
       '</div>' +
       '<div id="wtab1">' +
@@ -779,15 +805,6 @@
       '<div id="wtab5" style="display:none"><div id="wooShipBox"></div></div>' +
       '<div id="wtab6" style="display:none"><div id="payBody"></div></div>' +
       '<div id="wtab8" style="display:none"><div id="dcBody"><div class="loading">Memuat…</div></div></div>' +
-      '<div id="wtab10" style="display:none"><div id="cdBody"><div class="loading">Memuat…</div></div></div>' +
-      '<div id="wtab9" style="display:none"><div class="toolbar">' +
-          '<select id="dkPeriod" onchange="loadDiskon()">' +
-            '<option value="all">Semua</option><option value="year">Tahun ini</option>' +
-            '<option value="month">Bulan ini</option><option value="week">Minggu ini</option>' +
-          '</select>' +
-          '<button class="cbtn" onclick="loadDiskon()">Muat</button>' +
-          '<span style="color:#888;font-size:11px">Potongan harga yang diberikan ke customer — masuk hitungan marketing expense</span>' +
-        '</div><div id="dkBody"></div></div>' +
       '<div id="wtab7" style="display:none"><div class="toolbar"><button class="cbtn" onclick="loadProofs()">↻ Muat ulang</button>' +
         '<span style="color:#888;font-size:11px">Bukti transfer yang dikirim customer dari halaman konfirmasi</span></div>' +
         '<div id="proofBody"></div></div>' +
@@ -795,7 +812,9 @@
   }
   function wooTab(n, btn){
     for(var i=1;i<=10;i++){ var el=document.getElementById('wtab'+i); if(el) el.style.display=(i===n?'':'none'); }
-    document.querySelectorAll('.stab').forEach(function(b){ b.classList.remove('active'); });
+    // Dibatasi ke sub-tab Website saja: sebelumnya semua .stab ikut dimatikan,
+    // jadi sorotan sub-tab Administrasi dan Inquiry ikut hilang tanpa sebab.
+    document.querySelectorAll('#page4 .subtabs .stab').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
     if(n===2 && !window.__ORD) { window.__ORD=1; loadOrders(); }
     if(n===3 && !window.__CPN) { window.__CPN=1; loadCoupons(); }
@@ -843,17 +862,23 @@
         sel('akProd','product','Semua produk')+
         sel('akMat','material','Semua bahan')+
         sel('akCol','color','Semua warna')+
+        '<span id="akMsg" style="color:#888;font-size:11px"></span>'+
+      '</div>'+
+      /* Dipisah dua baris: mencari dan menyaring di atas, tindakan di bawah.
+         Dua belas kendali berjejer dalam satu baris bikin yang penting
+         tenggelam di antara yang jarang dipakai. */
+      '<div class="toolbar" style="margin-top:-4px">'+
         '<button class="cbtn" onclick="akTampil(\'grid\')" id="akBg">Grid</button>'+
         '<button class="cbtn" onclick="akTampil(\'tabel\')" id="akBt">Tabel</button>'+
         '<button class="cbtn" onclick="akCsv()">Export CSV</button>'+
         '<button class="cbtn" onclick="loadAksesoris(1)">↻ Muat ulang</button>'+
-        '<span id="akMsg" style="color:#888;font-size:11px"></span>'+
       '</div>'+
       '<div id="akBarPilih" style="display:none;background:#1c1c17;border:1px solid #e0912f;'+
         'border-radius:9px;padding:10px 12px;margin-bottom:12px;display:none">'+
         '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
           '<b id="akPilihJml" style="color:#e0912f;font-size:12px"></b>'+
-          '<input id="akNama" placeholder="Nama customer" style="max-width:180px">'+
+          '<input id="akNama" list="akNamaList" placeholder="Nama customer" style="max-width:180px" autocomplete="off">'+
+          '<datalist id="akNamaList">'+namaCustomerOpsi()+'</datalist>'+
           '<input id="akNote" placeholder="Catatan untuk customer (opsional)" style="max-width:280px">'+
           '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="akBuatLink(this)">Buat tautan</button>'+
           '<button class="cbtn" onclick="akBersihkan()">Batal pilih</button>'+
@@ -959,6 +984,16 @@
     document.querySelectorAll('.akcard.dipilih').forEach(function(k){ k.classList.remove('dipilih'); });
     akBarPilih();
   }
+  /* Namanya diambil dari order dan inquiry yang sudah ada supaya tidak
+     diketik ulang - dan tidak salah ketik, karena nama itu yang muncul di
+     halaman yang dibuka customer. Tetap boleh diisi bebas. */
+  function namaCustomerOpsi(){
+    var s={};
+    ((DATA&&DATA.orders)||[]).forEach(function(o){ if(o.customer) s[String(o.customer).trim()]=1; });
+    ((DATA&&DATA.inquiries)||[]).forEach(function(q){ if(q.nama) s[String(q.nama).trim()]=1; });
+    return Object.keys(s).sort().map(function(n){ return '<option value="'+esc(n)+'">'; }).join('');
+  }
+
   function akBarPilih(){
     var n=Object.keys(AKPILIH).length;
     var bar=document.getElementById('akBarPilih'); if(!bar) return;
@@ -2648,6 +2683,13 @@
         '<select id="fpay" onchange="filterOrders()"><option value="">Semua bayar</option><option>Belum</option><option>DP</option><option>Lunas</option></select>' +
         '<select id="fdl" onchange="filterOrders()"><option value="">Semua deadline</option><option value="near">≤ 3 hari</option><option value="over">Terlewat</option></select>' +
         '<label style="color:#e0912f;font-size:12px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="fwarn" onchange="filterOrders()"> Cuma yang ⚠</label>' +
+        '<select id="furut" onchange="renderPipeline()" title="Urutan kartu di dalam kolom">' +
+          '<option value="">Urut: terbaru</option>' +
+          '<option value="nilai">Nilai terbesar</option>' +
+          '<option value="deadline">Deadline terdekat</option>' +
+          '<option value="sisa">Sisa tagihan terbesar</option>' +
+        '</select>' +
+        '<button class="cbtn" id="btnTarik" onclick="tarikTrello(this)" title="Ambil perubahan card dari Trello sekarang">↻ Tarik dari Trello</button>' +
       '</div>' +
       '<div id="ordPipa"></div>';
 
@@ -2712,6 +2754,13 @@
     if(o.trackingLink) tautan += '<a class="cbtn" style="text-decoration:none" href="'+esc(o.trackingLink)+'" target="_blank">Tracking</a> ';
     if(o.driveLink)    tautan += '<a class="cbtn" style="text-decoration:none" href="'+esc(o.driveLink)+'" target="_blank">Drive</a> ';
 
+    // Nomornya dicocokkan lewat nama; kalau tidak ketemu barisnya tidak dipaksa muncul
+    var hp=hpCustomer(o.customer);
+    var kontak = hp
+      ? '<a class="cbtn" style="text-decoration:none;border-color:#16a34a;color:#16a34a" target="wa" rel="noopener" '+
+        'href="https://web.whatsapp.com/send?phone='+esc(hp)+'">WhatsApp '+esc(hp)+'</a> '
+      : '';
+
     return '<div class="kbadge">'+statusBadge(o.status)+' '+payBadge(o.paymentStatus)+
         (w.aging||w.overdue ? ' <span class="warn-badge">⚠ '+(w.overdue?'lewat '+w.overdueDays+' hari':w.ageDays+' hari sejak inquiry')+'</span>' : '')+
       '</div>'+
@@ -2728,13 +2777,7 @@
             : '<span style="color:#55554e">tidak diisi</span>')+
         '</div>'+
 
-        '<div class="kbox"><div class="kh">Uang</div>'+
-          barisK('Harga jual', rp(hj))+
-          barisK('HPP', rp(hpp))+
-          barisK('Margin', rp(margin), false, margin<0?'#cc3333':'#e0912f')+
-          barisK('DP masuk', rp(dp))+
-          barisK('Sisa tagihan', rp(sisa), true, sisa>0?'#e0912f':'#16a34a')+
-        '</div>'+
+        '<div class="kbox" id="kboxUang">'+ isiUang(o) +'</div>'+
       '</div>'+
 
       '<div class="kh" style="margin-top:16px">Riwayat pembayaran</div>'+ riwHtml +
@@ -2742,15 +2785,121 @@
       '<div class="kh" style="margin-top:16px">Dokumen terbit</div>'+
       '<div id="kartuDok"><div class="kkosong">Memuat…</div></div>'+
 
+      /* Empat dokumen ditaruh terbuka, tidak disembunyikan di balik menu.
+         Menunya dulu dibuat karena tombolnya berdesakan di baris tabel;
+         di panel selebar ini alasan itu sudah tidak ada, dan menyembunyikannya
+         cuma menambah satu klik untuk pekerjaan yang paling sering dilakukan. */
+      '<div class="kh" style="margin-top:16px">Terbitkan dokumen</div>'+
+      '<div style="display:flex;gap:7px;flex-wrap:wrap">'+
+        DOK_MENU.map(function(m){
+          return '<button class="cbtn" style="border-color:#b5762e;color:#e0a256" '+
+                 'onclick="openInvoice(\''+esc(o.orderId)+'\',\''+m.t+'\')">'+m.n+'</button>';
+        }).join('')+
+      '</div>'+
+
       '<div class="kh" style="margin-top:16px">Tindakan</div>'+
       '<div style="display:flex;gap:7px;flex-wrap:wrap">'+
+        kontak+
         '<button class="cbtn" style="border-color:#3b82f6;color:#7cb3ff" onclick="pickOrderPhoto(\''+esc(o.orderId)+'\')">📷 Foto</button>'+
         '<button class="cbtn" onclick="openTimeline(\''+esc(o.orderId)+'\')">Riwayat Trello</button>'+
-        '<button class="cbtn" onclick="menuBayar(this,\''+esc(o.orderId)+'\')">Pembayaran &#9662;</button>'+
         '<button class="cbtn" onclick="openSheet(\''+esc(o.orderId)+'\')">Sheet</button>'+
         '<button class="cbtn" style="border-color:#e0912f;color:#e0912f" onclick="openPO(\''+esc(o.orderId)+'\')">PO</button>'+
         tautan+
       '</div>';
+  }
+
+  /* ── Uang order diisi dari sini ──
+     Sebelumnya angka uang cuma bisa diketik ke deskripsi card Trello lalu
+     ditunggu sampai sync 15 menit berikutnya. Sekarang disimpan langsung:
+     Sheet diperbarui saat itu juga, deskripsi card ikut ditulis ulang. */
+  function isiUang(o){
+    var hj=Number(o.hargaJual)||0, hpp=Number(o.hpp)||0;
+    var dp=Number(o.dp)||0, sisa=Number(o.sisaTagihan)||0, margin=hj-hpp;
+    return '<div class="kh">Uang <button class="cbtn" style="float:right;padding:0 7px;font-size:10.5px" '+
+        'onclick="ubahUang()">Ubah</button></div>'+
+      barisK('Harga jual', rp(hj))+
+      barisK('HPP', rp(hpp))+
+      barisK('Margin', rp(margin), false, margin<0?'#cc3333':'#e0912f')+
+      barisK('DP masuk', rp(dp)+(o.tglDP?' <span class="ksub">'+esc(o.tglDP)+'</span>':''))+
+      barisK('Sisa tagihan', rp(sisa), true, sisa>0?'#e0912f':'#16a34a');
+  }
+
+  function ubahUang(){
+    var o=null; ((DATA&&DATA.orders)||[]).forEach(function(x){ if(x.orderId===KARTU_ID) o=x; });
+    if(!o) return;
+    function inp(id,val,ph){
+      return '<input id="'+id+'" value="'+esc(val==null?'':String(val))+'" placeholder="'+ph+'" '+
+             'style="width:100%;font-size:12px;padding:3px 6px">';
+    }
+    document.getElementById('kboxUang').innerHTML =
+      '<div class="kh">Ubah uang</div>'+
+      '<div class="kform">'+
+        '<label>Harga jual</label>'+inp('uHj', Number(o.hargaJual)||'', '0')+
+        '<label>HPP</label>'+inp('uHpp', Number(o.hpp)||'', '0')+
+        '<label>DP masuk</label>'+inp('uDp', Number(o.dp)||'', '0')+
+        '<label>Tanggal DP</label>'+inp('uTdp', o.tglDP||'', 'dd/mm/yyyy')+
+        '<label>Tanggal pelunasan</label>'+inp('uTln', o.tglLunas||'', 'kosongkan bila belum')+
+      '</div>'+
+      '<div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap">'+
+        '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="simpanUang(this)">Simpan</button>'+
+        '<button class="cbtn" onclick="batalUang()">Batal</button>'+
+        '<button class="cbtn" onclick="isiHariIni()">Tanggal hari ini</button>'+
+      '</div>'+
+      '<div id="uMsg" style="margin-top:8px;font-size:11.5px"></div>';
+  }
+  function batalUang(){
+    var o=null; ((DATA&&DATA.orders)||[]).forEach(function(x){ if(x.orderId===KARTU_ID) o=x; });
+    if(o) document.getElementById('kboxUang').innerHTML = isiUang(o);
+  }
+  function isiHariIni(){
+    var t=new Date();
+    var s=('0'+t.getDate()).slice(-2)+'/'+('0'+(t.getMonth()+1)).slice(-2)+'/'+t.getFullYear();
+    var el=document.getElementById('uTdp');
+    if(el && !el.value.trim()) el.value=s; else { var l=document.getElementById('uTln'); if(l) l.value=s; }
+  }
+  function simpanUang(btn){
+    var id=KARTU_ID, msg=document.getElementById('uMsg');
+    function v(x){ return (document.getElementById(x).value||'').trim(); }
+    var teks=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan\u2026';
+    msg.innerHTML='<span style="color:#888">Menulis ke Sheet dan card Trello\u2026</span>';
+    jsonp(WEB_APP_URL+'?page=admin&action=uangSimpan&key='+encodeURIComponent(ADMIN_KEY)+
+          '&id='+encodeURIComponent(id)+
+          '&hargaJual='+encodeURIComponent(v('uHj'))+'&hpp='+encodeURIComponent(v('uHpp'))+
+          '&dp='+encodeURIComponent(v('uDp'))+
+          '&tglDP='+encodeURIComponent(v('uTdp'))+'&tglLunas='+encodeURIComponent(v('uTln'))+
+          '&_='+Date.now(),
+      function(res){
+        btn.disabled=false; btn.textContent=teks;
+        if(!res||!res.ok){ msg.innerHTML='<span style="color:#d97a7a">'+esc((res&&res.error)||'Gagal menyimpan.')+'</span>'; return; }
+        var o=null; ((DATA&&DATA.orders)||[]).forEach(function(x){ if(x.orderId===id) o=x; });
+        if(o){
+          o.hargaJual=Number(v('uHj').replace(/[^0-9]/g,''))||0;
+          o.hpp=Number(v('uHpp').replace(/[^0-9]/g,''))||0;
+          o.dp=Number(v('uDp').replace(/[^0-9]/g,''))||0;
+          o.tglDP=v('uTdp'); o.tglLunas=v('uTln');
+          o.paymentStatus=res.status; o.sisaTagihan=res.sisa;
+          document.getElementById('kboxUang').innerHTML=isiUang(o);
+          var bd=document.querySelector('#kartuBody .kbadge');
+          if(bd) bd.innerHTML=statusBadge(o.status)+' '+payBadge(o.paymentStatus);
+          renderPipeline();
+        }
+        // Kegagalan Trello dilaporkan apa adanya - Sheet-nya sudah tersimpan
+        msg.innerHTML = (res.trello==='ok' || res.trello==='tanpa card')
+          ? '<span style="color:#16a34a">Tersimpan. Card Trello ikut diperbarui.</span>'
+          : '<span style="color:#e0912f">Tersimpan di Sheet, tapi card Trello gagal: '+esc(res.trello)+'</span>';
+      });
+  }
+
+  /* Fase tetap milik Trello, jadi card yang baru digeser tetap perlu ditarik.
+     Tanpa ini satu-satunya cara adalah menunggu pemicu 15 menit. */
+  function tarikTrello(btn){
+    var teks=btn.textContent; btn.disabled=true; btn.textContent='Menarik\u2026';
+    jsonp(WEB_APP_URL+'?page=admin&action=trelloTarik&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        btn.textContent=teks; btn.disabled=false;
+        if(!res||!res.ok){ alert('Gagal menarik dari Trello: '+((res&&res.error)||'tidak ada jawaban')); return; }
+        loadData();
+      });
   }
 
   /* Dokumen diambil terpisah supaya rinciannya langsung terbuka, tidak
@@ -2783,6 +2932,18 @@
     });
     // Status di luar tujuh fase tetap ditampilkan, tidak dibuang diam-diam
     if(lain.length){ kolom['Lainnya']=lain; fase.push('Lainnya'); }
+
+    /* Kolom Produksi bisa berisi belasan order. Tanpa pengurut, satu-satunya
+       cara mencari yang paling mendesak adalah membaca satu per satu. */
+    var urut=(document.getElementById('furut')||{}).value||'';
+    if(urut){
+      var kunci = {
+        nilai:    function(o){ return -(Number(o.hargaJual)||0); },
+        sisa:     function(o){ return -(Number(o.sisaTagihan)||0); },
+        deadline: function(o){ return o.estMs ? o.estMs : 8.64e15; }   // tanpa deadline ke belakang
+      }[urut];
+      fase.forEach(function(f){ kolom[f].sort(function(a,b){ return kunci(a)-kunci(b); }); });
+    }
 
     var jml=0; fase.forEach(function(f){ jml+=kolom[f].length; });
     if(!jml){ el.innerHTML='<div class="loading">Tidak ada order yang cocok dengan saringan.</div>'; return; }
@@ -3356,37 +3517,6 @@
     { t:'quo',   n:'Quotation' },
     { t:'kwt',   n:'Cash Receipt' }
   ];
-  function menuBayar(btn, orderId){
-    var m=document.getElementById('bayarMenu');
-    if(!m){ m=document.createElement('div'); m.id='bayarMenu'; document.body.appendChild(m); }
-    if(m.classList.contains('show') && m.getAttribute('data-utk')===orderId){ tutupMenuBayar(); return; }
-    m.setAttribute('data-utk', orderId);
-    m.innerHTML = DOK_MENU.map(function(d,i){
-      return (i===2?'<div class="pisah"></div>':'')+
-        '<button onclick="tutupMenuBayar();openInvoice(\''+esc(orderId)+'\',\''+d.t+'\')">'+d.n+'</button>';
-    }).join('');
-    m.classList.add('show');
-
-    // Dipasang setelah menunya punya ukuran, supaya baris paling bawah membuka
-    // ke atas dan menunya tidak berakhir di luar layar.
-    var r=btn.getBoundingClientRect(), tg=m.offsetHeight, lb=m.offsetWidth;
-    var atas = (r.bottom+tg+8 > window.innerHeight) && (r.top-tg-6 > 0);
-    m.style.top  = (atas ? r.top-tg-6 : r.bottom+6)+'px';
-    m.style.left = Math.max(8, Math.min(r.left, window.innerWidth-lb-8))+'px';
-  }
-  function tutupMenuBayar(){
-    var m=document.getElementById('bayarMenu');
-    if(m){ m.classList.remove('show'); m.setAttribute('data-utk',''); }
-  }
-  document.addEventListener('click', function(e){
-    var m=document.getElementById('bayarMenu');
-    if(!m || !m.classList.contains('show') || m.contains(e.target)) return;
-    var t=e.target, oc=(t.getAttribute && t.getAttribute('onclick')) || '';
-    if(oc.indexOf('menuBayar')!==0) tutupMenuBayar();
-  }, true);
-  document.addEventListener('keydown', function(e){ if(e.key==='Escape') tutupMenuBayar(); });
-  window.addEventListener('scroll', tutupMenuBayar, true);
-  window.addEventListener('resize', tutupMenuBayar);
 
   /* Kwitansi di sini lazim mencantumkan nilai dalam huruf. Gunanya bukan
      hiasan: angka gampang diubah sepihak, tulisan tidak. */
@@ -3459,10 +3589,60 @@
       type==='quo' ? buildQuoHTML(o) : type==='kwt' ? buildKwtHTML(o) : buildInvoiceHTML(o, type);
     // Kwitansi tidak punya tabel item, jadi tombol tambah item tidak ada gunanya
     var ai=document.getElementById('invAddItem'); if(ai) ai.style.display = (type==='kwt') ? 'none' : '';
+    var terpakai = pakaiIsiDok(orderId);
     document.getElementById('invModal').classList.add('show');
     recalcInvoice();
+    if(terpakai){
+      var ket=document.getElementById('invBawaan');
+      if(ket){ ket.style.display=''; setTimeout(function(){ ket.style.display='none'; }, 6000); }
+    }
   }
-  function closeInvoice(){ document.getElementById('invModal').classList.remove('show'); }
+  function closeInvoice(){ simpanIsiDok(); document.getElementById('invModal').classList.remove('show'); }
+
+  /* ── Isi dokumen dibawa terusan ──
+     Quotation disusun dengan susah payah - item dirinci, diskon dan ongkir
+     diisi - lalu Invoice DP untuk order yang sama dulu mulai dari nol lagi.
+     Sekarang isinya disimpan per order di browser ini dan dipakai ulang oleh
+     jenis dokumen apa pun untuk order tersebut. Disimpan di peramban, bukan
+     di server: ini kenyamanan admin, bukan data yang perlu dibagi. */
+  function kunciDok(id){ return 'rvlt_dok_' + id; }
+
+  function simpanIsiDok(){
+    if(!INV_ORDERID || INV_TYPE==='kwt') return;
+    var rows=document.querySelectorAll('#invRows tr');
+    if(!rows.length) return;
+    var isi={ item:[], disc:invNum('inv-disc'), ship:invNum('inv-ship'),
+              phone:(document.getElementById('inv-phone')||{}).textContent||'',
+              note:(document.getElementById('inv-note')||{}).textContent||'' };
+    for(var i=0;i<rows.length;i++){
+      var t=rows[i];
+      isi.item.push({
+        item:  (t.querySelector('.inv-item')||{}).textContent||'',
+        color: (t.querySelector('.inv-color')||{}).textContent||'-',
+        size:  (t.querySelector('.inv-size')||{}).textContent||'-',
+        qty:   (t.querySelector('.inv-qty')||{}).textContent||'1',
+        price: (t.querySelector('.inv-price')||{}).textContent||'0'
+      });
+    }
+    try{ localStorage.setItem(kunciDok(INV_ORDERID), JSON.stringify(isi)); }catch(e){}
+  }
+
+  function pakaiIsiDok(orderId){
+    if(INV_TYPE==='kwt') return false;
+    var mentah=null;
+    try{ mentah=localStorage.getItem(kunciDok(orderId)); }catch(e){}
+    if(!mentah) return false;
+    var isi; try{ isi=JSON.parse(mentah); }catch(e){ return false; }
+    if(!isi || !isi.item || !isi.item.length) return false;
+
+    var tb=document.getElementById('invRows'); if(!tb) return false;
+    tb.innerHTML = isi.item.map(function(x){ return invItemRow(x); }).join('');
+    var d=document.getElementById('inv-disc'); if(d) d.textContent=String(isi.disc||0);
+    var s=document.getElementById('inv-ship'); if(s) s.textContent=String(isi.ship||0);
+    var p=document.getElementById('inv-phone'); if(p && isi.phone) p.textContent=isi.phone;
+    var n=document.getElementById('inv-note');  if(n && isi.note)  n.textContent=isi.note;
+    return true;
+  }
 
   /* PENAWARAN — belum deal, jadi tidak ada nomor rekening dan tidak ada baris
      DP. Penggantinya masa berlaku, lama pengerjaan, dan syarat bayar: tiga hal
@@ -3484,7 +3664,7 @@
     return invKop('QUOTATION','Custom Order / Pre-Order &middot; '+esc(o.orderId))+
       '<div style="display:flex;justify-content:space-between;margin-top:26px;gap:20px">'+
         '<div><div style="font-weight:700;font-size:17px">'+invEd('inv-cust',o.customer||'')+'</div>'+
-        '<div style="font-size:13px;color:#333;margin-top:8px">No. HP: '+invEd('inv-phone','')+'</div></div>'+
+        '<div style="font-size:13px;color:#333;margin-top:8px">No. HP: '+invEd('inv-phone',hpCustomer(o.customer))+'</div></div>'+
         kotak+
       '</div>'+
       invTabel(o)+
@@ -3538,7 +3718,7 @@
     return invKop(title,'Custom Order / Pre-Order &middot; '+esc(o.orderId))+
       '<div style="display:flex;justify-content:space-between;margin-top:26px;gap:20px">'+
         '<div><div style="font-weight:700;font-size:17px">'+ed('inv-cust',o.customer||'')+'</div>'+
-        '<div style="font-size:13px;color:#333;margin-top:8px">No. HP: '+ed('inv-phone','')+'</div></div>'+
+        '<div style="font-size:13px;color:#333;margin-top:8px">No. HP: '+ed('inv-phone',hpCustomer(o.customer))+'</div></div>'+
         '<div style="border:1px solid #111;padding:14px 16px;max-width:300px;font-size:13px">Please make payment to:<br><br><b>BCA account number 7883702788 (Nandhi Adipati Bhumi CV)</b></div>'+
       '</div>'+
       invTabel(o)+
@@ -4490,6 +4670,7 @@
       <button class="inv-dl" onclick="downloadInvoiceJPG()">⬇ Download JPG</button>
       <button class="inv-save" onclick="saveInvoiceDrive(this)">💾 Simpan ke Drive</button>
       <button class="inv-cls" onclick="closeInvoice()">Tutup</button>
+      <span id="invBawaan" style="display:none;color:#e0912f;font-size:11.5px">Isi dari dokumen sebelumnya dipakai lagi</span>
     </div>
     <div id="invPaper"></div>
   </div>
