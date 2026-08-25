@@ -73,6 +73,27 @@
     .loading, .error { text-align: center; padding: 60px; color: #888; }
 
     /* ── Invoice modal ── */
+    #kartuModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 210; display: none; overflow: auto; padding: 20px; }
+    #kartuModal.show { display: block; }
+    .kwrap { max-width: 720px; margin: 0 auto; background: #16160f; border: 1px solid #2b2b23;
+      border-radius: 12px; padding: 18px 20px 22px; }
+    .khead { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .khead h3 { margin: 0; font-size: 16px; }
+    .kbadge { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+    .kgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .kbox { background: #1c1c17; border: 1px solid #2b2b23; border-radius: 9px; padding: 11px 13px; }
+    .kh { font-size: 10.5px; letter-spacing: 1.4px; text-transform: uppercase; color: #8a8a80;
+      font-weight: 700; margin-bottom: 7px; }
+    .krow { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; font-size: 12.5px; }
+    .krow > span:first-child { color: #9a9a8e; flex: none; }
+    .krow > span:last-child { text-align: right; }
+    .kbayar { display: flex; justify-content: space-between; align-items: center; gap: 10px;
+      background: #1c1c17; border: 1px solid #2b2b23; border-radius: 8px;
+      padding: 9px 12px; margin-bottom: 6px; font-size: 12.5px; }
+    .ksub { color: #8a8a80; font-size: 10.5px; margin-top: 2px; }
+    .kkosong { color: #6b6b62; font-size: 12px; padding: 8px 2px; }
+    @media (max-width:640px){ .kgrid { grid-template-columns: 1fr; } #kartuModal { padding: 8px; } }
+
     /* Papan per fase. Kolomnya digulir menyamping karena tujuh fase tidak
        muat di layar mana pun tanpa mengecilkan kartunya sampai tak terbaca. */
     .pipa { display:flex; gap:10px; overflow-x:auto; padding:2px 2px 10px; }
@@ -517,7 +538,7 @@
         '<button class="tab active" onclick="showTab(1,this)">Operasional</button>' +
         '<button class="tab" onclick="showTab(2,this)">Administrasi</button>' +
         '<button class="tab" id="tabKatalog" onclick="showTab(4,this)">Website <span id="ordBadge" class="nbadge" style="display:none">0</span></button>' +
-        '<button class="tab" onclick="showTab(5,this)">Aksesoris</button>' +
+        '<button class="tab" onclick="showTab(5,this)">Katalog</button>' +
       '</div>' +
       '<div id="page1">' + buildOperasional(d) + '</div>' +
       '<div id="page2" style="display:none">' +
@@ -810,11 +831,14 @@
         akOpsi(kunci).map(function(v){ return '<option>'+esc(v)+'</option>'; }).join('')+'</select>';
     }
     el.innerHTML=
-      '<div class="section-title">Katalog Aksesoris <span class="po-hint">'+AKS.length+' item · '+
-        akOpsi('product').length+' produk · diperbarui '+esc(d.diperbarui||'-')+
+      '<div class="section-title">Katalog <span class="po-hint">'+AKS.length+' item · '+
+        akJml('hw')+' hardware · '+akJml('kulit')+' warna kulit · diperbarui '+esc(d.diperbarui||'-')+
         ' · ukuran ± diukur dari foto</span></div>'+
       '<div class="toolbar">'+
         '<input id="akQ" placeholder="Cari SKU, nama, file…" oninput="saringAks()">'+
+        '<button class="cbtn" id="akGsemua" onclick="akGrupPilih(\'semua\')">Semua</button>'+
+        '<button class="cbtn" id="akGhw" onclick="akGrupPilih(\'hw\')">Hardware ('+akJml('hw')+')</button>'+
+        '<button class="cbtn" id="akGkulit" onclick="akGrupPilih(\'kulit\')">Warna Kulit ('+akJml('kulit')+')</button>'+
         sel('akCat','category','Semua kategori')+
         sel('akProd','product','Semua produk')+
         sel('akMat','material','Semua bahan')+
@@ -847,11 +871,22 @@
     akBarPilih();
     loadKiriman();
   }
+  /* Kulit dan hardware tinggal di satu katalog supaya satu tautan ke customer
+     bisa memuat dua-duanya. Yang memisahkan cuma kategorinya. */
+  var AK_GRUP='semua';
+  function akKulit(x){ return x.category==='Leather'; }
+  function akJml(g){
+    return AKS.filter(function(x){ return g==='kulit' ? akKulit(x) : !akKulit(x); }).length;
+  }
+  function akGrupPilih(g){ AK_GRUP=g; saringAks(); }
+
   function akCocok(){
     var q=(document.getElementById('akQ').value||'').toLowerCase().trim();
     var c=document.getElementById('akCat').value, p=document.getElementById('akProd').value;
     var m=document.getElementById('akMat').value, w=document.getElementById('akCol').value;
     return AKS.filter(function(x){
+      if(AK_GRUP==='kulit' && !akKulit(x)) return false;
+      if(AK_GRUP==='hw' && akKulit(x)) return false;
       if(c && x.category!==c) return false;
       if(p && x.product!==p) return false;
       if(m && x.material!==m) return false;
@@ -864,6 +899,10 @@
   function saringAks(){
     var list=akCocok(), box=document.getElementById('akIsi');
     document.getElementById('akMsg').textContent=list.length+' dari '+AKS.length+' item';
+    ['semua','hw','kulit'].forEach(function(k){
+      var b=document.getElementById('akG'+k);
+      if(b) b.className = 'cbtn' + (AK_GRUP===k ? ' aktif' : '');
+    });
     var g=document.getElementById('akBg'), t=document.getElementById('akBt');
     if(g&&t){ var on='border-color:#e0912f;color:#e0912f', off='';
       g.setAttribute('style', window.__akMode==='grid'?on:off);
@@ -2609,24 +2648,8 @@
         '<select id="fpay" onchange="filterOrders()"><option value="">Semua bayar</option><option>Belum</option><option>DP</option><option>Lunas</option></select>' +
         '<select id="fdl" onchange="filterOrders()"><option value="">Semua deadline</option><option value="near">≤ 3 hari</option><option value="over">Terlewat</option></select>' +
         '<label style="color:#e0912f;font-size:12px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="fwarn" onchange="filterOrders()"> Cuma yang ⚠</label>' +
-        '<button class="cbtn aktif" id="vPipa" onclick="ubahTampilan(\'pipa\')">Pipeline</button>' +
-        '<button class="cbtn" id="vTabel" onclick="ubahTampilan(\'tabel\')">Tabel</button>' +
       '</div>' +
-      '<div id="ordPipa"></div>' +
-      '<div id="ordTabel" style="display:none"><div class="table-scroll tall"><table id="orders" class="rtable"><thead><tr>' +
-        '<th class="sortable" onclick="sortT(this,0)">Order</th>' +
-        '<th class="sortable" onclick="sortT(this,1)">Customer</th>' +
-        '<th>Produk</th><th>Tipe</th><th>Kategori</th>' +
-        '<th class="num sortable" onclick="sortT(this,5)">Qty</th>' +
-        '<th class="num sortable" onclick="sortT(this,6)">Harga</th>' +
-        '<th class="num sortable" onclick="sortT(this,7)">HPP</th>' +
-        '<th class="num sortable" onclick="sortT(this,8)">Margin</th>' +
-        '<th class="sortable" onclick="sortT(this,9)">Bayar</th>' +
-        '<th class="num sortable" onclick="sortT(this,10)">Sisa</th>' +
-        '<th class="sortable" onclick="sortT(this,11)">Deadline</th>' +
-        '<th class="sortable" onclick="sortT(this,12)">Status</th>' +
-        '<th>Link</th><th>Dok</th>' +
-      '</tr></thead><tbody>' + orderRows(d.orders) + '</tbody></table></div></div>';
+      '<div id="ordPipa"></div>';
 
     return '<div class="kpis">' + kpis + '</div>' +
       '<div id="ordAlert"></div>' +
@@ -2639,34 +2662,123 @@
      memindahkan order tetap lewat Trello, karena Trello yang jadi sumber
      datanya - dua tempat yang sama-sama bisa memindahkan cepat berselisih. */
   var PIPA_FASE = ['Order Received','Proses Desain','Approval Desain','Produksi','Review Customer','Quality Check','Shipped'];
-  var ORD_VIEW = 'pipa';
 
-  function ubahTampilan(v){
-    ORD_VIEW = v;
-    var t=document.getElementById('ordTabel'), p=document.getElementById('ordPipa');
-    if(t) t.style.display = v==='tabel' ? '' : 'none';
-    if(p) p.style.display = v==='pipa'  ? '' : 'none';
-    var bt=document.getElementById('vTabel'), bp=document.getElementById('vPipa');
-    if(bt) bt.className = 'cbtn' + (v==='tabel' ? ' aktif' : '');
-    if(bp) bp.className = 'cbtn' + (v==='pipa'  ? ' aktif' : '');
-    if(v==='pipa') renderPipeline();
+  /* ── Rincian satu order ──
+     Kartu di papan sengaja ringkas. Yang tidak muat di kartu - rincian uang,
+     kapan dibayar, dokumen apa saja yang sudah terbit, dan tombol-tombolnya -
+     dikumpulkan di sini. Ini yang menggantikan kolom-kolom tabel lama. */
+  var KARTU_ID = '';
+
+  function bukaKartu(orderId){
+    var o=null; ((DATA&&DATA.orders)||[]).forEach(function(x){ if(String(x.orderId)===String(orderId)) o=x; });
+    if(!o){ alert('Order tidak ditemukan.'); return; }
+    KARTU_ID = orderId;
+    document.getElementById('kartuJudul').innerHTML =
+      esc(o.orderId)+' <span style="color:#888;font-weight:400">· '+esc(o.customer||'-')+'</span>';
+    document.getElementById('kartuBody').innerHTML = isiKartu(o);
+    document.getElementById('kartuModal').classList.add('show');
+    muatDokKartu(orderId);
+  }
+  function tutupKartu(){ document.getElementById('kartuModal').classList.remove('show'); }
+
+  function barisK(l, v, tebal, warna){
+    return '<div class="krow"'+(tebal?' style="font-weight:700"':'')+'>'+
+      '<span>'+l+'</span><span'+(warna?' style="color:'+warna+'"':'')+'>'+v+'</span></div>';
   }
 
-  /* Yang tampil di papan mengikuti baris tabel yang lolos saringan, bukan
-     menyaring ulang sendiri. Satu aturan saja, jadi papan dan tabel tidak
-     mungkin memperlihatkan isi yang berbeda. */
+  function isiKartu(o){
+    var hj=Number(o.hargaJual)||0, hpp=Number(o.hpp)||0, dp=Number(o.dp)||0;
+    var sisa=Number(o.sisaTagihan)||0, margin=hj-hpp;
+    var days=sisaHari(o);
+    var adaDl = o.estCompletion && String(o.estCompletion).trim() !== '-';
+    var w=o.warn||{};
+
+    // Riwayat pembayaran disusun dari tanggal DP dan tanggal lunas - itu yang
+    // dicatat sheet. Kalau statusnya lunas tapi tanggalnya kosong, tetap
+    // ditampilkan supaya tidak terlihat seperti belum dibayar.
+    var riw=[];
+    if(dp>0 || o.tglDP) riw.push({ n:'Down Payment', t:o.tglDP||'tanggal tidak tercatat', v:dp });
+    if(o.paymentStatus==='Lunas') riw.push({ n:'Pelunasan', t:o.tglLunas||'tanggal tidak tercatat', v:hj-dp });
+
+    var riwHtml = riw.length
+      ? riw.map(function(x){
+          return '<div class="kbayar"><div><b>'+esc(x.n)+'</b><div class="ksub">'+esc(x.t)+'</div></div>'+
+                 '<div style="color:#16a34a;font-weight:700">'+rp(x.v)+'</div></div>'; }).join('')
+      : '<div class="kkosong">Belum ada pembayaran tercatat.</div>';
+    if(sisa>0) riwHtml += '<div class="kbayar"><div><b>Sisa tagihan</b><div class="ksub">belum dibayar</div></div>'+
+                          '<div style="color:#e0912f;font-weight:700">'+rp(sisa)+'</div></div>';
+
+    var tautan='';
+    if(o.trackingLink) tautan += '<a class="cbtn" style="text-decoration:none" href="'+esc(o.trackingLink)+'" target="_blank">Tracking</a> ';
+    if(o.driveLink)    tautan += '<a class="cbtn" style="text-decoration:none" href="'+esc(o.driveLink)+'" target="_blank">Drive</a> ';
+
+    return '<div class="kbadge">'+statusBadge(o.status)+' '+payBadge(o.paymentStatus)+
+        (w.aging||w.overdue ? ' <span class="warn-badge">⚠ '+(w.overdue?'lewat '+w.overdueDays+' hari':w.ageDays+' hari sejak inquiry')+'</span>' : '')+
+      '</div>'+
+
+      '<div class="kgrid">'+
+        '<div class="kbox"><div class="kh">Order</div>'+
+          barisK('Produk', esc(o.product||'-'))+
+          barisK('Qty', esc(String(o.qty||1)))+
+          barisK('Tipe', esc(o.orderType||'-'))+
+          barisK('Kategori', esc(o.category||'-'))+
+          barisK('Deadline', adaDl
+            ? '<span style="color:'+(days!==null&&days<0?'#cc3333':(days!==null&&days<=3?'#e0912f':'#ddd'))+'">'+
+              esc(o.estCompletion)+(days!==null?' ('+(days<0?Math.abs(days)+' hari lewat':days+' hari lagi')+')':'')+'</span>'
+            : '<span style="color:#55554e">tidak diisi</span>')+
+        '</div>'+
+
+        '<div class="kbox"><div class="kh">Uang</div>'+
+          barisK('Harga jual', rp(hj))+
+          barisK('HPP', rp(hpp))+
+          barisK('Margin', rp(margin), false, margin<0?'#cc3333':'#e0912f')+
+          barisK('DP masuk', rp(dp))+
+          barisK('Sisa tagihan', rp(sisa), true, sisa>0?'#e0912f':'#16a34a')+
+        '</div>'+
+      '</div>'+
+
+      '<div class="kh" style="margin-top:16px">Riwayat pembayaran</div>'+ riwHtml +
+
+      '<div class="kh" style="margin-top:16px">Dokumen terbit</div>'+
+      '<div id="kartuDok"><div class="kkosong">Memuat…</div></div>'+
+
+      '<div class="kh" style="margin-top:16px">Tindakan</div>'+
+      '<div style="display:flex;gap:7px;flex-wrap:wrap">'+
+        '<button class="cbtn" style="border-color:#3b82f6;color:#7cb3ff" onclick="pickOrderPhoto(\''+esc(o.orderId)+'\')">📷 Foto</button>'+
+        '<button class="cbtn" onclick="openTimeline(\''+esc(o.orderId)+'\')">Riwayat Trello</button>'+
+        '<button class="cbtn" onclick="menuBayar(this,\''+esc(o.orderId)+'\')">Pembayaran &#9662;</button>'+
+        '<button class="cbtn" onclick="openSheet(\''+esc(o.orderId)+'\')">Sheet</button>'+
+        '<button class="cbtn" style="border-color:#e0912f;color:#e0912f" onclick="openPO(\''+esc(o.orderId)+'\')">PO</button>'+
+        tautan+
+      '</div>';
+  }
+
+  /* Dokumen diambil terpisah supaya rinciannya langsung terbuka, tidak
+     menunggu server. Gagal ambil bukan alasan menutup seluruh panelnya. */
+  function muatDokKartu(orderId){
+    jsonp(WEB_APP_URL+'?page=admin&action=dokList&key='+encodeURIComponent(ADMIN_KEY)+
+          '&id='+encodeURIComponent(orderId)+'&_='+Date.now(),
+      function(res){
+        var el=document.getElementById('kartuDok');
+        if(!el || KARTU_ID!==orderId) return;         // panel sudah pindah order
+        if(!res || !res.ok){ el.innerHTML='<div class="kkosong">Gagal memuat daftar dokumen.</div>'; return; }
+        var L=res.items||[];
+        el.innerHTML = L.length
+          ? L.map(function(x){
+              return '<div class="kbayar"><div><b>'+esc(x.nomor)+'</b><div class="ksub">'+esc(x.jenis)+' · '+esc(x.tgl)+'</div></div>'+
+                     '<div>'+rp(x.nilai)+'</div></div>'; }).join('')
+          : '<div class="kkosong">Belum ada dokumen terbit untuk order ini.</div>';
+      });
+  }
+
+  /* Papan menyaring datanya sendiri lewat lolosSaring. */
   function renderPipeline(){
     var el=document.getElementById('ordPipa');
     if(!el || !DATA) return;
-    var tampil={}, rows=document.querySelectorAll('#orders tbody tr');
-    for(var i=0;i<rows.length;i++){
-      var id=rows[i].getAttribute('data-id');
-      if(id && rows[i].style.display!=='none') tampil[id]=1;
-    }
     var kolom={}, fase=PIPA_FASE.slice(), lain=[];
     fase.forEach(function(f){ kolom[f]=[]; });
     (DATA.orders||[]).forEach(function(o){
-      if(!tampil[o.orderId]) return;
+      if(!lolosSaring(o)) return;
       if(kolom[o.status]) kolom[o.status].push(o); else lain.push(o);
     });
     // Status di luar tujuh fase tetap ditampilkan, tidak dibuang diam-diam
@@ -2696,8 +2808,8 @@
         esc(o.estCompletion)+(days!==null&&days<0?' ⚠':'')+'</span>'
       : '<span style="color:#55554e">tanpa deadline</span>';
     var sisa = Number(o.sisaTagihan)||0;
-    return '<div class="kartu" style="border-left-color:'+warna+'" title="Klik untuk riwayat" '+
-      'onclick="openTimeline(\''+esc(o.orderId)+'\')">'+
+    return '<div class="kartu" style="border-left-color:'+warna+'" title="Klik untuk rincian" '+
+      'onclick="bukaKartu(\''+esc(o.orderId)+'\')">'+
       '<div class="jud"><span>'+esc(o.orderId)+'</span>'+payBadge(o.paymentStatus)+'</div>'+
       '<div class="prod">'+esc(o.product||'-')+'</div>'+
       '<div class="baris"><span>'+esc(o.customer||'-')+'</span><span>'+rp(o.hargaJual)+'</span></div>'+
@@ -2862,64 +2974,31 @@
   }
 
   // ── Order rows ──
-  function orderRows(orders){
-    if (!orders.length) return '<tr data-no-sort="1"><td colspan="15" style="text-align:center;color:#888">Tidak ada order aktif.</td></tr>';
-    var now = Date.now();
-    return orders.map(function(o){
-      var margin = (Number(o.hargaJual)||0) - (Number(o.hpp)||0);
-      var num = parseInt(String(o.orderId).replace(/\D/g,''),10)||0;
-      var days = o.estMs ? Math.ceil((o.estMs - now)/86400000) : null;
-      var dlColor = days===null ? '' : (days<0 ? '#cc3333' : (days<=3 ? '#e0912f' : ''));
-      var dlStyle = dlColor ? ' style="color:'+dlColor+';font-weight:700"' : '';
-      var link = '';
-      if (o.trackingLink){ link += '<button class="cbtn" data-l="'+esc(o.trackingLink)+'" onclick="copyBtn(this)">salin</button> <a class="link" href="'+esc(o.trackingLink)+'" target="_blank">buka</a>'; }
-      if (o.driveLink) link += (link?' · ':'') + '<a class="link" href="'+esc(o.driveLink)+'" target="_blank">drive</a>';
-      var search = (o.orderId+' '+o.customer+' '+o.product).toLowerCase();
-      var w = o.warn||{};
-      var wTip = [];
-      if (w.aging) wTip.push('Sudah '+w.ageDays+' hari sejak inquiry masuk');
-      if (w.overdue) wTip.push('Lewat deadline '+w.overdueDays+' hari');
-      var wBadge = wTip.length ? ' <span class="warn-badge" title="'+esc(wTip.join(' · '))+'">⚠ '+(w.aging?w.ageDays+'h':'lewat')+'</span>' : '';
-      return '<tr data-id="'+esc(o.orderId)+'" data-s="'+esc(search)+'" data-pay="'+esc(o.paymentStatus)+'" data-days="'+(days===null?'':days)+'" data-warn="'+(wTip.length?'1':'')+'">' +
-        '<td data-v="'+num+'"><b>'+esc(o.orderId)+'</b>'+wBadge+'</td>' +
-        '<td>'+esc(o.customer)+'</td>' +
-        '<td>'+esc(o.product)+'</td>' +
-        '<td>'+esc(o.orderType)+'</td>' +
-        '<td>'+esc(o.category)+'</td>' +
-        '<td class="num" data-v="'+(Number(o.qty)||0)+'">'+esc(o.qty)+'</td>' +
-        '<td class="num" data-v="'+(o.hargaJual||0)+'">'+rp(o.hargaJual)+'</td>' +
-        '<td class="num" data-v="'+(o.hpp||0)+'">'+rp(o.hpp)+'</td>' +
-        '<td class="num" data-v="'+margin+'">'+rp(margin)+'</td>' +
-        '<td data-v="'+esc(o.paymentStatus)+'">'+payBadge(o.paymentStatus)+'</td>' +
-        '<td class="num" data-v="'+(o.sisaTagihan||0)+'">'+rp(o.sisaTagihan)+'</td>' +
-        '<td data-v="'+(o.estMs||0)+'"'+dlStyle+'>'+esc(o.estCompletion)+(days!==null&&days<0?' ⚠':'')+'</td>' +
-        '<td data-v="'+esc(o.status)+'">'+statusBadge(o.status)+'</td>' +
-        '<td>'+link+'</td>' +
-        '<td><button class="cbtn" style="border-color:#3b82f6;color:#7cb3ff" onclick="pickOrderPhoto(\''+esc(o.orderId)+'\')">📷 Foto</button> <button class="cbtn" onclick="openTimeline(\''+esc(o.orderId)+'\')">Riwayat</button> <button class="cbtn" onclick="menuBayar(this,\''+esc(o.orderId)+'\')">Pembayaran &#9662;</button> <button class="cbtn" onclick="openSheet(\''+esc(o.orderId)+'\')">Sheet</button>' +
-          ' <button class="cbtn" style="border-color:#e0912f;color:#e0912f" onclick="openPO(\''+esc(o.orderId)+'\')">PO</button></td>' +
-      '</tr>';
-    }).join('');
+
+  /* Saringan bekerja langsung pada datanya, bukan pada baris tabel - tabelnya
+     sudah tidak ada. Satu fungsi ini yang menentukan order mana yang tampil. */
+  function sisaHari(o){ return o.estMs ? Math.ceil((o.estMs-Date.now())/86400000) : null; }
+
+  function lolosSaring(o){
+    var q   = (document.getElementById('q').value||'').toLowerCase().trim();
+    var pay = document.getElementById('fpay').value;
+    var dl  = document.getElementById('fdl').value;
+    var wOnly = (document.getElementById('fwarn')||{}).checked;
+
+    if(q){
+      var s = ((o.orderId||'')+' '+(o.customer||'')+' '+(o.product||'')).toLowerCase();
+      if(s.indexOf(q) < 0) return false;
+    }
+    if(pay && o.paymentStatus !== pay) return false;
+    var days = sisaHari(o);
+    if(dl==='near' && !(days!==null && days>=0 && days<=3)) return false;
+    if(dl==='over' && !(days!==null && days<0)) return false;
+    var w = o.warn||{};
+    if(wOnly && !(w.aging || w.overdue)) return false;
+    return true;
   }
 
-  function filterOrders(){
-    var q = (document.getElementById('q').value||'').toLowerCase().trim();
-    var pay = document.getElementById('fpay').value;
-    var dl = document.getElementById('fdl').value;
-    var wOnly = (document.getElementById('fwarn')||{}).checked;
-    var rows = document.querySelectorAll('#orders tbody tr');
-    for (var i=0;i<rows.length;i++){
-      var r = rows[i];
-      var okQ = !q || (r.getAttribute('data-s')||'').indexOf(q) > -1;
-      var okP = !pay || r.getAttribute('data-pay') === pay;
-      var dv = r.getAttribute('data-days'); var days = (dv==='' || dv===null) ? null : Number(dv);
-      var okD = true;
-      if (dl==='near') okD = (days!==null && days>=0 && days<=3);
-      else if (dl==='over') okD = (days!==null && days<0);
-      var okW = !wOnly || r.getAttribute('data-warn')==='1';
-      r.style.display = (okQ && okP && okD && okW) ? '' : 'none';
-    }
-    if(ORD_VIEW==='pipa') renderPipeline();
-  }
+  function filterOrders(){ renderPipeline(); }
 
   // ── Evaluasi Bulanan ──
   function renderEval(){
@@ -4447,6 +4526,16 @@
     <div class="draft-meta">Judul card: <b id="draftCardTitle"></b></div>
     <textarea id="draftText" spellcheck="false"></textarea>
     <div class="draft-meta" id="draftHint"></div>
+  </div>
+</div>
+
+<div id="kartuModal">
+  <div class="kwrap">
+    <div class="khead">
+      <h3 id="kartuJudul">Order</h3>
+      <button class="inv-cls" onclick="tutupKartu()">Tutup</button>
+    </div>
+    <div id="kartuBody"></div>
   </div>
 </div>
 
