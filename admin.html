@@ -1548,6 +1548,15 @@
      dibicarakan belakangan. */
   var WKAT = [];
 
+  /* WordPress menyimpan "&" sebagai "&amp;" di nama kategori. Dilempar mentah
+     ke esc() hasilnya "&amp;amp;", dan yang terbaca jadi
+     "Keychain &amp; Key Wallet". Jadi di-decode dulu, baru di-escape. */
+  function deHtml(s){
+    var d = document.createElement('textarea');
+    d.innerHTML = String(s == null ? '' : s);
+    return d.value;
+  }
+
   function loadWkat(){
     var el=document.getElementById('wkatBody'); if(!el) return;
     el.innerHTML='<div class="loading">Memuat kategori\u2026</div>';
@@ -1566,22 +1575,22 @@
       var bawaan = (c.id===15);
       return '<tr'+(sub?' class="katsub"':'')+'>'+
         '<td data-l="Kategori">'+(sub?'<span class="katgaris">\u2514</span> ':'')+
-          '<span class="edit" contenteditable="true" data-id="'+c.id+'" data-orig="'+esc(c.nama)+'" '+
-          'onblur="simpanWkat(this)" title="Klik untuk ganti nama">'+esc(c.nama)+'</span>'+
+          '<span class="edit" contenteditable="true" data-id="'+c.id+'" data-orig="'+esc(deHtml(c.nama))+'" '+
+          'onblur="simpanWkat(this)" title="Klik untuk ganti nama">'+esc(deHtml(c.nama))+'</span>'+
           (bawaan?' <span class="po-hint">bawaan WooCommerce</span>':'')+'</td>'+
         '<td data-l="Slug" style="font-size:11px;color:#888">'+esc(c.slug)+'</td>'+
         '<td data-l="Produk" class="num">'+c.jml+'</td>'+
         '<td data-l="" style="width:150px">'+
-          '<button class="cbtn" onclick="lihatIsiWkat('+c.id+',\''+esc(c.nama).replace(/'/g,"\\'")+'\')">Isi</button> '+
+          '<button class="cbtn" onclick="lihatIsiWkat('+c.id+',\''+esc(deHtml(c.nama)).replace(/'/g,"\\'")+'\')">Isi</button> '+
           (bawaan ? '' :
             '<button class="cbtn" style="border-color:#8a3b3b;color:#d97a7a" '+
-            'onclick="hapusWkat('+c.id+',\''+esc(c.nama).replace(/'/g,"\\'")+'\')">Hapus</button>')+
+            'onclick="hapusWkat('+c.id+',\''+esc(deHtml(c.nama)).replace(/'/g,"\\'")+'\')">Hapus</button>')+
         '</td></tr>';
     }
 
     var opsiInduk = '<option value="">\u2014 kategori induk baru \u2014</option>'+
       induk.filter(function(c){ return c.id!==15; })
-           .map(function(c){ return '<option value="'+c.id+'">di dalam '+esc(c.nama)+'</option>'; }).join('');
+           .map(function(c){ return '<option value="'+c.id+'">di dalam '+esc(deHtml(c.nama))+'</option>'; }).join('');
 
     document.getElementById('wkatBody').innerHTML =
       '<div class="section-title">Kategori Produk <span class="po-hint">'+
@@ -1623,7 +1632,7 @@
       function(res){
         btn.disabled=false; btn.textContent=t;
         if(!res||!res.ok){ msg.innerHTML='<span style="color:#d97a7a">'+esc((res&&res.error)||'Gagal.')+'</span>'; return; }
-        msg.innerHTML='<span style="color:#16a34a">"'+esc(res.nama)+'" dibuat.</span>';
+        msg.innerHTML='<span style="color:#16a34a">"'+esc(deHtml(res.nama))+'" dibuat.</span>';
         document.getElementById('wkatNama').value='';
         loadWkat();
       });
