@@ -4202,42 +4202,63 @@
            (INV_NOMOR?'-'+INV_NOMOR.replace(/\//g,'-'):'')+'.jpg';
   }
 
-  function downloadInvoiceJPG(){
+  /* ── Terbitkan dokumen ──
+     Dulu ini dua tombol terpisah: "Download JPG" dan "Simpan ke Drive".
+     Dua-duanya mengambil nomor, jadi mengunduh saja sudah membuat nomornya
+     terpakai dan tercatat di sheet Dokumen - padahal berkasnya cuma ada di
+     komputer. Catatan bilang dokumen terbit, folder Drive customer kosong.
+
+     Sekarang satu tombol mengerjakan keduanya sekali render: berkasnya turun
+     ke komputer untuk dikirim ke customer, dan salinannya masuk folder Drive
+     sebagai arsip. Nomornya diambil sekali.
+
+     "Unduh saja" tetap disediakan untuk yang memang cuma perlu berkasnya -
+     mencetak ulang, mengirim ulang - tanpa menyentuh arsip. */
+  function terbitkanDokumen(btn, mode){
     if(typeof html2canvas==='undefined'){ alert('html2canvas belum termuat — cek koneksi internet.'); return; }
+    var unduhSaja = (mode === 'unduh');
+    var old=btn.textContent; btn.disabled=true;
+    btn.textContent = unduhSaja ? 'Mengunduh…' : 'Menerbitkan…';
     siapkanNomor(function(){
       var p=document.getElementById('invPaper'); p.classList.add('exporting');
       html2canvas(p, {scale:2, backgroundColor:'#ffffff'}).then(function(canvas){
         p.classList.remove('exporting');
+
+        // Selalu turun ke komputer - itu berkas yang dikirim ke customer
         var a=document.createElement('a');
         a.href=canvas.toDataURL('image/jpeg', 0.92);
         a.download=namaBerkas();
         a.click();
-      }).catch(function(e){ p.classList.remove('exporting'); alert('Gagal render JPG: '+e.message); });
-    });
-  }
 
-  // Simpan invoice ke folder Drive client (POST via hidden form → replace file lama tipe sama)
-  function saveInvoiceDrive(btn){
-    if(typeof html2canvas==='undefined'){ alert('html2canvas belum termuat.'); return; }
-    var old=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan…';
-    siapkanNomor(function(){ simpanDokumen_(btn, old); });
-  }
-  function simpanDokumen_(btn, old){
-    var p=document.getElementById('invPaper'); p.classList.add('exporting');
-    html2canvas(p, {scale:2, backgroundColor:'#ffffff'}).then(function(canvas){
-      p.classList.remove('exporting');
-      var b64 = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
-      var frameName=postFrame_();
-      var form=document.createElement('form'); form.method='POST'; form.action=WEB_APP_URL; form.target=frameName;
-      function add(n,v){ var i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; form.appendChild(i); }
-      add('action','saveInvoice'); add('key',ADMIN_KEY); add('id',INV_ORDERID); add('type',INV_TYPE); add('data',b64);
-      // Angka invoice ikut dikirim: kalau tidak, diskonnya cuma jadi piksel di JPG
-      add('disc', invNum('inv-disc')); add('subtotal', invNum('inv-subtotal-v'));
-      add('grand', invNum('inv-grand-v')); add('nama', INV_NAMA);
-      document.body.appendChild(form); form.submit();
-      setTimeout(function(){ document.body.removeChild(form); btn.disabled=false; btn.textContent=old;
-        alert((INV_NOMOR?INV_NOMOR+' ':'')+'dikirim ke folder Drive client ✅\n(File lama jenis yang sama otomatis diganti.)'); }, 1500);
-    }).catch(function(e){ p.classList.remove('exporting'); btn.disabled=false; btn.textContent=old; alert('Gagal: '+e.message); });
+        if(unduhSaja){
+          btn.disabled=false; btn.textContent=old;
+          return;
+        }
+
+        var b64 = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
+        var frameName=postFrame_();
+        var form=document.createElement('form'); form.method='POST'; form.action=WEB_APP_URL; form.target=frameName;
+        function add(n,v){ var i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; form.appendChild(i); }
+        add('action','saveInvoice'); add('key',ADMIN_KEY); add('id',INV_ORDERID); add('type',INV_TYPE); add('data',b64);
+        // Angka invoice ikut dikirim: kalau tidak, diskonnya cuma jadi piksel di JPG
+        add('disc', invNum('inv-disc')); add('subtotal', invNum('inv-subtotal-v'));
+        add('grand', invNum('inv-grand-v')); add('nama', INV_NAMA);
+        document.body.appendChild(form); form.submit();
+
+        setTimeout(function(){
+          document.body.removeChild(form); btn.disabled=false; btn.textContent=old;
+          // Panel di belakang ikut disegarkan supaya dokumennya langsung
+          // terlihat di daftar, tanpa perlu menutup dan membuka ulang.
+          if(KARTU_ID===INV_ORDERID) muatDokKartu(INV_ORDERID);
+          alert((INV_NOMOR ? INV_NOMOR+'\n\n' : '')+
+                'Berkasnya sudah turun ke komputer, dan salinannya masuk folder Drive customer.\n'+
+                '(File lama jenis yang sama otomatis diganti.)');
+        }, 1500);
+      }).catch(function(e){
+        p.classList.remove('exporting'); btn.disabled=false; btn.textContent=old;
+        alert('Gagal render JPG: '+e.message);
+      });
+    });
   }
 
   // ── Upload foto CUSTOMER (masuk folder Drive order → tampil di link tracking) ──
@@ -5075,8 +5096,8 @@
   <div class="inv-wrap">
     <div class="inv-bar">
       <button class="cbtn" id="invAddItem" onclick="addInvItem()">+ Item</button>
-      <button class="inv-dl" onclick="downloadInvoiceJPG()">⬇ Download JPG</button>
-      <button class="inv-save" onclick="saveInvoiceDrive(this)">💾 Simpan ke Drive</button>
+      <button class="inv-save" onclick="terbitkanDokumen(this)">⬇ Terbitkan &amp; Simpan</button>
+      <button class="inv-dl" onclick="terbitkanDokumen(this, 'unduh')" title="Hanya unduh ke komputer, tidak diarsip ke Drive">Unduh saja</button>
       <button class="inv-cls" onclick="closeInvoice()">Tutup</button>
       <span id="invBawaan" style="display:none;color:#e0912f;font-size:11.5px">Isi dari dokumen sebelumnya dipakai lagi</span>
     </div>
