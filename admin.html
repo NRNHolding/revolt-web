@@ -73,6 +73,18 @@
     .loading, .error { text-align: center; padding: 60px; color: #888; }
 
     /* ── Invoice modal ── */
+    #warnaModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 220; display: none; overflow: auto; padding: 22px; }
+    #warnaModal.show { display: block; }
+    .wwrap { max-width: 520px; margin: 6vh auto 0; background: #16160f; border: 1px solid #3a3a2e;
+      border-radius: 12px; padding: 18px 20px 20px; }
+    .wperingatan { background: #241d12; border: 1px solid #6b4d1f; border-radius: 8px;
+      padding: 9px 11px; margin: 10px 0 12px; font-size: 12.5px; color: #e8c88a; }
+    .wopsi { display: block; width: 100%; text-align: left; background: #1c1c17;
+      border: 1px solid #2b2b23; border-radius: 9px; padding: 11px 13px; margin-bottom: 9px;
+      color: #ddd; cursor: pointer; font: inherit; }
+    .wopsi:hover { border-color: #e0912f; background: #20201a; }
+    .wopsi b { display: block; font-size: 13px; margin-bottom: 3px; }
+    .wopsi span { display: block; color: #9a9a8e; font-size: 11.5px; line-height: 1.5; }
     .samabar { display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
       background: #1c1c17; border: 1px solid #3a3a2e; border-radius: 8px;
       padding: 9px 11px; margin: 4px 0 10px; font-size: 12px; }
@@ -2348,7 +2360,59 @@
       '<button class="cbtn" onclick="samakanHarga(\'kosong\')">Kosongkan Sale</button>'+
       beda +
       '<span id="samaMsg" style="font-size:11.5px"></span>'+
+    '</div>'+
+    barisStok(p);
+  }
+
+  /* Stok dipisah barisnya sendiri, bukan digabung ke baris harga. Menaikkan
+     harga dan mengisi ulang stok itu dua pekerjaan berbeda yang jarang
+     dilakukan bersamaan, dan menaruh empat tombol dalam satu baris membuat
+     keduanya gampang tertukar. */
+  function barisStok(p){
+    var ada = (p.vars || []).filter(function (v) { return !v.hapus; });
+    var s = {};
+    ada.forEach(function (v) { s[String(v.stock === '' || v.stock == null ? '-' : v.stock)] = 1; });
+    var kunci = Object.keys(s);
+    var isi = (kunci.length === 1 && kunci[0] !== '-') ? kunci[0] : '';
+    var beda = kunci.length > 1
+      ? '<span style="color:#e0912f;font-size:11px">stok antar variasi sekarang berbeda</span>'
+      : '';
+    return '<div class="samabar">'+
+      '<b>Samakan stok</b>'+
+      '<span class="po-hint">' + ada.length + ' variasi</span>'+
+      '<span>qty <input id="stokVal" value="' + esc(isi) + '" placeholder="0" style="width:70px"></span>'+
+      '<button class="cbtn" onclick="samakanStok()">Ke semua Stok</button>'+
+      beda +
+      '<span id="stokMsg" style="font-size:11.5px"></span>'+
     '</div>';
+  }
+
+  function samakanStok(){
+    if (!PROD || !PROD.vars || !PROD.vars.length) return;
+    var msg = document.getElementById('stokMsg');
+    var mentah = (document.getElementById('stokVal') || {}).value;
+    var v = String(mentah == null ? '' : mentah).trim();
+
+    if (v === '') {
+      msg.innerHTML = '<span style="color:#d97a7a">Isi qty-nya dulu.</span>';
+      document.getElementById('stokVal').focus();
+      return;
+    }
+    if (!/^\d+$/.test(v)) {
+      msg.innerHTML = '<span style="color:#d97a7a">Qty harus angka bulat, bukan "' + esc(v) + '".</span>';
+      return;
+    }
+
+    var n = 0;
+    PROD.vars.forEach(function (x, i) {
+      if (x.hapus) return;                       // yang ditandai hapus dilewati
+      x.stock = v;
+      var inp = document.querySelector('.vin[data-i="' + i + '"][data-f="stock"]');
+      if (inp) inp.value = v;
+      n++;
+    });
+    msg.innerHTML = '<span style="color:#16a34a">' + n + ' variasi diisi qty ' + esc(v) +
+      ' \u2014 tekan <b>Simpan</b> untuk mengirim ke website.</span>';
   }
 
   function samaEcho(){
@@ -2470,15 +2534,85 @@
       ? (n+' variasi ditandai hapus — klik Simpan untuk menerapkan')
       : 'Tanda hapus dibatalkan';
   }
+  /* ── Ganti nama warna ──
+     Nama warna itu milik bersama, bukan milik produk. "Black" dipakai 13
+     produk; menggantinya lewat satu produk mengubah ke-13-nya. Dulu itu
+     satu-satunya perilaku, jadi maksud "produk ini pakai warna lain" selalu
+     berakhir jadi "semua produk ganti nama".
+
+     Sekarang dihitung dulu berapa produk yang memakainya, baru ditanyakan.
+     Kalau ternyata cuma produk ini yang memakai, tidak ada yang bisa
+     tertabrak - langsung dikerjakan tanpa bertanya. */
+  var WARNA_UBAH = null;
+
   function renameTerm(el){
     var v=el.textContent.trim(), orig=el.getAttribute('data-orig');
     if(!v || v===orig) { el.textContent=orig; return; }
-    if(!confirm('Ganti nama variasi "'+orig+'" jadi "'+v+'"?\n\nNama ini dipakai bersama — berubah di SEMUA produk yang memakainya.')){ el.textContent=orig; return; }
-    el.setAttribute('data-orig',v); el.style.outline='1px solid #e0912f';
-    jsonp(WEB_APP_URL+'?page=admin&action=wooTermRename&attr='+el.getAttribute('data-attr')+'&term='+el.getAttribute('data-term')+'&name='+encodeURIComponent(v)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
-      function(res){ el.style.outline=(res&&res.ok)?'1px solid #16a34a':'1px solid #cc3333';
-        setTimeout(function(){ el.style.outline=''; },1200);
-        if(res&&!res.ok){ alert(res.error); el.textContent=orig; el.setAttribute('data-orig',orig); } });
+    el.textContent=orig;                       // sel dikembalikan; hasilnya dari muat ulang
+    WARNA_UBAH = { attr: el.getAttribute('data-attr'), term: el.getAttribute('data-term'),
+                   lama: orig, baru: v, pid: PROD && PROD.id };
+    el.style.outline='1px solid #e0912f';
+    jsonp(WEB_APP_URL+'?page=admin&action=wooTermPakai&attr='+WARNA_UBAH.attr+
+          '&term='+WARNA_UBAH.term+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        el.style.outline='';
+        if(!res || !res.ok){ alert('Gagal memeriksa pemakaian warna: '+((res&&res.error)||'?')); return; }
+        WARNA_UBAH.jml = res.jml || 0;
+        // Cuma produk ini yang memakai: tidak ada yang bisa tertabrak.
+        if (WARNA_UBAH.jml <= 1) { jalankanWarna('semua'); return; }
+        tanyaWarna();
+      });
+  }
+
+  function tanyaWarna(){
+    var w = WARNA_UBAH;
+    document.getElementById('warnaBody').innerHTML =
+      '<div style="font-size:13.5px;margin-bottom:4px">Ganti <b>'+esc(w.lama)+'</b> jadi <b style="color:#e0912f">'+esc(w.baru)+'</b></div>'+
+      '<div class="wperingatan">Warna <b>'+esc(w.lama)+'</b> dipakai di <b>'+w.jml+' produk</b>. '+
+        'Pilih mana yang lo maksud.</div>'+
+      '<button class="wopsi" onclick="jalankanWarna(\'semua\')">'+
+        '<b>Ganti nama di semua '+w.jml+' produk</b>'+
+        '<span>Namanya memang salah dan perlu dibetulkan di mana-mana. '+
+        'Semua produk yang memakai "'+esc(w.lama)+'" akan tertulis "'+esc(w.baru)+'".</span></button>'+
+      '<button class="wopsi" onclick="jalankanWarna(\'produk\')">'+
+        '<b>Cuma untuk produk ini</b>'+
+        '<span>Produk ini saja yang pindah ke warna "'+esc(w.baru)+'". '+
+        'Warna "'+esc(w.lama)+'" tidak disentuh, '+(w.jml-1)+' produk lain tetap seperti sekarang.</span></button>'+
+      '<div style="text-align:right;margin-top:10px"><button class="cbtn" onclick="tutupWarna()">Batal</button></div>';
+    document.getElementById('warnaModal').classList.add('show');
+  }
+  function tutupWarna(){ document.getElementById('warnaModal').classList.remove('show'); WARNA_UBAH=null; }
+
+  function jalankanWarna(cara){
+    var w = WARNA_UBAH; if(!w) return;
+    var body = document.getElementById('warnaBody');
+    var terbuka = document.getElementById('warnaModal').classList.contains('show');
+    if(terbuka) body.innerHTML = '<div class="loading">Mengerjakan\u2026</div>';
+
+    var url = (cara === 'semua')
+      ? WEB_APP_URL+'?page=admin&action=wooTermRename&attr='+w.attr+'&term='+w.term+
+        '&name='+encodeURIComponent(w.baru)
+      : WEB_APP_URL+'?page=admin&action=wooWarnaTukar&pid='+encodeURIComponent(w.pid)+
+        '&attr='+w.attr+'&lama='+encodeURIComponent(w.lama)+'&nama='+encodeURIComponent(w.baru);
+
+    jsonp(url+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(), function(res){
+      if(!res || !res.ok){
+        var pesan = (res&&res.error) || 'Gagal.';
+        if(terbuka) body.innerHTML='<div style="color:#d97a7a;font-size:13px">'+esc(pesan)+'</div>'+
+          '<div style="text-align:right;margin-top:10px"><button class="cbtn" onclick="tutupWarna()">Tutup</button></div>';
+        else alert(pesan);
+        return;
+      }
+      var ket = (cara === 'semua')
+        ? 'Nama warna diganti di semua produk yang memakainya.'
+        : ('Produk ini pindah ke "'+esc(w.baru)+'" \u2014 '+(res.variasi||0)+' variasi ikut dipindah.'+
+           (res.gagal ? ' Ada yang gagal: '+esc(res.gagal) : ''));
+      tutupWarna();
+      var m=document.getElementById('prodMsg'); if(m) m.textContent=ket.replace(/<[^>]*>/g,'');
+      // Muat ulang produknya supaya yang tampil benar-benar dari website
+      if(PROD && PROD.id) openProd(PROD.id, PROD.name);
+      loadWoo();
+    });
   }
   // simpan isi form ke PROD supaya tidak hilang saat re-render
   function syncProdForm(){
@@ -4798,6 +4932,13 @@
     <div class="draft-meta">Judul card: <b id="draftCardTitle"></b></div>
     <textarea id="draftText" spellcheck="false"></textarea>
     <div class="draft-meta" id="draftHint"></div>
+  </div>
+</div>
+
+<div id="warnaModal">
+  <div class="wwrap">
+    <div class="khead"><h3>Ganti nama warna</h3></div>
+    <div id="warnaBody"></div>
   </div>
 </div>
 
