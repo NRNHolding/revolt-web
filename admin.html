@@ -3130,7 +3130,12 @@
           orderId: x.orderId, customer: x.customer, product: x.product, qty: x.qty,
           category: x.category, orderType: '', status: 'Shipped',
           hargaJual: x.hargaJual, hpp: x.hpp,
-          dp: Number(x.hargaJual) || 0,
+          /* Sheet arsip cuma menyimpan TANGGAL bayar, bukan nilainya - dari 40
+             order selesai, 4 punya tanggal DP dan 28 punya tanggal lunas, dan
+             tidak satu pun menyimpan berapa DP-nya. Mengisi dp dengan harga
+             jual bikin panel menulis "Pelunasan Rp 0", angka yang tidak pernah
+             ada di data mana pun. */
+          dp: 0,
           sisaTagihan: 0,
           paymentStatus: x.tglLunas ? 'Lunas' : (x.tglDP ? 'DP' : 'Belum'),
           tglDP: x.tglDP || '', tglLunas: x.tglLunas || '',
@@ -3166,14 +3171,26 @@
     // dicatat sheet. Kalau statusnya lunas tapi tanggalnya kosong, tetap
     // ditampilkan supaya tidak terlihat seperti belum dibayar.
     var riw=[];
-    if(dp>0 || o.tglDP) riw.push({ n:'Down Payment', t:o.tglDP||'tanggal tidak tercatat', v:dp });
-    if(o.paymentStatus==='Lunas') riw.push({ n:'Pelunasan', t:o.tglLunas||'tanggal tidak tercatat', v:hj-dp });
+    if(o.selesai){
+      /* Order arsip: yang tersimpan cuma tanggal. Kalau lunas, nilainya pasti
+         harga jual penuh dan itu boleh ditulis. Selain itu jangan menebak. */
+      if(o.tglLunas) riw.push({ n:'Lunas', t:o.tglLunas, v:hj });
+      else if(o.tglDP) riw.push({ n:'Down Payment', t:o.tglDP, v:null });
+    } else {
+      if(dp>0 || o.tglDP) riw.push({ n:'Down Payment', t:o.tglDP||'tanggal tidak tercatat', v:dp });
+      if(o.paymentStatus==='Lunas') riw.push({ n:'Pelunasan', t:o.tglLunas||'tanggal tidak tercatat', v:hj-dp });
+    }
 
     var riwHtml = riw.length
       ? riw.map(function(x){
           return '<div class="kbayar"><div><b>'+esc(x.n)+'</b><div class="ksub">'+esc(x.t)+'</div></div>'+
-                 '<div style="color:#16a34a;font-weight:700">'+rp(x.v)+'</div></div>'; }).join('')
-      : '<div class="kkosong">Belum ada pembayaran tercatat.</div>';
+                 (x.v === null
+                   ? '<div class="ksub">nilai tidak tersimpan di arsip</div>'
+                   : '<div style="color:#16a34a;font-weight:700">'+rp(x.v)+'</div>')+
+                 '</div>'; }).join('')
+      : (o.selesai
+          ? '<div class="kkosong">Order sudah dikirim. Rincian pembayarannya tidak tersimpan di arsip.</div>'
+          : '<div class="kkosong">Belum ada pembayaran tercatat.</div>');
     if(sisa>0) riwHtml += '<div class="kbayar"><div><b>Sisa tagihan</b><div class="ksub">belum dibayar</div></div>'+
                           '<div style="color:#e0912f;font-weight:700">'+rp(sisa)+'</div></div>';
 
@@ -3248,11 +3265,20 @@
   function isiUang(o){
     var hj=Number(o.hargaJual)||0, hpp=Number(o.hpp)||0;
     var dp=Number(o.dp)||0, sisa=Number(o.sisaTagihan)||0, margin=hj-hpp;
-    return '<div class="kh">Uang <button class="cbtn" style="float:right;padding:0 7px;font-size:10.5px" '+
-        'onclick="ubahUang()">Ubah</button></div>'+
-      barisK('Harga jual', rp(hj))+
+    var kepala = '<div class="kh">Uang <button class="cbtn" style="float:right;padding:0 7px;font-size:10.5px" '+
+        'onclick="ubahUang()">Ubah</button></div>';
+    var pokok = barisK('Harga jual', rp(hj))+
       barisK('HPP', rp(hpp))+
-      barisK('Margin', rp(margin), false, margin<0?'#cc3333':'#e0912f')+
+      barisK('Margin', rp(margin), false, margin<0?'#cc3333':'#e0912f');
+
+    // Order arsip tidak menyimpan nilai DP, jadi barisnya dilewati daripada
+    // menampilkan Rp 0 yang terbaca seperti "tidak ada DP".
+    if(o.selesai){
+      return kepala + pokok +
+        barisK('Status', o.tglLunas ? 'Lunas '+esc(o.tglLunas) : 'sudah dikirim',
+               true, o.tglLunas ? '#16a34a' : '#9a9a8e');
+    }
+    return kepala + pokok +
       barisK('DP masuk', rp(dp)+(o.tglDP?' <span class="ksub">'+esc(o.tglDP)+'</span>':''))+
       barisK('Sisa tagihan', rp(sisa), true, sisa>0?'#e0912f':'#16a34a');
   }
