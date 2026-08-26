@@ -73,6 +73,12 @@
     .loading, .error { text-align: center; padding: 60px; color: #888; }
 
     /* ── Invoice modal ── */
+    .samabar { display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+      background: #1c1c17; border: 1px solid #3a3a2e; border-radius: 8px;
+      padding: 9px 11px; margin: 4px 0 10px; font-size: 12px; }
+    .samabar b { color: #e0912f; }
+    .samabar input { font-size: 12px; padding: 3px 6px; }
+    .samabar .prp { min-width: 92px; }
     #kartuModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 210; display: none; overflow: auto; padding: 20px; }
     #kartuModal.show { display: block; }
     .kwrap { max-width: 720px; margin: 0 auto; background: #16160f; border: 1px solid #2b2b23;
@@ -2282,6 +2288,7 @@
     return '<div class="pf"><label>Variasi — harga ($) &amp; stok per warna'+(adaUkuran?' &amp; ukuran':'')+' '+
         '<span class="po-hint">klik foto untuk memilih dari foto produk · nama warna bisa diklik-edit</span></label>'+
       pilihFotoBlock(p)+
+      barisSamakan(p)+
       '<table class="vtab"><thead><tr><th>Foto</th><th>Warna</th>'+(adaUkuran?'<th>Ukuran</th>':'')+
         '<th>Harga Reg. ($)</th><th>Harga Sale ($)</th><th>Stok</th><th></th></tr></thead><tbody>'+
       p.vars.map(function(v,i){
@@ -2303,6 +2310,90 @@
       '<button class="cbtn" style="margin-top:8px;border-color:#16a34a;color:#16a34a" onclick="addVariation()">＋ Tambah Warna</button>'+
       '</div>';
   }
+  /* ── Samakan harga ke semua variasi ──
+     Artus Belt punya 15 variasi (3 warna x 5 ukuran) dan harganya sama semua,
+     jadi menaikkan harga berarti mengetik angka yang sama 15 kali. Diperiksa
+     di seluruh 38 produk: tidak ada satu pun yang harganya berbeda antar
+     ukuran, jadi satu tombol untuk semua variasi memang bentuk yang pas.
+
+     Yang diisi cuma kotaknya, belum dikirim. Menyimpan tetap lewat tombol
+     Simpan seperti biasa - supaya angkanya sempat dilihat dulu sebelum
+     mendarat di website. */
+  function bedaHarga(p){
+    var s = {};
+    (p.vars || []).forEach(function (v) {
+      if (!v.hapus) s[bersihUsd(v.regular_price) || '-'] = 1;
+    });
+    return Object.keys(s).length > 1;
+  }
+
+  function barisSamakan(p){
+    var isi = '';
+    (p.vars || []).some(function (v) {
+      if (!v.hapus && bersihUsd(v.regular_price)) { isi = bersihUsd(v.regular_price); return true; }
+      return false;
+    });
+    var n = (p.vars || []).filter(function (v) { return !v.hapus; }).length;
+    var beda = bedaHarga(p)
+      ? '<span style="color:#e0912f;font-size:11px">harga antar variasi sekarang berbeda</span>'
+      : '';
+    return '<div class="samabar">'+
+      '<b>Samakan harga</b>'+
+      '<span class="po-hint">' + n + ' variasi</span>'+
+      '<span>$ <input id="samaVal" value="' + esc(isi) + '" oninput="samaEcho()" '+
+        'placeholder="0" style="width:82px"></span>'+
+      '<span id="samaRp" class="prp">' + usd2rp(isi) + '</span>'+
+      '<button class="cbtn" onclick="samakanHarga(\'regular_price\')">Ke semua Reguler</button>'+
+      '<button class="cbtn" onclick="samakanHarga(\'sale_price\')">Ke semua Sale</button>'+
+      '<button class="cbtn" onclick="samakanHarga(\'kosong\')">Kosongkan Sale</button>'+
+      beda +
+      '<span id="samaMsg" style="font-size:11.5px"></span>'+
+    '</div>';
+  }
+
+  function samaEcho(){
+    var e = document.getElementById('samaRp');
+    if (e) e.textContent = usd2rp((document.getElementById('samaVal') || {}).value);
+  }
+
+  function samakanHarga(medan){
+    if (!PROD || !PROD.vars || !PROD.vars.length) return;
+    var msg = document.getElementById('samaMsg');
+    var kosong = (medan === 'kosong');
+    var f = kosong ? 'sale_price' : medan;
+    var nilai = kosong ? '' : bersihUsd((document.getElementById('samaVal') || {}).value);
+
+    if (!kosong && !nilai) {
+      msg.innerHTML = '<span style="color:#d97a7a">Isi harganya dulu.</span>';
+      document.getElementById('samaVal').focus();
+      return;
+    }
+    // Sale >= reguler bukan diskon; itu hampir pasti salah ketik.
+    if (f === 'sale_price' && !kosong) {
+      var reg = bersihUsd(PROD.vars.filter(function (v) { return !v.hapus; })[0].regular_price);
+      if (reg && parseFloat(nilai) >= parseFloat(reg)) {
+        msg.innerHTML = '<span style="color:#d97a7a">Harga sale ($' + esc(nilai) +
+                        ') tidak lebih murah dari reguler ($' + esc(reg) + ').</span>';
+        return;
+      }
+    }
+
+    var n = 0;
+    PROD.vars.forEach(function (v, i) {
+      if (v.hapus) return;                        // yang ditandai hapus dilewati
+      v[f] = nilai;
+      var inp = document.querySelector('.vin[data-i="' + i + '"][data-f="' + f + '"]');
+      if (inp) inp.value = nilai;
+      var echo = document.getElementById((f === 'regular_price' ? 'rpv-' : 'rps-') + i);
+      if (echo) echo.textContent = usd2rp(nilai);
+      n++;
+    });
+
+    msg.innerHTML = '<span style="color:#16a34a">' + n + ' variasi diisi ' +
+      (kosong ? '(sale dikosongkan)' : ('$' + esc(nilai))) +
+      ' — tekan <b>Simpan</b> untuk mengirim ke website.</span>';
+  }
+
   // ── Pilih foto untuk sebuah warna (berlaku ke semua ukuran warna itu) ──
   function pilihFotoVariasi(warna){
     syncProdForm();
