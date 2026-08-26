@@ -579,6 +579,7 @@
           '<button class="stab" onclick="admTab(2,this)">Database Customer</button>' +
           '<button class="stab" onclick="admTab(3,this)">Diskon</button>' +
           '<button class="stab" onclick="admTab(4,this)">Cadangan</button>' +
+          '<button class="stab" onclick="admTab(5,this)">Discord</button>' +
         '</div>' +
         '<div id="adm1">' + buildLaporan(d) + '</div>' +
         '<div id="adm2" style="display:none">' + buildCustomerDB(d) + '</div>' +
@@ -594,6 +595,11 @@
           '<span style="color:#888;font-size:11px">Potongan harga yang diberikan ke customer — masuk hitungan marketing expense</span>' +
         '</div><div id="dkBody"></div></div>' +
         '<div id="adm4" style="display:none"><div id="cdBody"><div class="loading">Memuat…</div></div></div>' +
+        /* Discord pindah ke sini dari tab Website. Isinya webhook, token bot,
+           dan kejadian mana yang dikirim - setelan sekali pasang, bukan
+           pekerjaan harian, dan sama sekali bukan urusan toko online:
+           channelnya untuk custom order bareng Radja. */
+        '<div id="adm5" style="display:none"><div id="dcBody"><div class="loading">Memuat…</div></div></div>' +
       '</div>' +
       '<div id="page3" style="display:none">' + buildInquiry(d) + '</div>' +
       '<div id="page4" style="display:none">' + buildCatalog() + '</div>' +
@@ -610,12 +616,13 @@
 
   // Sub-tab Administrasi
   function admTab(n, btn){
-    for(var i=1;i<=4;i++){ var el=document.getElementById('adm'+i); if(el) el.style.display=(i===n?'':'none'); }
+    for(var i=1;i<=5;i++){ var el=document.getElementById('adm'+i); if(el) el.style.display=(i===n?'':'none'); }
     document.querySelectorAll('#page2 > .subtabs .stab').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
     if(n===1){ renderEval(); filterReport(); }
     if(n===3 && !window.__DK){ window.__DK=1; loadDiskon(); }
     if(n===4) loadCadangan();
+    if(n===5) loadDiscord();
   }
 
   // ── Notif pesanan web yang butuh tindakan ──
@@ -786,7 +793,6 @@
         '<button class="stab" onclick="wooTab(4,this)">Laporan Web</button>' +
         '<button class="stab" onclick="wooTab(5,this)">Shipping</button>' +
         '<button class="stab" onclick="wooTab(6,this)">Pembayaran</button>' +
-        '<button class="stab" onclick="wooTab(8,this)">Discord</button>' +
       '</div>' +
       '<div id="wtab1">' +
         '<div class="toolbar">' +
@@ -822,7 +828,6 @@
           '<button class="cbtn" onclick="loadWooReport()">Muat</button></div><div id="repBody"></div></div>' +
       '<div id="wtab5" style="display:none"><div id="wooShipBox"></div></div>' +
       '<div id="wtab6" style="display:none"><div id="payBody"></div></div>' +
-      '<div id="wtab8" style="display:none"><div id="dcBody"><div class="loading">Memuat…</div></div></div>' +
       '<div id="wtab7" style="display:none"><div class="toolbar"><button class="cbtn" onclick="loadProofs()">↻ Muat ulang</button>' +
         '<span style="color:#888;font-size:11px">Bukti transfer yang dikirim customer dari halaman konfirmasi</span></div>' +
         '<div id="proofBody"></div></div>' +
@@ -840,7 +845,6 @@
     if(n===5 && !window.__SHIP){ window.__SHIP=1; loadWooShip(); }
     if(n===6 && !window.__PAY) { window.__PAY=1; loadGateways(); }
     if(n===7) loadProofs();
-    if(n===8) loadDiscord();
     if(n===9 && !window.__DK){ window.__DK=1; loadDiskon(); }
     if(n===10) loadCadangan();
   }
