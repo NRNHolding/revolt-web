@@ -4804,14 +4804,19 @@
       a.download='PO-'+PO_ORDERID+'.jpg'; a.click();
     }).catch(function(e){ alert('Gagal render JPG: '+e.message); });
   }
-  function savePODrive(btn){
+  /* Sama seperti Sheet: sekali render, turun ke komputer dan masuk arsip.
+     Nama berkasnya tetap "PO - RI-075.pdf" supaya revisi menimpa yang lama. */
+  function terbitkanPO(btn){
     if(!window.jspdf || typeof html2canvas==='undefined'){ alert('Library belum termuat.'); return; }
-    var old=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan…';
+    var old=btn.textContent; btn.disabled=true; btn.textContent='Menerbitkan…';
     poCanvas().then(function(canvas){
-      var b64=canvasToPdfMulti(canvas).output('datauristring').split(',')[1];
+      var pdf = canvasToPdfMulti(canvas);
+      pdf.save('PO-'+PO_ORDERID+'.pdf');                          // ke komputer
+      var b64 = pdf.output('datauristring').split(',')[1];
       postFile(PO_ORDERID, 'PO - '+PO_ORDERID+'.pdf', 'application/pdf', b64, function(){
         btn.disabled=false; btn.textContent=old;
-        alert('PO tersimpan ke folder Drive client ✅\n(File PO lama otomatis diganti.)');
+        alert('PO '+PO_ORDERID+'\n\nBerkasnya sudah turun ke komputer, dan salinannya masuk folder Drive customer.\n'+
+              '(PO lama otomatis diganti — yang terakhir yang berlaku.)');
       });
     }).catch(function(e){ btn.disabled=false; btn.textContent=old; alert('Gagal: '+e.message); });
   }
@@ -5021,13 +5026,23 @@
     document.body.appendChild(form); form.submit();
     setTimeout(function(){ document.body.removeChild(form); if(done) done(); }, 1800);
   }
-  function saveSheetDrive(btn){
-    if(!window.jspdf){ alert('jsPDF belum termuat.'); return; }
-    var old=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan…';
+  /* Pola yang sama dengan invoice: satu tombol menerbitkan - berkasnya turun
+     ke komputer DAN salinannya masuk arsip Drive - sekali render, bukan dua.
+     Tombol PDF dan JPG di sebelahnya cuma mengunduh.
+
+     Nama berkas di Drive sengaja tanpa nomor atau tanggal: "Custom Sheet -
+     RI-075.pdf" selalu sama, jadi terbitan berikutnya menimpa yang lama.
+     Revisi terakhir yang berlaku, dan folder customer tidak menumpuk versi. */
+  function terbitkanSheet(btn){
+    if(!window.jspdf || typeof html2canvas==='undefined'){ alert('Library belum termuat, cek koneksi.'); return; }
+    var old=btn.textContent; btn.disabled=true; btn.textContent='Menerbitkan…';
     sheetToPdf().then(function(r){
+      r.pdf.save('Custom-Sheet-'+SHEET_ORDERID+'.pdf');          // ke komputer
       var b64 = r.pdf.output('datauristring').split(',')[1];
       postFile(SHEET_ORDERID, 'Custom Sheet - '+SHEET_ORDERID+'.pdf', 'application/pdf', b64, function(){
-        btn.disabled=false; btn.textContent=old; alert('Custom Sheet tersimpan ke folder Drive client ✅');
+        btn.disabled=false; btn.textContent=old;
+        alert('Custom Sheet '+SHEET_ORDERID+'\n\nBerkasnya sudah turun ke komputer, dan salinannya masuk folder Drive customer.\n'+
+              '(Sheet lama otomatis diganti — yang terakhir yang berlaku.)');
       });
     }).catch(function(e){ btn.disabled=false; btn.textContent=old; alert('Gagal: '+e.message); });
   }
@@ -5108,9 +5123,9 @@
 <div id="sheetModal">
   <div style="max-width:820px;margin:0 auto">
     <div class="inv-bar">
-      <button class="inv-dl" onclick="downloadSheetPDF()">⬇ PDF</button>
-      <button class="inv-dl" onclick="downloadSheetJPG()">⬇ JPG</button>
-      <button class="inv-save" onclick="saveSheetDrive(this)">💾 Simpan ke Drive</button>
+      <button class="inv-save" onclick="terbitkanSheet(this)">⬇ Terbitkan &amp; Simpan</button>
+      <button class="inv-dl" onclick="downloadSheetPDF()" title="Hanya unduh, tidak diarsip ke Drive">PDF</button>
+      <button class="inv-dl" onclick="downloadSheetJPG()" title="Hanya unduh, tidak diarsip ke Drive">JPG</button>
       <button class="cbtn" onclick="saveDraftNow(this)">💾 Simpan Draft</button>
       <button class="cbtn" onclick="resetSheet()">↻ Reset</button>
       <button class="inv-cls" onclick="closeSheet()">Tutup</button>
@@ -5170,9 +5185,9 @@
   <div style="max-width:834px;margin:0 auto">
     <div class="inv-bar" style="flex-wrap:wrap">
       <button class="cbtn" onclick="addPOItem()">+ Item</button>
-      <button class="inv-dl" onclick="downloadPOPDF()">⬇ PDF</button>
-      <button class="inv-dl" onclick="downloadPOJPG()">⬇ JPG</button>
-      <button class="inv-save" onclick="savePODrive(this)">💾 Drive</button>
+      <button class="inv-save" onclick="terbitkanPO(this)">⬇ Terbitkan &amp; Simpan</button>
+      <button class="inv-dl" onclick="downloadPOPDF()" title="Hanya unduh, tidak diarsip ke Drive">PDF</button>
+      <button class="inv-dl" onclick="downloadPOJPG()" title="Hanya unduh, tidak diarsip ke Drive">JPG</button>
       <button class="inv-save" style="background:#0079bf" onclick="sendPOToTrello(this)">📎 Ke Trello</button>
       <button class="inv-cls" onclick="closePO()">Tutup</button>
       <span style="color:#777;font-size:10px;margin-left:auto">Semua teks bisa diklik-edit · Foto: klik-2x upload, seret=geser, scroll=zoom · Total otomatis (Qty × Harga)</span>
