@@ -85,6 +85,8 @@
     .wopsi:hover { border-color: #e0912f; background: #20201a; }
     .wopsi b { display: block; font-size: 13px; margin-bottom: 3px; }
     .wopsi span { display: block; color: #9a9a8e; font-size: 11.5px; line-height: 1.5; }
+    .katsub td:first-child { padding-left: 18px; }
+    .katgaris { color: #55554e; margin-right: 3px; }
     .samabar { display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
       background: #1c1c17; border: 1px solid #3a3a2e; border-radius: 8px;
       padding: 9px 11px; margin: 4px 0 10px; font-size: 12px; }
@@ -789,6 +791,7 @@
     return '<div class="subtabs">' +
         '<button class="stab active" onclick="wooTab(1,this)">Produk</button>' +
         '<button class="stab" onclick="wooTab(2,this)">Pesanan <span id="payBadge" class="nbadge" style="display:none">0</span></button>' +
+        '<button class="stab" onclick="wooTab(11,this)">Kategori</button>' +
         '<button class="stab" onclick="wooTab(3,this)">Kupon</button>' +
         '<button class="stab" onclick="wooTab(4,this)">Laporan Web</button>' +
         '<button class="stab" onclick="wooTab(5,this)">Shipping</button>' +
@@ -828,13 +831,14 @@
           '<button class="cbtn" onclick="loadWooReport()">Muat</button></div><div id="repBody"></div></div>' +
       '<div id="wtab5" style="display:none"><div id="wooShipBox"></div></div>' +
       '<div id="wtab6" style="display:none"><div id="payBody"></div></div>' +
+      '<div id="wtab11" style="display:none"><div id="katBody"><div class="loading">Memuat…</div></div></div>' +
       '<div id="wtab7" style="display:none"><div class="toolbar"><button class="cbtn" onclick="loadProofs()">↻ Muat ulang</button>' +
         '<span style="color:#888;font-size:11px">Bukti transfer yang dikirim customer dari halaman konfirmasi</span></div>' +
         '<div id="proofBody"></div></div>' +
       '';
   }
   function wooTab(n, btn){
-    for(var i=1;i<=10;i++){ var el=document.getElementById('wtab'+i); if(el) el.style.display=(i===n?'':'none'); }
+    for(var i=1;i<=11;i++){ var el=document.getElementById('wtab'+i); if(el) el.style.display=(i===n?'':'none'); }
     // Dibatasi ke sub-tab Website saja: sebelumnya semua .stab ikut dimatikan,
     // jadi sorotan sub-tab Administrasi dan Inquiry ikut hilang tanpa sebab.
     document.querySelectorAll('#page4 .subtabs .stab').forEach(function(b){ b.classList.remove('active'); });
@@ -845,6 +849,7 @@
     if(n===5 && !window.__SHIP){ window.__SHIP=1; loadWooShip(); }
     if(n===6 && !window.__PAY) { window.__PAY=1; loadGateways(); }
     if(n===7) loadProofs();
+    if(n===11) loadKat();
     if(n===9 && !window.__DK){ window.__DK=1; loadDiskon(); }
     if(n===10) loadCadangan();
   }
@@ -1536,6 +1541,147 @@
       function(res){ el.style.outline=(res&&res.ok)?'1px solid #16a34a':'1px solid #cc3333'; setTimeout(function(){el.style.outline='';},1000); });
   }
   function usd2rp(v){ var n=parseFloat(String(v).replace(/[^0-9.]/g,'')); return isNaN(n)||!n ? '' : 'Rp '+Math.round(n*WOO_RATE).toLocaleString('id-ID'); }
+  /* ── Kelola kategori produk ──
+     Dulu kategori cuma bisa DIPILIH untuk sebuah produk; membuat, mengganti
+     nama, dan menghapusnya harus lewat wp-admin. Sub-kategori sekarang boleh
+     ditambah sendiri dari sini - yang mau ditampilkan di menu tinggal
+     dibicarakan belakangan. */
+  var KAT = [];
+
+  function loadKat(){
+    var el=document.getElementById('katBody'); if(!el) return;
+    el.innerHTML='<div class="loading">Memuat kategori\u2026</div>';
+    jsonp(WEB_APP_URL+'?page=admin&action=katList&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(!res||!res.ok){ el.innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
+        KAT=res.items||[]; renderKat();
+      });
+  }
+
+  function renderKat(){
+    var induk = KAT.filter(function(c){ return !c.induk; });
+    var anak  = function(id){ return KAT.filter(function(c){ return c.induk===id; }); };
+
+    function baris(c, sub){
+      var bawaan = (c.id===15);
+      return '<tr'+(sub?' class="katsub"':'')+'>'+
+        '<td data-l="Kategori">'+(sub?'<span class="katgaris">\u2514</span> ':'')+
+          '<span class="edit" contenteditable="true" data-id="'+c.id+'" data-orig="'+esc(c.nama)+'" '+
+          'onblur="simpanKat(this)" title="Klik untuk ganti nama">'+esc(c.nama)+'</span>'+
+          (bawaan?' <span class="po-hint">bawaan WooCommerce</span>':'')+'</td>'+
+        '<td data-l="Slug" style="font-size:11px;color:#888">'+esc(c.slug)+'</td>'+
+        '<td data-l="Produk" class="num">'+c.jml+'</td>'+
+        '<td data-l="" style="width:150px">'+
+          '<button class="cbtn" onclick="lihatIsiKat('+c.id+',\''+esc(c.nama).replace(/'/g,"\\'")+'\')">Isi</button> '+
+          (bawaan ? '' :
+            '<button class="cbtn" style="border-color:#8a3b3b;color:#d97a7a" '+
+            'onclick="hapusKat('+c.id+',\''+esc(c.nama).replace(/'/g,"\\'")+'\')">Hapus</button>')+
+        '</td></tr>';
+    }
+
+    var opsiInduk = '<option value="">\u2014 kategori induk baru \u2014</option>'+
+      induk.filter(function(c){ return c.id!==15; })
+           .map(function(c){ return '<option value="'+c.id+'">di dalam '+esc(c.nama)+'</option>'; }).join('');
+
+    document.getElementById('katBody').innerHTML =
+      '<div class="section-title">Kategori Produk <span class="po-hint">'+
+        induk.length+' induk \u00b7 '+(KAT.length-induk.length)+' sub-kategori \u00b7 '+
+        'nama bisa diklik-edit \u00b7 slug tidak ikut berubah supaya tautan lama tetap hidup</span></div>'+
+
+      '<div class="toolbar">'+
+        '<input id="katNama" placeholder="Nama kategori baru\u2026" style="min-width:200px" '+
+          'onkeydown="if(event.key===\'Enter\')tambahKat(this)">'+
+        '<select id="katInduk">'+opsiInduk+'</select>'+
+        '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="tambahKat(this)">\uff0b Tambah</button>'+
+        '<button class="cbtn" onclick="loadKat()">\u21bb Muat ulang</button>'+
+        '<span id="katMsg" style="font-size:11.5px"></span>'+
+      '</div>'+
+
+      '<div class="onote" style="margin-bottom:10px">Sub-kategori sengaja belum ditampilkan di menu website. '+
+        'Kalau sudah mau ditampilkan, bilang saja \u2014 yang dimatikan cuma satu snippet.</div>'+
+
+      '<div class="table-scroll"><table class="rtable"><thead><tr>'+
+        '<th>Kategori</th><th>Slug</th><th class="num">Produk</th><th></th>'+
+      '</tr></thead><tbody>'+
+        induk.map(function(c){
+          return baris(c, false) + anak(c.id).map(function(s){ return baris(s, true); }).join('');
+        }).join('')+
+      '</tbody></table></div>'+
+      '<div id="katIsiBox" style="margin-top:14px"></div>';
+    labelTables();
+  }
+
+  function tambahKat(btn){
+    var nama=(document.getElementById('katNama').value||'').trim();
+    var induk=document.getElementById('katInduk').value;
+    var msg=document.getElementById('katMsg');
+    if(!nama){ msg.innerHTML='<span style="color:#d97a7a">Isi nama kategorinya dulu.</span>';
+      document.getElementById('katNama').focus(); return; }
+    var t=btn.textContent; btn.disabled=true; btn.textContent='Membuat\u2026';
+    jsonp(WEB_APP_URL+'?page=admin&action=katSimpan&key='+encodeURIComponent(ADMIN_KEY)+
+          '&nama='+encodeURIComponent(nama)+'&induk='+encodeURIComponent(induk)+'&_='+Date.now(),
+      function(res){
+        btn.disabled=false; btn.textContent=t;
+        if(!res||!res.ok){ msg.innerHTML='<span style="color:#d97a7a">'+esc((res&&res.error)||'Gagal.')+'</span>'; return; }
+        msg.innerHTML='<span style="color:#16a34a">"'+esc(res.nama)+'" dibuat.</span>';
+        document.getElementById('katNama').value='';
+        loadKat();
+      });
+  }
+
+  function simpanKat(el){
+    var v=el.textContent.trim(), orig=el.getAttribute('data-orig');
+    if(!v || v===orig){ el.textContent=orig; return; }
+    el.setAttribute('data-orig',v); el.style.outline='1px solid #e0912f';
+    jsonp(WEB_APP_URL+'?page=admin&action=katSimpan&key='+encodeURIComponent(ADMIN_KEY)+
+          '&id='+el.getAttribute('data-id')+'&nama='+encodeURIComponent(v)+'&_='+Date.now(),
+      function(res){
+        el.style.outline=(res&&res.ok)?'1px solid #16a34a':'1px solid #cc3333';
+        setTimeout(function(){ el.style.outline=''; },1200);
+        if(!res||!res.ok){ alert((res&&res.error)||'Gagal ganti nama.');
+          el.textContent=orig; el.setAttribute('data-orig',orig); }
+      });
+  }
+
+  /* Isi kategori dihitung dengan status=any, bukan dari angka "Produk" di
+     tabel: angka itu bawaan WooCommerce dan hanya menghitung yang publish.
+     Uncategorized sempat tertulis 3 padahal isinya 7 - empat sisanya draft. */
+  function lihatIsiKat(id, nama){
+    var box=document.getElementById('katIsiBox');
+    box.innerHTML='<div class="loading">Memuat isi "'+esc(nama)+'"\u2026</div>';
+    jsonp(WEB_APP_URL+'?page=admin&action=katIsi&key='+encodeURIComponent(ADMIN_KEY)+
+          '&id='+id+'&_='+Date.now(),
+      function(res){
+        if(!res||!res.ok){ box.innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
+        var L=res.items||[];
+        box.innerHTML='<div class="section-title">Isi "'+esc(nama)+'" ('+L.length+' produk, draft ikut dihitung)</div>'+
+          (L.length
+            ? '<div class="table-scroll"><table class="rtable"><thead><tr><th>Produk</th><th>Status</th><th></th></tr></thead><tbody>'+
+              L.map(function(x){
+                return '<tr><td>'+esc(x.nama)+'</td>'+
+                  '<td>'+(x.status==='publish'
+                    ? '<span class="badge" style="background:#16a34a">publish</span>'
+                    : '<span class="badge" style="background:#6b7280">'+esc(x.status)+'</span>')+'</td>'+
+                  '<td><button class="cbtn" onclick="openProd('+x.id+',\''+esc(x.nama).replace(/'/g,"\\'")+'\')">Buka</button></td></tr>';
+              }).join('')+'</tbody></table></div>'
+            : '<div class="loading">Kosong \u2014 aman dihapus.</div>');
+        labelTables();
+      });
+  }
+
+  function hapusKat(id, nama){
+    if(!confirm('Hapus kategori "'+nama+'"?\n\nProduknya tidak ikut terhapus, cuma kehilangan kategori ini.\n'+
+                'Kalau masih berisi produk atau punya sub-kategori, permintaan ini akan ditolak.')) return;
+    jsonp(WEB_APP_URL+'?page=admin&action=katHapus&key='+encodeURIComponent(ADMIN_KEY)+
+          '&id='+id+'&_='+Date.now(),
+      function(res){
+        var msg=document.getElementById('katMsg');
+        if(!res||!res.ok){ msg.innerHTML='<span style="color:#d97a7a">'+esc((res&&res.error)||'Gagal.')+'</span>'; return; }
+        msg.innerHTML='<span style="color:#16a34a">"'+esc(nama)+'" dihapus.</span>';
+        loadKat();
+      });
+  }
+
   function loadWooCats(){
     jsonp(WEB_APP_URL+'?page=admin&action=wooCats&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
       function(res){
