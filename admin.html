@@ -112,6 +112,9 @@
       padding: 9px 12px; margin-bottom: 6px; font-size: 12.5px; }
     .ksub { color: #8a8a80; font-size: 10.5px; margin-top: 2px; }
     .kkosong { color: #6b6b62; font-size: 12px; padding: 8px 2px; }
+    .kpisah { width: 1px; height: 20px; background: #3a3a2e; margin: 0 3px; flex: none; }
+    .kperingatan { background: #241d12; border: 1px solid #6b4d1f; border-radius: 8px;
+      padding: 9px 11px; font-size: 12px; color: #e8c88a; line-height: 1.6; }
     .kform { display: grid; grid-template-columns: 108px 1fr; gap: 6px 9px; align-items: center; }
     .kform label { color: #9a9a8e; font-size: 11.5px; }
     @media (max-width:640px){ .kgrid { grid-template-columns: 1fr; } #kartuModal { padding: 8px; } }
@@ -3173,12 +3176,20 @@
          Menunya dulu dibuat karena tombolnya berdesakan di baris tabel;
          di panel selebar ini alasan itu sudah tidak ada, dan menyembunyikannya
          cuma menambah satu klik untuk pekerjaan yang paling sering dilakukan. */
+      /* Sheet dan PO ikut di sini, bukan di Tindakan - dua-duanya dokumen yang
+         diterbitkan untuk order ini, sama seperti empat yang lain. Bedanya
+         cuma tidak bernomor, jadi warnanya dibedakan supaya kelompoknya masih
+         terbaca sekilas. Tindakan tinggal berisi yang benar-benar tindakan:
+         menghubungi, mengunggah foto, membuka riwayat dan tautan. */
       '<div class="kh" style="margin-top:16px">Terbitkan dokumen</div>'+
-      '<div style="display:flex;gap:7px;flex-wrap:wrap">'+
+      '<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">'+
         DOK_MENU.map(function(m){
           return '<button class="cbtn" style="border-color:#b5762e;color:#e0a256" '+
                  'onclick="openInvoice(\''+esc(o.orderId)+'\',\''+m.t+'\')">'+m.n+'</button>';
         }).join('')+
+        '<span class="kpisah"></span>'+
+        '<button class="cbtn" onclick="openSheet(\''+esc(o.orderId)+'\')">Sheet</button>'+
+        '<button class="cbtn" style="border-color:#e0912f;color:#e0912f" onclick="openPO(\''+esc(o.orderId)+'\')">PO</button>'+
       '</div>'+
 
       '<div class="kh" style="margin-top:16px">Tindakan</div>'+
@@ -3186,8 +3197,6 @@
         kontak+
         '<button class="cbtn" style="border-color:#3b82f6;color:#7cb3ff" onclick="pickOrderPhoto(\''+esc(o.orderId)+'\')">📷 Foto</button>'+
         '<button class="cbtn" onclick="openTimeline(\''+esc(o.orderId)+'\')">Riwayat Trello</button>'+
-        '<button class="cbtn" onclick="openSheet(\''+esc(o.orderId)+'\')">Sheet</button>'+
-        '<button class="cbtn" style="border-color:#e0912f;color:#e0912f" onclick="openPO(\''+esc(o.orderId)+'\')">PO</button>'+
         tautan+
       '</div>';
   }
@@ -3296,10 +3305,25 @@
         if(!el || KARTU_ID!==orderId) return;         // panel sudah pindah order
         if(!res || !res.ok){ el.innerHTML='<div class="kkosong">Gagal memuat daftar dokumen.</div>'; return; }
         var L=res.items||[];
-        el.innerHTML = L.length
-          ? L.map(function(x){
-              return '<div class="kbayar"><div><b>'+esc(x.nomor)+'</b><div class="ksub">'+esc(x.jenis)+' · '+esc(x.tgl)+'</div></div>'+
-                     '<div>'+rp(x.nilai)+'</div></div>'; }).join('')
+        if(L.length){
+          el.innerHTML = L.map(function(x){
+            return '<div class="kbayar"><div><b>'+esc(x.nomor)+'</b><div class="ksub">'+esc(x.jenis)+' · '+esc(x.tgl)+'</div></div>'+
+                   '<div>'+rp(x.nilai)+'</div></div>'; }).join('');
+          return;
+        }
+        /* Kosong bukan selalu berarti dokumennya belum pernah dibuat.
+           Penomoran baru dipakai belakangan, sementara pembayaran sudah
+           berjalan jauh sebelum itu - 13 dari 20 order sudah DP atau lunas
+           waktu sheet Dokumen masih kosong. Jadi jangan menuduh "belum
+           dibuat"; sebutkan keadaannya dan apa yang bisa dilakukan. */
+        var o=null; ((DATA&&DATA.orders)||[]).forEach(function(x){ if(x.orderId===orderId) o=x; });
+        var bayar = o && (o.paymentStatus==='DP' || o.paymentStatus==='Lunas');
+        el.innerHTML = bayar
+          ? '<div class="kperingatan">Order ini sudah ada pembayaran '+
+              (o.tglDP ? '('+esc(o.tglDP)+')' : (o.tglLunas ? '('+esc(o.tglLunas)+')' : ''))+
+              ' tapi belum ada dokumen yang tercatat di sini. '+
+              'Kalau invoicenya sudah pernah dikirim sebelum penomoran dipakai, '+
+              'terbitkan ulang lewat tombol di bawah supaya ikut bernomor dan tercatat.</div>'
           : '<div class="kkosong">Belum ada dokumen terbit untuk order ini.</div>';
       });
   }
