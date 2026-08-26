@@ -126,6 +126,7 @@
       border-radius:10px; display:flex; flex-direction:column; max-height:66vh; }
     .pipa-h { padding:9px 11px; border-bottom:1px solid #26261f; font-size:11px; font-weight:700;
       letter-spacing:.4px; display:flex; justify-content:space-between; align-items:center; gap:6px; }
+    .pipa-sub { font-size:9.5px; font-weight:400; letter-spacing:0; color:#8a8a80; margin-top:2px; }
     .pipa-n { background:#2a2a22; color:#b5b5aa; border-radius:9px; padding:1px 7px; font-size:10.5px; flex:none; }
     .pipa-b { padding:8px; overflow-y:auto; display:flex; flex-direction:column; gap:7px; }
     .kartu { background:#1c1c17; border:1px solid #2b2b23; border-left:3px solid #666;
@@ -3092,6 +3093,25 @@
      datanya - dua tempat yang sama-sama bisa memindahkan cepat berselisih. */
   var PIPA_FASE = ['Order Received','Proses Desain','Approval Desain','Produksi','Review Customer','Quality Check','Shipped'];
 
+  /* Kartu untuk order yang sudah dikirim. Yang penting di sini bukan deadline
+     dan sisa tagihan lagi, tapi kapan dikirim dan apakah telat - itu yang
+     dipakai menilai bulan yang baru lewat. */
+  function kartuSelesai(c, warna){
+    var telat = Number(c.lateDays) || 0;
+    var jual = Number(c.hargaJual) || 0;
+    return '<div class="kartu" style="border-left-color:'+warna+'" title="Klik untuk rincian" '+
+      'onclick="bukaKartu(\''+esc(c.orderId)+'\')">'+
+      '<div class="jud"><span>'+esc(c.orderId)+'</span>'+
+        (telat > 0
+          ? '<span class="badge" style="background:#cc3333">telat '+telat+' hari</span>'
+          : '<span class="badge" style="background:#16a34a">tepat waktu</span>')+
+      '</div>'+
+      '<div class="prod">'+esc(c.product||'-')+'</div>'+
+      '<div class="baris"><span>'+esc(c.customer||'-')+'</span><span>'+rp(jual)+'</span></div>'+
+      '<div class="baris"><span>deadline '+esc(c.est||'-')+'</span><span>kirim '+esc(c.shipped||'-')+'</span></div>'+
+    '</div>';
+  }
+
   /* ── Rincian satu order ──
      Kartu di papan sengaja ringkas. Yang tidak muat di kartu - rincian uang,
      kapan dibayar, dokumen apa saja yang sudah terbit, dan tombol-tombolnya -
@@ -3100,6 +3120,26 @@
 
   function bukaKartu(orderId){
     var o=null; ((DATA&&DATA.orders)||[]).forEach(function(x){ if(String(x.orderId)===String(orderId)) o=x; });
+    /* Order yang sudah dikirim ada di daftar terpisah dengan bentuk yang
+       sedikit berbeda. Disamakan dulu supaya panelnya tetap bisa dipakai -
+       melihat dokumen, menerbitkan kwitansi, membuka riwayat. */
+    if(!o){
+      ((DATA&&DATA.completed)||[]).forEach(function(x){
+        if(String(x.orderId) !== String(orderId)) return;
+        o = {
+          orderId: x.orderId, customer: x.customer, product: x.product, qty: x.qty,
+          category: x.category, orderType: '', status: 'Shipped',
+          hargaJual: x.hargaJual, hpp: x.hpp,
+          dp: Number(x.hargaJual) || 0,
+          sisaTagihan: 0,
+          paymentStatus: x.tglLunas ? 'Lunas' : (x.tglDP ? 'DP' : 'Belum'),
+          tglDP: x.tglDP || '', tglLunas: x.tglLunas || '',
+          estCompletion: x.est || '', estMs: 0, warn: {},
+          trackingLink: x.trackingLink || '', driveLink: x.driveLink || '',
+          selesai: true
+        };
+      });
+    }
     if(!o){ alert('Order tidak ditemukan.'); return; }
     KARTU_ID = orderId;
     document.getElementById('kartuJudul').innerHTML =
@@ -3341,6 +3381,21 @@
     // Status di luar tujuh fase tetap ditampilkan, tidak dibuang diam-diam
     if(lain.length){ kolom['Lainnya']=lain; fase.push('Lainnya'); }
 
+    /* Kolom Shipped selalu kosong kalau diisi dari DATA.orders: order yang
+       sudah dikirim pindah ke sheet "done shipping" dan tidak ikut di situ.
+       Isinya diambil dari DATA.completed, disaring TANGGAL KIRIM bulan
+       berjalan. Deadline sengaja tidak dipakai sebagai penyaring: yang
+       menentukan sebuah order masuk rekap bulan ini adalah kapan barangnya
+       benar-benar keluar, bukan kapan seharusnya. Dua-duanya beda - Agustus
+       berisi 12 order menurut tanggal kirim, 11 menurut deadline.
+
+       Rekap sebulan, bukan seluruh riwayat - kalau semua 40 order selesai
+       ditumpuk di sini, kolomnya jadi gulungan panjang tanpa guna. */
+    kolom['Shipped'] = (DATA.completed || []).filter(function(c){
+      var bln = c.monthKey || blnKunci(c.shipped);
+      return bln === blnSekarang() && lolosSaringSelesai(c);
+    }).sort(function(a, b){ return (b.shippedMs || 0) - (a.shippedMs || 0); });
+
     /* Kolom Produksi bisa berisi belasan order. Tanpa pengurut, satu-satunya
        cara mencari yang paling mendesak adalah membaca satu per satu. */
     var urut=(document.getElementById('furut')||{}).value||'';
@@ -3359,12 +3414,46 @@
     el.innerHTML='<div class="pipa">'+ fase.map(function(f){
       var w=STATUS_COLOR[f]||'#6b7280';
       return '<div class="pipa-kol">'+
-        '<div class="pipa-h" style="color:'+w+'"><span>'+esc(f)+'</span><span class="pipa-n">'+kolom[f].length+'</span></div>'+
+        '<div class="pipa-h" style="color:'+w+'"><span>'+esc(f)+
+          (f==='Shipped' ? '<div class="pipa-sub">'+esc(namaBulan(blnSekarang()))+'</div>' : '')+
+        '</span><span class="pipa-n">'+kolom[f].length+'</span></div>'+
         '<div class="pipa-b">'+
-          (kolom[f].length ? kolom[f].map(function(o){ return kartuPipa(o,w); }).join('')
-                           : '<div class="pipa-kosong">kosong</div>')+
+          (kolom[f].length
+            ? kolom[f].map(function(o){ return f==='Shipped' ? kartuSelesai(o,w) : kartuPipa(o,w); }).join('')
+            : '<div class="pipa-kosong">'+(f==='Shipped' ? 'belum ada yang dikirim bulan ini' : 'kosong')+'</div>')+
         '</div></div>';
     }).join('') +'</div>';
+  }
+
+  /* Cadangan kalau monthKey tidak ada. Tanggal di sheet ditulis dd/mm/yy atau
+     dd/mm/yyyy, diubah jadi kunci "2026-08" supaya bisa dibandingkan tanpa
+     memakai Date - Date salah baca dd/mm sebagai mm/dd. */
+  function blnKunci(s){
+    var m = String(s == null ? '' : s).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if(!m) return '';
+    var th = m[3].length === 2 ? '20' + m[3] : m[3];
+    return th + '-' + ('0' + m[2]).slice(-2);
+  }
+  function blnSekarang(){
+    var t = new Date();
+    return t.getFullYear() + '-' + ('0' + (t.getMonth() + 1)).slice(-2);
+  }
+  function namaBulan(kunci){
+    var n = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus',
+             'September','Oktober','November','Desember'];
+    var p = String(kunci).split('-');
+    return (n[Number(p[1]) - 1] || '?') + ' ' + p[0];
+  }
+
+  /* Order yang sudah dikirim tidak punya status pembayaran atau sisa tagihan
+     seperti order berjalan, jadi saringannya cuma yang masuk akal: pencarian
+     teks. Saringan deadline sengaja diabaikan di sini - deadline mereka sudah
+     lewat semua menurut definisi, jadi menerapkannya akan mengosongkan kolom
+     tanpa sebab yang bisa dimengerti. */
+  function lolosSaringSelesai(c){
+    var q = (document.getElementById('q').value || '').toLowerCase().trim();
+    if(!q) return true;
+    return ((c.orderId||'')+' '+(c.customer||'')+' '+(c.product||'')).toLowerCase().indexOf(q) > -1;
   }
 
   function kartuPipa(o, warna){
