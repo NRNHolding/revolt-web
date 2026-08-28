@@ -247,8 +247,8 @@
     .prp { font-size: 10px; color: #e0912f; margin-top: 3px; min-height: 12px; }
     @media (max-width: 640px) { .wgrid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 9px; } .wname { font-size: 11.5px; } }
 
-    #katModal, #bulkModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 210; display: none; overflow: auto; padding: 20px; }
-    #katModal.show, #bulkModal.show { display: block; }
+    #bulkModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 210; display: none; overflow: auto; padding: 20px; }
+    #bulkModal.show { display: block; }
     /* Galeri katalog — alur 3 langkah */
     .kstep { border:1px solid #2a2a24; border-radius:10px; padding:13px 15px; margin-bottom:11px; background:#141410; opacity:.5; }
     .kstep.active { opacity:1; border-color:#e0912f; }
@@ -796,6 +796,7 @@
         '<button class="stab active" onclick="wooTab(1,this)">Produk</button>' +
         '<button class="stab" onclick="wooTab(2,this)">Pesanan <span id="payBadge" class="nbadge" style="display:none">0</span></button>' +
         '<button class="stab" onclick="wooTab(11,this)">Kategori</button>' +
+        '<button class="stab" onclick="wooTab(12,this)">Katalog Custom</button>' +
         '<button class="stab" onclick="wooTab(3,this)">Kupon</button>' +
         '<button class="stab" onclick="wooTab(4,this)">Laporan Web</button>' +
         '<button class="stab" onclick="wooTab(5,this)">Shipping</button>' +
@@ -813,7 +814,6 @@
           '</select>' +
           '<button class="cbtn" onclick="loadWoo()">Muat</button>' +
           '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="openNewProd()">＋ Produk Baru</button>' +
-          '<button class="cbtn" style="border-color:#3b82f6;color:#7cb3ff" onclick="openKatalog()">📷 Galeri Foto</button>' +
           '<button class="cbtn" style="border-color:#e0912f;color:#e0912f" onclick="openBulk()">✎ Edit Harga Massal</button>' +
           '<span id="woomsg" style="color:#888;font-size:11px"></span>' +
         '</div>' +
@@ -836,13 +836,27 @@
       '<div id="wtab5" style="display:none"><div id="wooShipBox"></div></div>' +
       '<div id="wtab6" style="display:none"><div id="payBody"></div></div>' +
       '<div id="wtab11" style="display:none"><div id="wkatBody"><div class="loading">Memuat…</div></div></div>' +
+      /* Dulu ini modal yang dibuka lewat tombol "Galeri Foto" di toolbar
+         Produk - tersembunyi di antara tombol lain, dan namanya tidak
+         menyebut katalog sama sekali. Sekarang sub-tab sendiri. */
+      '<div id="wtab12" style="display:none">' +
+        '<div class="section-title">Katalog Custom Order ' +
+          '<span class="po-hint">foto per kategori dan produk, sumbernya folder Drive ' +
+          '<b>5. Customize Order Catalogue</b> · dipakai halaman Custom Order di website</span></div>' +
+        '<div class="toolbar">' +
+          '<button class="cbtn" id="katRefBtn" onclick="katSegarkan(this)" ' +
+            'title="Paksa website ambil data katalog terbaru">↻ Segarkan Web</button>' +
+          '<button class="cbtn" onclick="openKatalog()">↻ Muat ulang</button>' +
+        '</div>' +
+        '<div id="katBody"></div>' +
+      '</div>' +
       '<div id="wtab7" style="display:none"><div class="toolbar"><button class="cbtn" onclick="loadProofs()">↻ Muat ulang</button>' +
         '<span style="color:#888;font-size:11px">Bukti transfer yang dikirim customer dari halaman konfirmasi</span></div>' +
         '<div id="proofBody"></div></div>' +
       '';
   }
   function wooTab(n, btn){
-    for(var i=1;i<=11;i++){ var el=document.getElementById('wtab'+i); if(el) el.style.display=(i===n?'':'none'); }
+    for(var i=1;i<=12;i++){ var el=document.getElementById('wtab'+i); if(el) el.style.display=(i===n?'':'none'); }
     // Dibatasi ke sub-tab Website saja: sebelumnya semua .stab ikut dimatikan,
     // jadi sorotan sub-tab Administrasi dan Inquiry ikut hilang tanpa sebab.
     document.querySelectorAll('#page4 .subtabs .stab').forEach(function(b){ b.classList.remove('active'); });
@@ -854,6 +868,7 @@
     if(n===6 && !window.__PAY) { window.__PAY=1; loadGateways(); }
     if(n===7) loadProofs();
     if(n===11) loadWkat();
+    if(n===12) openKatalog();
     if(n===9 && !window.__DK){ window.__DK=1; loadDiskon(); }
     if(n===10) loadCadangan();
   }
@@ -4420,11 +4435,14 @@
 
   // ── Galeri foto KATALOG — alur 3 langkah (Drive "5. Customize Order Catalogue") ──
   var KAT={cat:'',prod:'',files:[]};
+  /* Bukan modal lagi, jadi tidak ada yang perlu dibuka atau ditutup -
+     tinggal mengisi panelnya. Dipanggil tiap kali sub-tabnya dibuka supaya
+     folder yang baru dibuat di Drive langsung kelihatan. */
   function openKatalog(){
-    document.getElementById('katModal').classList.add('show');
+    if(!document.getElementById('katBody')) return;
     KAT={cat:'',prod:'',files:[]};
     renderKat();
-    muatKategori();   // selalu ambil ulang — folder baru di Drive langsung kelihatan
+    muatKategori();
   }
   function muatKategori(pilih){
     jsonp(WEB_APP_URL+'?page=admin&action=katalogCats&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
@@ -4433,7 +4451,6 @@
         if(pilih) katPilihKategori(pilih); else renderKat();
       });
   }
-  function closeKatalog(){ document.getElementById('katModal').classList.remove('show'); }
 
   function renderKat(){
     var cats=window.__KATCATS||null, prods=window.__KATPRODS||null;
@@ -5352,16 +5369,6 @@
   </div>
 </div>
 
-<div id="katModal">
-  <div style="max-width:900px;margin:0 auto">
-    <div class="inv-bar" style="flex-wrap:wrap">
-      <strong style="color:#f5f4ef;margin-right:auto">Tambah Foto Katalog <span style="font-weight:400;font-size:11px;color:#888">Drive: 5. Customize Order Catalogue</span></strong>
-      <button class="cbtn" id="katRefBtn" onclick="katSegarkan(this)" title="Paksa website ambil data katalog terbaru">↻ Segarkan Web</button>
-      <button class="inv-cls" onclick="closeKatalog()">Tutup</button>
-    </div>
-    <div id="katBody"></div>
-  </div>
-</div>
 <input type="file" id="katInput" accept="image/*" multiple style="display:none" onchange="katUpload(this)">
 <input type="file" id="orderPhotoInput" accept="image/*" multiple style="display:none" onchange="orderPhotoPick(this)">
 <div id="upBar" style="display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:9999;background:#1c1c17;border:1px solid #e0912f;color:#e0912f;padding:11px 18px;border-radius:9px;font-size:13px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.5)"></div>
