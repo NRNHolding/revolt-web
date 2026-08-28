@@ -87,6 +87,19 @@
     .wopsi span { display: block; color: #9a9a8e; font-size: 11.5px; line-height: 1.5; }
     .katsub td:first-child { padding-left: 18px; }
     .katgaris { color: #55554e; margin-right: 3px; }
+    .kpindah { background: #171712; border: 1px solid #33332a; border-radius: 8px;
+      padding: 10px 12px; margin-top: 10px; }
+    .kigrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; }
+    .kicard { display: flex; flex-direction: column; text-align: left; padding: 0; overflow: hidden;
+      background: #1a1a15; border: 1px solid #2b2b23; border-radius: 10px; cursor: pointer;
+      color: #ddd; font: inherit; }
+    .kicard:hover { border-color: #e0912f; }
+    .kicard.aktif { border-color: #e0912f; box-shadow: 0 0 0 1px #e0912f inset; }
+    .kiimg { display: block; aspect-ratio: 1/1; background: #0f0f0c; }
+    .kiimg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .kikosong { display: grid; place-items: center; height: 100%; color: #55554e; font-size: 11px; }
+    .kinama { display: block; padding: 8px 9px 0; font-size: 12px; font-weight: 700; line-height: 1.3; }
+    .kijml { display: block; padding: 3px 9px 9px; font-size: 10.5px; color: #8a8a80; }
     .samabar { display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
       background: #1c1c17; border: 1px solid #3a3a2e; border-radius: 8px;
       padding: 9px 11px; margin: 4px 0 10px; font-size: 12px; }
@@ -849,6 +862,7 @@
           '<button class="cbtn" onclick="openKatalog()">↻ Muat ulang</button>' +
         '</div>' +
         '<div id="katBody"></div>' +
+        '<div id="katIsi" style="margin-top:22px"></div>' +
       '</div>' +
       '<div id="wtab7" style="display:none"><div class="toolbar"><button class="cbtn" onclick="loadProofs()">↻ Muat ulang</button>' +
         '<span style="color:#888;font-size:11px">Bukti transfer yang dikirim customer dari halaman konfirmasi</span></div>' +
@@ -4443,6 +4457,58 @@
     KAT={cat:'',prod:'',files:[]};
     renderKat();
     muatKategori();
+    muatIsiKatalog();
+  }
+
+  /* Ringkasan seluruh katalog, selalu tampil di bawah.
+
+     Sebelumnya panel ini cuma bertanya - pilih kategori, pilih produk -
+     tanpa pernah menunjukkan apa yang sudah ada. Untuk mengelola katalog,
+     yang pertama dibutuhkan justru gambaran isinya: kategori apa saja,
+     masing-masing berapa produk. Datanya dari catalogPublic, sumber yang
+     sama dengan yang dibaca halaman Custom Order di website, jadi yang
+     terlihat di sini persis yang dilihat customer. */
+  function muatIsiKatalog(){
+    var el=document.getElementById('katIsi'); if(!el) return;
+    el.innerHTML='<div class="section-title">Isi katalog sekarang</div>'+
+                 '<div class="loading">Memuat isi katalog\u2026</div>';
+    jsonp(WEB_APP_URL+'?page=admin&action=catalogPublic&_='+Date.now(), function(res){
+      if(!res || !res.ok){ el.innerHTML='<div class="error">Gagal memuat isi katalog.</div>'; return; }
+      window.__KATISI = res.cats || [];
+      renderIsiKatalog();
+    });
+  }
+
+  function renderIsiKatalog(){
+    var el=document.getElementById('katIsi'); if(!el) return;
+    var c=window.__KATISI||[];
+    var totalProduk=c.reduce(function(s,x){ return s+(x.products||0); },0);
+    el.innerHTML='<div class="section-title">Isi katalog sekarang '+
+        '<span class="po-hint">'+c.length+' kategori \u00b7 '+totalProduk+' produk \u00b7 '+
+        'klik kategori untuk mengelolanya di atas</span></div>'+
+      (c.length
+        ? '<div class="kigrid">'+c.map(function(x){
+            return '<button class="kicard'+(KAT.cat===x.name?' aktif':'')+'" '+
+              'onclick="katDariRingkasan('+jsq(x.name)+')" title="Kelola '+esc(x.name)+'">'+
+              '<span class="kiimg">'+(x.cover
+                 ? '<img src="'+esc(x.cover)+'" loading="lazy" alt="">'
+                 : '<span class="kikosong">tanpa foto</span>')+'</span>'+
+              '<span class="kinama">'+esc(x.name)+'</span>'+
+              '<span class="kijml">'+(x.products||0)+' produk</span>'+
+            '</button>';
+          }).join('')+'</div>'
+        : '<div class="loading">Belum ada kategori berisi produk.</div>');
+  }
+
+  /* Dipilih dari ringkasan: langkah 1 dan 2 diatur ulang supaya alurnya
+     mulai bersih di kategori itu, lalu digulir ke atas - kalau tidak,
+     layarnya tidak berubah dan kliknya terasa tidak melakukan apa-apa. */
+  function katDariRingkasan(nama){
+    KAT.prod='';
+    katPilihKategori(nama);
+    renderIsiKatalog();
+    var p=document.getElementById('wtab12');
+    if(p && p.scrollIntoView) p.scrollIntoView({ behavior:'smooth', block:'start' });
   }
   function muatKategori(pilih){
     jsonp(WEB_APP_URL+'?page=admin&action=katalogCats&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
@@ -4478,7 +4544,11 @@
     // LANGKAH 2 — produk
     var s2='<div class="kstep'+(!KAT.cat?'':(KAT.prod?' done':' active'))+'">'+
       '<div class="kshead"><span class="ksno">2</span> Pilih produk'+
-        (KAT.prod?'<span class="kspick">'+esc(KAT.prod)+' <button class="cbtn" onclick="katUbahProduk()">ubah</button></span>':'')+
+        (KAT.prod?'<span class="kspick">'+esc(KAT.prod)+
+          ' <button class="cbtn" onclick="katUbahProduk()">ubah</button>'+
+          ' <button class="cbtn" style="border-color:#3b82f6;color:#7cb3ff" '+
+            'title="Pindahkan produk ini beserta seluruh fotonya ke kategori lain" '+
+            'onclick="bukaPindahProduk()">\u21c4 Pindah kategori</button></span>':'')+
       '</div>';
     if(KAT.cat && !KAT.prod){
       s2+='<div class="kschips">'+
@@ -4537,6 +4607,7 @@
       renderKatPreview();
     }
     if(KAT.cat) loadKatFoto();
+    if(window.__KATISI) renderIsiKatalog();   // sorotan kategori ikut pindah
   }
   function jsq(s){ return "'"+String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/</g,'\\x3c')+"'"; }
 
@@ -4673,6 +4744,69 @@
             '</div></div></div>';
         }).join('')+'</div>';
         if(perProduk) pasangDrag();
+      });
+  }
+
+  /* ── Pindah produk ke kategori lain ──
+     Salah menaruh produk itu wajar - "Key Case" masuk Accessories atau
+     Wallet tergantung siapa yang mengunggah. Sebelum ini satu-satunya cara
+     membetulkan adalah membuka Drive dan menyeret foldernya sendiri.
+
+     Yang berpindah folder produknya, jadi id fotonya tidak berubah: urutan
+     yang sudah ditata dan tautan yang sudah tersebar tetap hidup. */
+  function bukaPindahProduk(){
+    var el=document.getElementById('katPindah');
+    if(!el){
+      el=document.createElement('div'); el.id='katPindah';
+      var s2=document.querySelectorAll('#katBody .kstep')[1];
+      if(!s2) return;
+      s2.appendChild(el);
+    }
+    var lain=(window.__KATCATS||[]).filter(function(c){ return c!==KAT.cat; });
+    el.innerHTML='<div class="kpindah">'+
+      '<div style="font-size:12.5px;margin-bottom:7px">Pindahkan <b>'+esc(KAT.prod)+'</b> '+
+        'dari <b>'+esc(KAT.cat)+'</b> ke:</div>'+
+      '<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">'+
+        '<select id="katKeCat" style="min-width:190px">'+
+          lain.map(function(c){ return '<option>'+esc(c)+'</option>'; }).join('')+
+        '</select>'+
+        '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" '+
+          'onclick="jalankanPindah(this)">Pindahkan</button>'+
+        '<button class="cbtn" onclick="tutupPindah()">Batal</button>'+
+        '<span id="katPindahMsg" style="font-size:11.5px"></span>'+
+      '</div>'+
+      '<div class="osub" style="margin-top:7px">Semua fotonya ikut pindah. '+
+        'Urutan foto tidak berubah, dan tautan yang sudah dipakai tetap hidup.</div>'+
+    '</div>';
+  }
+  function tutupPindah(){
+    var el=document.getElementById('katPindah');
+    if(el && el.parentNode) el.parentNode.removeChild(el);
+  }
+
+  function jalankanPindah(btn){
+    var ke=(document.getElementById('katKeCat')||{}).value||'';
+    var msg=document.getElementById('katPindahMsg');
+    if(!ke){ msg.innerHTML='<span style="color:#d97a7a">Pilih kategori tujuannya dulu.</span>'; return; }
+    var dari=KAT.cat, prod=KAT.prod;
+    var t=btn.textContent; btn.disabled=true; btn.textContent='Memindahkan\u2026';
+    jsonp(WEB_APP_URL+'?page=admin&action=katalogPindah&key='+encodeURIComponent(ADMIN_KEY)+
+          '&cat='+encodeURIComponent(dari)+'&product='+encodeURIComponent(prod)+
+          '&ke='+encodeURIComponent(ke)+'&_='+Date.now(),
+      function(res){
+        btn.disabled=false; btn.textContent=t;
+        if(!res||!res.ok){
+          msg.innerHTML='<span style="color:#d97a7a">'+esc((res&&res.error)||'Gagal.')+'</span>';
+          return;
+        }
+        tutupPindah();
+        /* Dibuka di kategori tujuan, bukan kembali ke asalnya - di sana
+           produknya sudah tidak ada, dan layar kosong terbaca seperti
+           produknya hilang. */
+        KAT.prod='';
+        katPilihKategori(ke);
+        muatIsiKatalog();
+        setTimeout(function(){ katPilihProduk(prod); }, 1200);
       });
   }
 
