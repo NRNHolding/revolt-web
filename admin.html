@@ -89,6 +89,17 @@
     .katgaris { color: #55554e; margin-right: 3px; }
     .kpindah { background: #171712; border: 1px solid #33332a; border-radius: 8px;
       padding: 10px 12px; margin-top: 10px; }
+    .ukbox { background: #171712; border: 1px solid #33332a; border-radius: 8px;
+      padding: 11px 13px; margin-top: 10px; }
+    .ukpil { display: flex; gap: 7px; flex-wrap: wrap; }
+    .ukchip { display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+      background: #1f1f19; border: 1px solid #33332a; border-radius: 6px;
+      padding: 4px 9px; font-size: 12px; }
+    .ukchip.sudah { opacity: .55; cursor: default; }
+    .uksudah { font-size: 10px; color: #16a34a; }
+    .ukbaris { display: flex; gap: 9px; flex-wrap: wrap; align-items: center;
+      margin-top: 9px; font-size: 11.5px; }
+    .ukhit { margin-top: 9px; font-size: 12.5px; color: #ddd; }
     .kigrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; }
     .kicard { display: flex; flex-direction: column; text-align: left; padding: 0; overflow: hidden;
       background: #1a1a15; border: 1px solid #2b2b23; border-radius: 10px; cursor: pointer;
@@ -810,6 +821,7 @@
         '<button class="stab" onclick="wooTab(2,this)">Pesanan <span id="payBadge" class="nbadge" style="display:none">0</span></button>' +
         '<button class="stab" onclick="wooTab(11,this)">Kategori</button>' +
         '<button class="stab" onclick="wooTab(12,this)">Katalog Custom</button>' +
+        '<button class="stab" onclick="wooTab(13,this)">Add-on</button>' +
         '<button class="stab" onclick="wooTab(3,this)">Kupon</button>' +
         '<button class="stab" onclick="wooTab(4,this)">Laporan Web</button>' +
         '<button class="stab" onclick="wooTab(5,this)">Shipping</button>' +
@@ -864,13 +876,25 @@
         '<div id="katBody"></div>' +
         '<div id="katIsi" style="margin-top:22px"></div>' +
       '</div>' +
+      /* Add-on personalisasi: kotak "DEBOSS FROM $10" itu milik plugin
+         Extra Product Options, bukan atribut Woo. Formulirnya disunting di
+         WordPress; yang dikerjakan di sini menyebarkannya. */
+      '<div id="wtab13" style="display:none">' +
+        '<div class="section-title">Add-on personalisasi ' +
+          '<span class="po-hint">kotak seperti <b>DEBOSS FROM $10</b> di halaman produk ' +
+          '· formulirnya milik plugin Extra Product Options, disunting di WordPress</span></div>' +
+        '<div class="toolbar">' +
+          '<button class="cbtn" onclick="loadAddon()">↻ Muat ulang</button>' +
+        '</div>' +
+        '<div id="addonBody"><div class="loading">Memuat…</div></div>' +
+      '</div>' +
       '<div id="wtab7" style="display:none"><div class="toolbar"><button class="cbtn" onclick="loadProofs()">↻ Muat ulang</button>' +
         '<span style="color:#888;font-size:11px">Bukti transfer yang dikirim customer dari halaman konfirmasi</span></div>' +
         '<div id="proofBody"></div></div>' +
       '';
   }
   function wooTab(n, btn){
-    for(var i=1;i<=12;i++){ var el=document.getElementById('wtab'+i); if(el) el.style.display=(i===n?'':'none'); }
+    for(var i=1;i<=13;i++){ var el=document.getElementById('wtab'+i); if(el) el.style.display=(i===n?'':'none'); }
     // Dibatasi ke sub-tab Website saja: sebelumnya semua .stab ikut dimatikan,
     // jadi sorotan sub-tab Administrasi dan Inquiry ikut hilang tanpa sebab.
     document.querySelectorAll('#page4 .subtabs .stab').forEach(function(b){ b.classList.remove('active'); });
@@ -883,6 +907,7 @@
     if(n===7) loadProofs();
     if(n===11) loadWkat();
     if(n===12) openKatalog();
+    if(n===13) loadAddon();
     if(n===9 && !window.__DK){ window.__DK=1; loadDiskon(); }
     if(n===10) loadCadangan();
   }
@@ -1588,6 +1613,140 @@
     var d = document.createElement('textarea');
     d.innerHTML = String(s == null ? '' : s);
     return d.value;
+  }
+
+  /* -- Add-on personalisasi --
+
+     Dari 38 produk cuma satu yang punya kotak "DEBOSS FROM $10". Isinya meta
+     tm_meta milik plugin Extra Product Options: satu gumpalan JSON ~19 KB
+     berisi seluruh formulir - finishing, gaya huruf, penempatan, warna, dan
+     biaya tiap pilihan.
+
+     Jadi yang disediakan di sini menyalin, bukan menyunting. Bentuk formulirnya
+     ditentukan plugin dan bisa berubah kalau pluginnya diperbarui; membuat
+     penyuntingnya sendiri berarti menebak bentuk itu dan pecah diam-diam suatu
+     hari. Formulirnya disunting sekali di WordPress, lalu disebarkan dari sini. */
+  var ADDON = { items: [], dari: 0 };
+
+  function loadAddon(){
+    var el = document.getElementById('addonBody'); if(!el) return;
+    el.innerHTML = '<div class="loading">Memuat daftar produk' + '…' + '</div>';
+    jsonp(WEB_APP_URL + '?page=admin&action=wooAddonList&key=' + encodeURIComponent(ADMIN_KEY) +
+          '&_=' + Date.now(),
+      function(res){
+        if(!res || !res.ok){
+          el.innerHTML = '<div class="error">Gagal memuat daftar add-on.</div>';
+          return;
+        }
+        ADDON.items = res.items || [];
+        var s = ADDON.items.filter(function(x){ return x.punya; })[0];
+        ADDON.dari = s ? s.id : 0;
+        renderAddon();
+      });
+  }
+
+  function renderAddon(){
+    var el = document.getElementById('addonBody'); if(!el) return;
+    var punya = ADDON.items.filter(function(x){ return x.punya; });
+    var tanpa = ADDON.items.filter(function(x){ return !x.punya; });
+    if(!punya.length){
+      el.innerHTML = '<div class="loading">Belum ada produk yang punya add-on. Buat satu dulu di ' +
+        'WordPress (produk \u2192 tab Options), lalu sebarkan dari sini.</div>';
+      return;
+    }
+    el.innerHTML =
+      '<div class="ukbox" style="margin-bottom:14px">' +
+        '<div style="font-size:12.5px;margin-bottom:8px">Salin add-on dari ' +
+          '<select id="adDari" style="min-width:250px">' + punya.map(function(x){
+            return '<option value="' + x.id + '"' + (ADDON.dari === x.id ? ' selected' : '') + '>' +
+              esc(x.name) + ' \u2014 ' + esc(x.label) + '</option>';
+          }).join('') + '</select></div>' +
+        '<div class="ukbaris">' +
+          '<button class="cbtn" onclick="adPilih(\'belum\')">Centang semua yang belum punya</button>' +
+          '<button class="cbtn" onclick="adPilih(\'kosong\')">Kosongkan</button>' +
+          '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" ' +
+            'onclick="adPasang(this)">Pasang ke terpilih</button>' +
+          '<button class="cbtn" style="border-color:#8a3b3b;color:#d97a7a" ' +
+            'onclick="adLepas(this)">Lepas dari terpilih</button>' +
+          '<span id="adMsg" style="font-size:11.5px"></span>' +
+        '</div>' +
+        '<div class="osub" style="margin-top:7px">Formulirnya disalin apa adanya \u2014 pilihan, gambar, ' +
+          'dan biayanya ikut. Kalau formulirnya nanti diubah di WordPress, pasang ulang untuk menyamakan.</div>' +
+      '</div>' +
+      '<div class="section-title">Punya add-on <span class="po-hint">' + punya.length + ' produk</span></div>' +
+      tabelAddon(punya) +
+      '<div class="section-title" style="margin-top:18px">Belum punya ' +
+        '<span class="po-hint">' + tanpa.length + ' produk</span></div>' +
+      tabelAddon(tanpa);
+  }
+
+  function tabelAddon(arr){
+    if(!arr.length) return '<div class="loading">\u2014 tidak ada \u2014</div>';
+    return '<table class="vtab"><thead><tr><th style="width:30px"></th><th>Produk</th>' +
+      '<th style="width:80px">Status</th><th>Add-on</th></tr></thead><tbody>' +
+      arr.map(function(x){
+        return '<tr><td><input type="checkbox" class="adcek" data-p="' + (x.punya ? 1 : 0) +
+            '" value="' + x.id + '"></td>' +
+          '<td data-l="Produk">' + esc(x.name) + '</td>' +
+          '<td data-l="Status">' + esc(x.status) + '</td>' +
+          '<td data-l="Add-on">' + (x.punya
+            ? '<span style="color:#16a34a">' + esc(x.label) + '</span>'
+            : '<span style="color:#8a8a80">\u2014</span>') + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+
+  function adPilih(mode){
+    [].forEach.call(document.querySelectorAll('.adcek'), function(c){
+      c.checked = (mode === 'kosong') ? false
+                : (mode === 'belum' ? c.getAttribute('data-p') === '0' : true);
+    });
+  }
+
+  function adTerpilih(){
+    var out = [];
+    [].forEach.call(document.querySelectorAll('.adcek'), function(c){ if(c.checked) out.push(c.value); });
+    return out;
+  }
+
+  /* Dua tombol ini mengubah halaman produk yang dilihat customer, sekaligus
+     untuk banyak produk - jadi jumlahnya disebut dan dikonfirmasi dulu. */
+  function adKirim(btn, aksi, tanya, kabar){
+    var ids = adTerpilih(), msg = document.getElementById('adMsg');
+    if(!ids.length){
+      msg.innerHTML = '<span style="color:#d97a7a">Centang produknya dulu.</span>';
+      return;
+    }
+    if(!confirm(tanya.replace('{n}', ids.length))) return;
+    var dari = (document.getElementById('adDari') || {}).value || ADDON.dari;
+    var t = btn.textContent; btn.disabled = true; btn.textContent = 'Mengirim' + '…';
+    msg.innerHTML = '';
+    jsonp(WEB_APP_URL + '?page=admin&action=' + aksi + '&dari=' + encodeURIComponent(dari) +
+          '&ke=' + encodeURIComponent(ids.join(',')) +
+          '&key=' + encodeURIComponent(ADMIN_KEY) + '&_=' + Date.now(),
+      function(res){
+        btn.disabled = false; btn.textContent = t;
+        if(!res || !res.ok){
+          msg.innerHTML = '<span style="color:#d97a7a">' + esc((res && res.error) || 'Gagal.') + '</span>';
+          return;
+        }
+        var n = (res.dipasang === undefined) ? res.dilepas : res.dipasang;
+        msg.innerHTML = '<span style="color:#16a34a">' + '✓' + ' ' + kabar.replace('{n}', n) + '</span>' +
+          (res.gagal && res.gagal.length
+            ? ' <span style="color:#d97a7a">' + res.gagal.length + ' gagal</span>' : '');
+        loadAddon();
+      });
+  }
+
+  function adPasang(btn){
+    adKirim(btn, 'wooAddonPakai',
+      'Pasang add-on ke {n} produk? Kotak pilihannya langsung muncul di halaman produk yang dilihat customer.',
+      '{n} produk dipasangi add-on');
+  }
+
+  function adLepas(btn){
+    adKirim(btn, 'wooAddonHapus',
+      'Lepas add-on dari {n} produk? Kotak pilihannya hilang dari halaman produk.',
+      'add-on dilepas dari {n} produk');
   }
 
   function loadWkat(){
@@ -2512,6 +2671,9 @@
           '<td data-l="" style="width:34px"><button class="cbtn" style="padding:1px 6px;border-color:'+(v.hapus?'#c47f00;color:#f0c674':'#8a3b3b;color:#d97a7a')+'" title="'+(v.hapus?'Batalkan tanda hapus':'Tandai hapus — diterapkan saat Simpan')+'" onclick="delVariation('+v.id+')">'+(v.hapus?'↺':'✕')+'</button></td></tr>';
       }).join('')+'</tbody></table>'+
       '<button class="cbtn" style="margin-top:8px;border-color:#16a34a;color:#16a34a" onclick="addVariation()">＋ Tambah Warna</button>'+
+      '<button class="cbtn" style="margin-top:8px;margin-left:6px;border-color:#3b82f6;color:#7cb3ff" '+
+        'title="Tambah dimensi ukuran ke produk ini" onclick="bukaUkuran()">＋ Ukuran</button>'+
+      '<div id="ukPanel"></div>'+
       '</div>';
   }
   /* ── Samakan harga ke semua variasi ──
@@ -2523,6 +2685,120 @@
      Yang diisi cuma kotaknya, belum dikirim. Menyimpan tetap lewat tombol
      Simpan seperti biasa - supaya angkanya sempat dilihat dulu sebelum
      mendarat di website. */
+  /* -- Tambah dimensi ukuran --
+
+     Pertanyaan yang wajar: ini tambah variasi atau apa? Jawabannya dimensi
+     kedua, jadi variasinya DIKALI, bukan ditambah - 2 warna diberi 4 ukuran
+     jadi 8 baris, bukan 6. Panel ini menghitungnya di depan mata supaya
+     angkanya terlihat sebelum tombolnya ditekan.
+
+     Ukuran umum dicentang lewat kotak, ukuran tak lazim (mis. lingkar pinggang
+     28/30/32) diketik sendiri - belt tidak selalu S/M/L. */
+  var UK_UMUM = ['XS', 'S', 'M', 'L', 'XL'];
+
+  function bukaUkuran(){
+    var el = document.getElementById('ukPanel'); if(!el) return;
+    if(el.innerHTML.trim()){ el.innerHTML = ''; return; }   // tombolnya jungkit
+    var lama = [];
+    (PROD.vars || []).forEach(function(v){
+      if(v.ukuran && lama.indexOf(v.ukuran) < 0) lama.push(v.ukuran);
+    });
+    el.innerHTML = '<div class="ukbox">' +
+      '<div style="font-size:12.5px;margin-bottom:8px">' +
+        (lama.length
+          ? 'Produk ini sudah berukuran <b>' + esc(lama.join(', ')) + '</b>. Centang yang mau ditambahkan.'
+          : 'Ukuran itu dimensi kedua, jadi jumlah variasi <b>dikali</b> \u2014 bukan ditambah.') +
+      '</div>' +
+      '<div class="ukpil">' + UK_UMUM.map(function(u){
+          var ada = lama.indexOf(u) > -1;
+          return '<label class="ukchip' + (ada ? ' sudah' : '') + '">' +
+            '<input type="checkbox" value="' + u + '" ' + (ada ? 'checked disabled' : '') +
+            ' onchange="hitungUkuran()"> ' + u + (ada ? ' <span class="uksudah">sudah</span>' : '') +
+          '</label>';
+        }).join('') + '</div>' +
+      '<div class="ukbaris">' +
+        '<label>Ukuran lain <input id="ukLain" placeholder="mis. 28, 30, 32" ' +
+          'style="width:158px" oninput="hitungUkuran()"></label>' +
+        '<label>Stok awal tiap ukuran baru <input id="ukStok" value="0" style="width:62px"></label>' +
+      '</div>' +
+      '<div id="ukHitung" class="ukhit"></div>' +
+      '<div class="ukbaris" style="margin-top:9px">' +
+        '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" ' +
+          'onclick="jalankanUkuran(this)">Tambahkan ukuran</button>' +
+        '<button class="cbtn" onclick="bukaUkuran()">Batal</button>' +
+        '<span id="ukMsg" style="font-size:11.5px"></span>' +
+      '</div>' +
+      '<div class="osub" style="margin-top:7px">Harga dan foto disalin dari warna yang sama. ' +
+        'Stok tidak disalin \u2014 diisi dari kotak di atas, supaya stok 200 tidak berlipat jadi 800.</div>' +
+    '</div>';
+    hitungUkuran();
+  }
+
+  function ukuranDipilih(){
+    var out = [];
+    [].forEach.call(document.querySelectorAll('#ukPanel input[type=checkbox]'), function(c){
+      if(c.checked && !c.disabled) out.push(c.value);
+    });
+    var lain = (document.getElementById('ukLain') || {}).value || '';
+    lain.split(',').forEach(function(x){
+      var t = String(x).trim();
+      if(t && out.indexOf(t) < 0) out.push(t);
+    });
+    return out;
+  }
+
+  function hitungUkuran(){
+    var el = document.getElementById('ukHitung'); if(!el) return;
+    var warna = {}, lama = {}, punya = {};
+    (PROD.vars || []).forEach(function(v){
+      var w = v.warna || v.name; if(!w || v.hapus) return;
+      warna[w] = 1;
+      if(v.ukuran){ lama[v.ukuran] = 1; punya[w + '|' + v.ukuran] = 1; }
+    });
+    var nw = 0; for(var k in warna) if(warna.hasOwnProperty(k)) nw++;
+    var baru = ukuranDipilih();
+    if(!baru.length){
+      el.innerHTML = '<span style="color:#8a8a80">Belum ada ukuran dipilih.</span>';
+      return;
+    }
+    var semua = [];
+    for(var u in lama) if(lama.hasOwnProperty(u)) semua.push(u);
+    baru.forEach(function(u){ if(semua.indexOf(u) < 0) semua.push(u); });
+    var tambah = 0;
+    for(var w in warna){
+      if(!warna.hasOwnProperty(w)) continue;
+      semua.forEach(function(u){ if(!punya[w + '|' + u]) tambah++; });
+    }
+    el.innerHTML = '<b>' + nw + '</b> warna ' + '×' + ' <b>' + semua.length + '</b> ukuran = ' +
+      '<b>' + (nw * semua.length) + '</b> variasi ' +
+      '<span style="color:#e0912f">(' + tambah + ' baris baru)</span>';
+  }
+
+  function jalankanUkuran(btn){
+    var uk = ukuranDipilih(), msg = document.getElementById('ukMsg');
+    if(!uk.length){
+      msg.innerHTML = '<span style="color:#d97a7a">Pilih atau ketik ukurannya dulu.</span>';
+      return;
+    }
+    var st = String((document.getElementById('ukStok') || {}).value || '0').replace(/[^0-9]/g, '');
+    var t = btn.textContent; btn.disabled = true; btn.textContent = 'Menambahkan' + '…';
+    jsonp(WEB_APP_URL + '?page=admin&action=wooUkuranAdd&id=' + PROD.id +
+          '&sizes=' + encodeURIComponent(uk.join(',')) +
+          '&stok=' + encodeURIComponent(st) +
+          '&key=' + encodeURIComponent(ADMIN_KEY) + '&_=' + Date.now(),
+      function(res){
+        btn.disabled = false; btn.textContent = t;
+        if(!res || !res.ok){
+          msg.innerHTML = '<span style="color:#d97a7a">' + esc((res && res.error) || 'Gagal.') + '</span>';
+          return;
+        }
+        document.getElementById('prodMsg').textContent =
+          '✓' + ' ' + res.warna + ' warna ' + '×' + ' ' + res.ukuran + ' ukuran = ' + res.total + ' variasi' +
+          (res.gagal && res.gagal.length ? ' \u2014 ' + res.gagal.length + ' gagal' : '');
+        openProd(PROD.id);
+      });
+  }
+
   function bedaHarga(p){
     var s = {};
     (p.vars || []).forEach(function (v) {
