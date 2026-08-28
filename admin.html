@@ -2749,11 +2749,12 @@
 
   function hitungUkuran(){
     var el = document.getElementById('ukHitung'); if(!el) return;
-    var warna = {}, lama = {}, punya = {};
+    var warna = {}, lama = {}, punya = {}, polos = {};
     (PROD.vars || []).forEach(function(v){
       var w = v.warna || v.name; if(!w || v.hapus) return;
       warna[w] = 1;
       if(v.ukuran){ lama[v.ukuran] = 1; punya[w + '|' + v.ukuran] = 1; }
+      else polos[w] = 1;   // baris warna yang belum berukuran
     });
     var nw = 0; for(var k in warna) if(warna.hasOwnProperty(k)) nw++;
     var baru = ukuranDipilih();
@@ -2764,14 +2765,24 @@
     var semua = [];
     for(var u in lama) if(lama.hasOwnProperty(u)) semua.push(u);
     baru.forEach(function(u){ if(semua.indexOf(u) < 0) semua.push(u); });
-    var tambah = 0;
+
+    /* Baris warna yang belum berukuran tidak dibuang - dia dipakai ulang untuk
+       ukuran pertama warnanya, supaya id, SKU, dan fotonya tidak berganti. Jadi
+       dari 8 kombinasi yang kurang, 2 di antaranya cuma diberi ukuran. Menyebut
+       delapan-duanya "baris baru" membuat angka di panel tidak cocok dengan
+       yang dikerjakan server. */
+    var tambah = 0, pakaiUlang = 0;
     for(var w in warna){
       if(!warna.hasOwnProperty(w)) continue;
-      semua.forEach(function(u){ if(!punya[w + '|' + u]) tambah++; });
+      var kurang = 0;
+      semua.forEach(function(u){ if(!punya[w + '|' + u]) kurang++; });
+      tambah += kurang;
+      if(polos[w] && kurang > 0) pakaiUlang++;
     }
     el.innerHTML = '<b>' + nw + '</b> warna ' + '×' + ' <b>' + semua.length + '</b> ukuran = ' +
       '<b>' + (nw * semua.length) + '</b> variasi ' +
-      '<span style="color:#e0912f">(' + tambah + ' baris baru)</span>';
+      '<span style="color:#e0912f">(' + (tambah - pakaiUlang) + ' baris baru' +
+      (pakaiUlang ? ', ' + pakaiUlang + ' baris lama dapat ukuran' : '') + ')</span>';
   }
 
   function jalankanUkuran(btn){
