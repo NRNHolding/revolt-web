@@ -96,6 +96,10 @@
     .mpmap { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; color: #b6b6ab; }
     .mpmap select { width: 100%; }
     .mphit { margin: 11px 0 7px; font-size: 12.5px; color: #ddd; }
+    .mprow { cursor: pointer; }
+    .mprow:hover { background: #1c1c16; }
+    .mpvar { padding: 6px 8px 9px !important; }
+    .mpvar span { display: inline-block; margin: 0 12px 4px 0; font-size: 11.5px; color: #9a9a8e; }
     .ukbox { background: #171712; border: 1px solid #33332a; border-radius: 8px;
       padding: 11px 13px; margin-top: 10px; }
     .ukpil { display: flex; gap: 7px; flex-wrap: wrap; }
@@ -1715,13 +1719,23 @@
         '<span style="color:#888;font-size:11px">'+r.dipakai+' baris masuk hitungan</span>'+
       '</div>'+
       '<div class="table-scroll"><table class="mini"><thead><tr>'+
-        '<th style="width:34px">#</th><th>Produk</th><th>Varian</th>'+
+        '<th style="width:34px">#</th><th>Produk</th><th>Varian teratas</th>'+
         '<th class="num">Qty</th><th class="num">Omset</th><th>Kanal</th>'+
       '</tr></thead><tbody>'+
       (r.perProduk.length ? r.perProduk.map(function(x,i){
-        return '<tr><td>'+(i+1)+'</td><td><b>'+esc(x.produk)+'</b></td>'+
-          '<td>'+esc(x.varian||'\u2014')+'</td><td class="num">'+x.qty+'</td>'+
-          '<td class="num">'+rp(x.omset)+'</td><td>'+esc(x.kanal)+'</td></tr>';
+        /* Satu baris = satu produk. Varian dilipat ke dalamnya: yang ingin
+           dilihat pertama "apa yang laku", baru "ukuran/warna mana". */
+        var lain=(x.jmlVarian||1)-1;
+        return '<tr class="mprow" onclick="mpBukaVarian('+i+')">'+
+            '<td>'+(i+1)+'</td><td><b>'+esc(x.produk)+'</b></td>'+
+            '<td>'+esc(x.varianTeratas||'\u2014')+
+              (lain>0?' <span class="po-hint">+'+lain+' varian</span>':'')+'</td>'+
+            '<td class="num">'+x.qty+'</td>'+
+            '<td class="num">'+rp(x.omset)+'</td><td>'+esc(x.kanal)+'</td></tr>'+
+          '<tr id="mpv'+i+'" hidden><td></td><td colspan="5" class="mpvar">'+
+            (x.rincian||[]).map(function(v){
+              return '<span>'+esc(v.varian)+' <b>'+v.qty+'</b> pcs \u00b7 '+rp(v.omset)+'</span>';
+            }).join('')+'</td></tr>';
       }).join('') : '<tr><td colspan="6" style="color:#888">Tidak ada penjualan di saringan ini.</td></tr>')+
       '</tbody></table></div>'+
 
@@ -1729,6 +1743,11 @@
         '<span class="po-hint">salah impor bisa dibatalkan utuh</span></div>'+
       '<div id="mpBatch"><div class="loading">Memuat'+'\u2026'+'</div></div>';
     loadMpBatch();
+  }
+
+  function mpBukaVarian(i){
+    var el=document.getElementById('mpv'+i);
+    if(el) el.hidden=!el.hidden;
   }
 
   function loadMpBatch(){
