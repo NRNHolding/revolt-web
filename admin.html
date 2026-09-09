@@ -89,6 +89,13 @@
     .katgaris { color: #55554e; margin-right: 3px; }
     .kpindah { background: #171712; border: 1px solid #33332a; border-radius: 8px;
       padding: 10px 12px; margin-top: 10px; }
+    .mpbox { background: #171712; border: 1px solid #33332a; border-radius: 8px;
+      padding: 12px 14px; }
+    .mpgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 9px; margin-top: 12px; }
+    .mpmap { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; color: #b6b6ab; }
+    .mpmap select { width: 100%; }
+    .mphit { margin: 11px 0 7px; font-size: 12.5px; color: #ddd; }
     .ukbox { background: #171712; border: 1px solid #33332a; border-radius: 8px;
       padding: 11px 13px; margin-top: 10px; }
     .ukpil { display: flex; gap: 7px; flex-wrap: wrap; }
@@ -610,9 +617,28 @@
           '<button class="stab" onclick="admTab(3,this)">Diskon</button>' +
           '<button class="stab" onclick="admTab(4,this)">Cadangan</button>' +
           '<button class="stab" onclick="admTab(5,this)">Discord</button>' +
+          '<button class="stab" onclick="admTab(6,this)">Marketplace</button>' +
         '</div>' +
         '<div id="adm1">' + buildLaporan(d) + '</div>' +
         '<div id="adm2" style="display:none">' + buildCustomerDB(d) + '</div>' +
+        '<div id="adm6" style="display:none">' +
+          '<div class="section-title">Penjualan marketplace ' +
+            '<span class="po-hint">impor laporan pesanan dari Shopee, Tokopedia, atau kanal lain ' +
+            '· simpan sebagai CSV dulu</span></div>' +
+          '<div class="mpbox">' +
+            '<div class="ukbaris" style="margin-top:0">' +
+              '<label>Kanal <select id="mpKanal">' +
+                '<option>Shopee</option><option>Tokopedia</option>' +
+                '<option>TikTok Shop</option><option>Lazada</option><option>Lainnya</option>' +
+              '</select></label>' +
+              '<input type="file" id="mpFile" accept=".csv,text/csv,text/plain" onchange="mpBaca(this)">' +
+              '<span id="mpInfo" style="font-size:11.5px;color:#8a8a80"></span>' +
+            '</div>' +
+            '<div id="mpPeta"></div>' +
+          '</div>' +
+          '<div id="mpLap" style="margin-top:18px"><div class="loading">Memuat…</div></div>' +
+        '</div>' +
+
         /* Diskon dan cadangan pindah ke sini dari tab Website. Dua-duanya
            bukan urusan toko online: diskon itu catatan biaya marketing,
            cadangan itu perawatan sistem. */
@@ -646,13 +672,14 @@
 
   // Sub-tab Administrasi
   function admTab(n, btn){
-    for(var i=1;i<=5;i++){ var el=document.getElementById('adm'+i); if(el) el.style.display=(i===n?'':'none'); }
+    for(var i=1;i<=6;i++){ var el=document.getElementById('adm'+i); if(el) el.style.display=(i===n?'':'none'); }
     document.querySelectorAll('#page2 > .subtabs .stab').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
     if(n===1){ renderEval(); filterReport(); }
     if(n===3 && !window.__DK){ window.__DK=1; loadDiskon(); }
     if(n===4) loadCadangan();
     if(n===5) loadDiscord();
+    if(n===6) loadMarket();
   }
 
   // ── Notif pesanan web yang butuh tindakan ──
@@ -1378,6 +1405,363 @@
   }
 
   // ── Discord: satu webhook untuk semua pemberitahuan ──
+  /* ===== Penjualan marketplace =====
+
+     Berkasnya dibaca di browser, bukan dikirim mentah ke server. Dua alasan:
+     hasil pembacaannya bisa dilihat dulu sebelum ditulis ke sheet, dan
+     kolomnya bisa dipetakan sendiri - jadi tidak ada format yang di-hardcode.
+     Shopee boleh ganti nama kolom, Tokopedia boleh beda sendiri, dan kanal
+     baru seperti TikTok Shop tinggal ikut; yang berubah cuma pilihan di
+     kotak peta, bukan kodenya. */
+  var MP = { baris: [], kolom: [], nama: '' };
+
+  var MP_TEBAK = {
+    tanggal: ['waktu pesanan dibuat','waktu pembayaran dilakukan','tanggal pembayaran','waktu pesanan',
+              'order creation date','created time','create time','tanggal pesanan','tanggal','waktu','date'],
+    pesanan: ['no. pesanan','nomor pesanan','no pesanan','kode pesanan','order id','order sn',
+              'no. invoice','nomor invoice','invoice','order_id'],
+    produk:  ['nama produk','product name','nama barang','judul produk','produk','product'],
+    varian:  ['nama variasi','variation name','nama varian','variasi','varian','sku induk','sku'],
+    qty:     ['jumlah produk dibeli','jumlah barang','quantity','jumlah','qty','kuantitas'],
+    total:   ['total pembayaran','total penjualan','total harga produk','harga setelah diskon',
+              'total pesanan','grand total','subtotal','total'],
+    status:  ['status pesanan','order status','status']
+  };
+  var MP_WAJIB = ['tanggal','pesanan','produk','qty','total'];
+  var MP_LABEL = { tanggal:'Tanggal', pesanan:'No Pesanan', produk:'Produk',
+                   varian:'Varian', qty:'Qty', total:'Total', status:'Status' };
+
+  /* Pembaca CSV yang menghormati tanda kutip - nama produk sering mengandung
+     koma ("Belt II, Black"), dan memecah asal koma memecah barisnya juga. */
+  function mpPecah(teks, pemisah){
+    var hasil=[], baris=[], medan='', kutip=false;
+    for(var i=0;i<teks.length;i++){
+      var c=teks[i];
+      if(kutip){
+        if(c==='"'){ if(teks[i+1]==='"'){ medan+='"'; i++; } else kutip=false; }
+        else medan+=c;
+      } else if(c==='"'){ kutip=true; }
+      else if(c===pemisah){ baris.push(medan); medan=''; }
+      else if(c==='\n'){ baris.push(medan); hasil.push(baris); baris=[]; medan=''; }
+      else if(c!=='\r'){ medan+=c; }
+    }
+    if(medan!=='' || baris.length){ baris.push(medan); hasil.push(baris); }
+    return hasil.filter(function(r){ return r.some(function(x){ return String(x).trim(); }); });
+  }
+
+  // Pemisahnya ditebak dari baris pertama - Shopee pakai koma, sebagian
+  // export Indonesia pakai titik koma karena Excel lokal begitu.
+  function mpPemisah(teks){
+    var baris1=teks.split('\n')[0]||'';
+    var luar=true, hit={',':0,';':0,'\t':0};
+    for(var i=0;i<baris1.length;i++){
+      var c=baris1[i];
+      if(c==='"') luar=!luar;
+      else if(luar && hit.hasOwnProperty(c)) hit[c]++;
+    }
+    var best=',', n=-1;
+    for(var k in hit) if(hit[k]>n){ n=hit[k]; best=k; }
+    return best;
+  }
+
+  /* Uang: "Rp 1.234.567", "1,234,567.00", "1234567" harus jadi angka yang sama.
+     Pemisah desimal itu yang TERAKHIR muncul; kalau cuma ada satu jenis dan
+     sisanya tepat 3 digit, itu pemisah ribuan - "1.500" di sini artinya
+     seribu lima ratus, bukan satu koma lima. */
+  function mpAngka(v){
+    var t=String(v==null?'':v).replace(/[^\d.,\-]/g,'').trim();
+    if(!t) return 0;
+    var titik=t.lastIndexOf('.'), koma=t.lastIndexOf(',');
+    if(titik>-1 && koma>-1){
+      t = (titik>koma) ? t.replace(/,/g,'') : t.replace(/\./g,'').replace(',','.');
+    } else if(koma>-1){
+      t = (t.length-koma-1===3) ? t.replace(/,/g,'') : t.replace(',','.');
+    } else if(titik>-1){
+      if(t.length-titik-1===3) t=t.replace(/\./g,'');
+    }
+    var n=parseFloat(t);
+    return isNaN(n)?0:n;
+  }
+
+  /* Tanggal dijadikan YYYY-MM-DD. Bentuk hari-dulu dibaca sebagai tanggal
+     Indonesia (08/09 = 8 September), karena itu yang dipakai Shopee dan
+     Tokopedia. Hasilnya tampil di pratinjau, jadi kalau salah tafsir
+     ketahuan sebelum diimpor. */
+  function mpTanggal(v){
+    var t=String(v==null?'':v).trim(); if(!t) return '';
+    function p2(x){ x=String(x); return x.length<2?('0'+x):x; }
+    var m;
+    if((m=t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return m[1]+'-'+p2(m[2])+'-'+p2(m[3]);
+    if((m=t.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/))) return m[1]+'-'+p2(m[2])+'-'+p2(m[3]);
+    if((m=t.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/))) return m[3]+'-'+p2(m[2])+'-'+p2(m[1]);
+    var d=new Date(t);
+    if(!isNaN(d.getTime())) return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());
+    return '';
+  }
+
+  function mpTebakKolom(kolom){
+    var peta={}, kepakai={};
+    Object.keys(MP_TEBAK).forEach(function(medan){
+      var kandidat=MP_TEBAK[medan];
+      for(var c=0;c<kandidat.length;c++){
+        for(var i=0;i<kolom.length;i++){
+          if(kepakai[i]) continue;
+          var nk=String(kolom[i]||'').trim().toLowerCase();
+          if(nk===kandidat[c]){ peta[medan]=i; kepakai[i]=1; return; }
+        }
+      }
+      for(var c2=0;c2<kandidat.length;c2++){
+        for(var j=0;j<kolom.length;j++){
+          if(kepakai[j]) continue;
+          var nk2=String(kolom[j]||'').trim().toLowerCase();
+          if(nk2.indexOf(kandidat[c2])>-1){ peta[medan]=j; kepakai[j]=1; return; }
+        }
+      }
+    });
+    return peta;
+  }
+
+  function mpBaca(inp){
+    var f=inp.files && inp.files[0];
+    var info=document.getElementById('mpInfo');
+    if(!f){ info.textContent=''; document.getElementById('mpPeta').innerHTML=''; return; }
+    if(f.size > 12*1024*1024){
+      info.innerHTML='<span style="color:#d97a7a">Berkas terlalu besar (maks 12 MB).</span>'; return;
+    }
+    info.textContent='Membaca'+'\u2026';
+    var fr=new FileReader();
+    fr.onload=function(){
+      var teks=String(fr.result||'').replace(/^\uFEFF/,'');
+      var tabel=mpPecah(teks, mpPemisah(teks));
+      if(tabel.length<2){
+        info.innerHTML='<span style="color:#d97a7a">Isinya kurang dari 2 baris \u2014 pastikan CSV, bukan xlsx.</span>';
+        return;
+      }
+      MP.kolom=tabel[0].map(function(x){ return String(x).trim(); });
+      MP.baris=tabel.slice(1);
+      MP.nama=f.name;
+      info.textContent=MP.kolom.length+' kolom, '+MP.baris.length+' baris';
+      mpRenderPeta(mpTebakKolom(MP.kolom));
+    };
+    fr.readAsText(f, 'UTF-8');
+  }
+
+  function mpRenderPeta(tebakan){
+    var el=document.getElementById('mpPeta');
+    var opsi=function(pilih){
+      return '<option value="">\u2014 tidak ada \u2014</option>' + MP.kolom.map(function(k,i){
+        return '<option value="'+i+'"'+(pilih===i?' selected':'')+'>'+esc(k||('kolom '+(i+1)))+'</option>';
+      }).join('');
+    };
+    el.innerHTML='<div class="mpgrid">'+Object.keys(MP_LABEL).map(function(m){
+        var wajib=MP_WAJIB.indexOf(m)>-1;
+        return '<label class="mpmap"><span>'+MP_LABEL[m]+(wajib?' <b style="color:#e0912f">*</b>':'')+'</span>'+
+          '<select id="mpk_'+m+'" onchange="mpPratinjau()">'+opsi(tebakan[m])+'</select></label>';
+      }).join('')+'</div>'+
+      '<div id="mpPrev"></div>'+
+      '<div class="ukbaris">'+
+        '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="mpImpor(this)">Impor ke buku penjualan</button>'+
+        '<button class="cbtn" onclick="mpBatalPilih()">Batal</button>'+
+        '<span id="mpMsg" style="font-size:11.5px"></span>'+
+      '</div>'+
+      '<div class="osub" style="margin-top:7px">Kolom bertanda <b style="color:#e0912f">*</b> wajib. '+
+        'Tanggal bentuk 08/09/2025 dibaca sebagai 8 September \u2014 periksa di pratinjau.</div>';
+    mpPratinjau();
+  }
+
+  function mpAmbilPeta(){
+    var p={};
+    Object.keys(MP_LABEL).forEach(function(m){
+      var el=document.getElementById('mpk_'+m);
+      var v=el?el.value:'';
+      p[m] = (v==='') ? -1 : parseInt(v,10);
+    });
+    return p;
+  }
+
+  function mpOlah(){
+    var p=mpAmbilPeta();
+    return MP.baris.map(function(r){
+      function g(i){ return (i>=0 && i<r.length) ? r[i] : ''; }
+      return { tanggal: mpTanggal(g(p.tanggal)), pesanan: String(g(p.pesanan)||'').trim(),
+               produk: String(g(p.produk)||'').trim(), varian: String(g(p.varian)||'').trim(),
+               qty: mpAngka(g(p.qty)) || 0, total: mpAngka(g(p.total)) || 0,
+               status: String(g(p.status)||'').trim() };
+    });
+  }
+
+  function mpPratinjau(){
+    var el=document.getElementById('mpPrev'); if(!el) return;
+    var p=mpAmbilPeta();
+    var kurang=MP_WAJIB.filter(function(m){ return p[m]<0; });
+    if(kurang.length){
+      el.innerHTML='<div class="loading">Belum dipetakan: '+
+        kurang.map(function(m){ return MP_LABEL[m]; }).join(', ')+'</div>';
+      return;
+    }
+    var d=mpOlah();
+    var tglKosong=d.filter(function(x){ return !x.tanggal; }).length;
+    var totalNol=d.filter(function(x){ return !x.total; }).length;
+    el.innerHTML=
+      '<div class="mphit">'+d.length+' baris siap \u00b7 omset '+rp(d.reduce(function(s,x){ return s+x.total; },0))+
+        ' \u00b7 '+d.reduce(function(s,x){ return s+x.qty; },0)+' pcs'+
+        (tglKosong?' <span style="color:#d97a7a">\u00b7 '+tglKosong+' tanggal tidak terbaca</span>':'')+
+        (totalNol?' <span style="color:#d97a7a">\u00b7 '+totalNol+' total kosong</span>':'')+'</div>'+
+      '<div class="table-scroll"><table class="mini"><thead><tr>'+
+        '<th>Tanggal</th><th>No Pesanan</th><th>Produk</th><th>Varian</th>'+
+        '<th class="num">Qty</th><th class="num">Total</th><th>Status</th></tr></thead><tbody>'+
+      d.slice(0,5).map(function(x){
+        return '<tr><td>'+esc(x.tanggal||'\u2014')+'</td><td>'+esc(x.pesanan)+'</td>'+
+          '<td>'+esc(x.produk)+'</td><td>'+esc(x.varian||'\u2014')+'</td>'+
+          '<td class="num">'+x.qty+'</td><td class="num">'+rp(x.total)+'</td>'+
+          '<td>'+esc(x.status||'\u2014')+'</td></tr>';
+      }).join('')+'</tbody></table></div>';
+  }
+
+  function mpBatalPilih(){
+    MP={ baris:[], kolom:[], nama:'' };
+    document.getElementById('mpPeta').innerHTML='';
+    document.getElementById('mpInfo').textContent='';
+    var f=document.getElementById('mpFile'); if(f) f.value='';
+  }
+
+  function mpImpor(btn){
+    var msg=document.getElementById('mpMsg');
+    var p=mpAmbilPeta();
+    var kurang=MP_WAJIB.filter(function(m){ return p[m]<0; });
+    if(kurang.length){
+      msg.innerHTML='<span style="color:#d97a7a">Petakan dulu: '+
+        kurang.map(function(m){ return MP_LABEL[m]; }).join(', ')+'</span>';
+      return;
+    }
+    var d=mpOlah().filter(function(x){ return x.produk; });
+    if(!d.length){ msg.innerHTML='<span style="color:#d97a7a">Tidak ada baris berisi produk.</span>'; return; }
+    if(d.length>5000){ msg.innerHTML='<span style="color:#d97a7a">Maksimal 5000 baris sekali impor.</span>'; return; }
+    var kanal=(document.getElementById('mpKanal')||{}).value||'';
+    if(!confirm('Impor '+d.length+' baris penjualan '+kanal+'?\n\nBaris yang nomor pesanannya sudah pernah masuk akan dilewati.')) return;
+    var t=btn.textContent; btn.disabled=true; btn.textContent='Mengimpor'+'\u2026';
+    msg.innerHTML='';
+    postJson('mpImport', { kanal: kanal, rows: d, batch: 'IMP-'+Date.now() }, function(res){
+      btn.disabled=false; btn.textContent=t;
+      if(!res || !res.ok){
+        msg.innerHTML='<span style="color:#d97a7a">'+esc((res&&res.error)||'Gagal.')+'</span>';
+        return;
+      }
+      msg.innerHTML='<span style="color:#16a34a">'+'\u2713'+' '+res.masuk+' baris masuk</span>'+
+        (res.lewat?' <span style="color:#8a8a80">\u00b7 '+res.lewat+' dilewati (sudah ada)</span>':'');
+      mpBatalPilih();
+      loadMarket();
+    });
+  }
+
+  // ── Laporan ──
+  var MPL = { bulan:'', kanal:'' };
+
+  function loadMarket(){
+    var el=document.getElementById('mpLap'); if(!el) return;
+    el.innerHTML='<div class="loading">Memuat laporan'+'\u2026'+'</div>';
+    jsonp(WEB_APP_URL+'?page=admin&action=mpLaporan&key='+encodeURIComponent(ADMIN_KEY)+
+          '&bulan='+encodeURIComponent(MPL.bulan)+'&kanal='+encodeURIComponent(MPL.kanal)+
+          '&_='+Date.now(),
+      function(res){
+        if(!res || !res.ok){ el.innerHTML='<div class="error">Gagal memuat laporan.</div>'; return; }
+        window.__MPL=res; renderMarket();
+      });
+  }
+
+  function mpUbahSaring(){
+    MPL.bulan=(document.getElementById('mplBulan')||{}).value||'';
+    MPL.kanal=(document.getElementById('mplKanal')||{}).value||'';
+    loadMarket();
+  }
+
+  function renderMarket(){
+    var el=document.getElementById('mpLap'), r=window.__MPL; if(!el||!r) return;
+    if(!r.baris){
+      el.innerHTML='<div class="loading">Belum ada penjualan marketplace yang diimpor. '+
+        'Pilih kanal dan berkas CSV di atas untuk mulai.</div>';
+      return;
+    }
+    var totOms=0, totQty=0, totPes=0;
+    r.perBulan.forEach(function(x){ totOms+=x.omset; totQty+=x.qty; totPes+=x.pesanan; });
+
+    var opBulan='<option value="">Semua bulan</option>'+(r.bulanAda||[]).map(function(b){
+      return '<option value="'+b+'"'+(MPL.bulan===b?' selected':'')+'>'+esc(b)+'</option>'; }).join('');
+    var opKanal='<option value="">Semua kanal</option>'+(r.kanalAda||[]).map(function(k){
+      return '<option value="'+esc(k)+'"'+(MPL.kanal===k?' selected':'')+'>'+esc(k)+'</option>'; }).join('');
+
+    el.innerHTML=
+      '<div class="section-title">Laporan penjualan '+
+        '<span class="po-hint">'+r.baris+' baris terimpor'+
+        (r.dibatal?' \u00b7 '+r.dibatal+' baris batal/refund tidak dihitung':'')+'</span></div>'+
+      '<div class="table-scroll"><table class="mini"><thead><tr>'+
+        '<th>Bulan</th><th>Kanal</th><th class="num">Pesanan</th><th class="num">Qty</th><th class="num">Omset</th>'+
+      '</tr></thead><tbody>'+
+      (r.perBulan.length ? r.perBulan.map(function(x){
+        return '<tr><td><b>'+esc(x.bulan)+'</b></td><td>'+esc(x.kanal)+'</td>'+
+          '<td class="num">'+x.pesanan+'</td><td class="num">'+x.qty+'</td>'+
+          '<td class="num">'+rp(x.omset)+'</td></tr>';
+      }).join('') : '<tr><td colspan="5" style="color:#888">Belum ada data.</td></tr>')+
+      '</tbody><tfoot><tr style="border-top:1px solid #33332a">'+
+        '<td colspan="2"><b>Total</b></td><td class="num"><b>'+totPes+'</b></td>'+
+        '<td class="num"><b>'+totQty+'</b></td><td class="num"><b>'+rp(totOms)+'</b></td>'+
+      '</tr></tfoot></table></div>'+
+
+      '<div class="section-title" style="margin-top:20px">Yang paling laku '+
+        '<span class="po-hint">urut dari qty terbanyak</span></div>'+
+      '<div class="toolbar">'+
+        '<select id="mplBulan" onchange="mpUbahSaring()">'+opBulan+'</select>'+
+        '<select id="mplKanal" onchange="mpUbahSaring()">'+opKanal+'</select>'+
+        '<span style="color:#888;font-size:11px">'+r.dipakai+' baris masuk hitungan</span>'+
+      '</div>'+
+      '<div class="table-scroll"><table class="mini"><thead><tr>'+
+        '<th style="width:34px">#</th><th>Produk</th><th>Varian</th>'+
+        '<th class="num">Qty</th><th class="num">Omset</th><th>Kanal</th>'+
+      '</tr></thead><tbody>'+
+      (r.perProduk.length ? r.perProduk.map(function(x,i){
+        return '<tr><td>'+(i+1)+'</td><td><b>'+esc(x.produk)+'</b></td>'+
+          '<td>'+esc(x.varian||'\u2014')+'</td><td class="num">'+x.qty+'</td>'+
+          '<td class="num">'+rp(x.omset)+'</td><td>'+esc(x.kanal)+'</td></tr>';
+      }).join('') : '<tr><td colspan="6" style="color:#888">Tidak ada penjualan di saringan ini.</td></tr>')+
+      '</tbody></table></div>'+
+
+      '<div class="section-title" style="margin-top:20px">Riwayat impor '+
+        '<span class="po-hint">salah impor bisa dibatalkan utuh</span></div>'+
+      '<div id="mpBatch"><div class="loading">Memuat'+'\u2026'+'</div></div>';
+    loadMpBatch();
+  }
+
+  function loadMpBatch(){
+    var el=document.getElementById('mpBatch'); if(!el) return;
+    jsonp(WEB_APP_URL+'?page=admin&action=mpBatch&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(!res || !res.ok){ el.innerHTML='<div class="error">Gagal memuat riwayat.</div>'; return; }
+        var it=res.items||[];
+        el.innerHTML=it.length
+          ? '<div class="table-scroll"><table class="mini"><thead><tr>'+
+              '<th>Diimpor</th><th>Kanal</th><th class="num">Baris</th><th class="num">Omset</th><th></th>'+
+            '</tr></thead><tbody>'+it.map(function(x){
+              return '<tr><td>'+esc(x.diimpor)+'</td><td>'+esc(x.kanal)+'</td>'+
+                '<td class="num">'+x.baris+'</td><td class="num">'+rp(x.omset)+'</td>'+
+                '<td><button class="cbtn" style="border-color:#8a3b3b;color:#d97a7a" '+
+                  'onclick="mpHapusBatch(this,'+jsq(x.batch)+','+x.baris+')">Batalkan</button></td></tr>';
+            }).join('')+'</tbody></table></div>'
+          : '<div class="loading">Belum ada impor.</div>';
+      });
+  }
+
+  function mpHapusBatch(btn, batch, baris){
+    if(!confirm('Batalkan impor ini? '+baris+' baris penjualan akan dihapus dari buku.')) return;
+    var t=btn.textContent; btn.disabled=true; btn.textContent='Menghapus'+'\u2026';
+    jsonp(WEB_APP_URL+'?page=admin&action=mpBatchHapus&batch='+encodeURIComponent(batch)+
+          '&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        btn.disabled=false; btn.textContent=t;
+        if(!res || !res.ok){ alert((res&&res.error)||'Gagal.'); return; }
+        loadMarket();
+      });
+  }
+
   function loadDiscord(){
     var el=document.getElementById('dcBody'); if(!el) return;
     el.innerHTML='<div class="loading">Memuat pengaturan…</div>';
