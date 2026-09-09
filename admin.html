@@ -4936,7 +4936,13 @@
       var convert = (q.status === 'Jadi Order')
           ? '<span style="color:#16a34a;font-size:11px;font-weight:700">✓ order</span>'
           : (q.status === 'Batal' ? '<span style="color:#cc3333;font-size:11px;font-weight:700">batal</span>'
-          : '<button class="cbtn" onclick="openDraft(\''+esc(q.id)+'\')">Draft</button> <button class="cbtn" onclick="convertInquiry(\''+esc(q.id)+'\', this)">→ Order</button>');
+          : '<button class="cbtn" onclick="openDraft(\''+esc(q.id)+'\')">Draft</button> '+
+            /* Radja sudah kasih harga -> channel Discord-nya turun ke PRICING DONE.
+               Ditandai tangan, bukan disimpulkan dari terisinya kolom harga:
+               harga di draft kadang diisi bertahap sambil dirundingkan. */
+            '<button class="cbtn" title="Tandai harga dari Radja sudah masuk — channel Discord pindah ke PRICING DONE" '+
+              'onclick="pricingDone(\''+esc(q.id)+'\', this)">✓ Harga masuk</button> '+
+            '<button class="cbtn" onclick="convertInquiry(\''+esc(q.id)+'\', this)">→ Order</button>');
       return '<tr data-st="'+esc(q.status||'')+'">' +
         '<td data-v="'+num+'">'+esc(q.time)+'</td>' +
         '<td data-v="'+num+'"><b>'+esc(q.id)+'</b></td>' +
@@ -5054,6 +5060,18 @@
   function tanyaJenis(id){
     return confirm('Jenis order untuk ' + id + '?\n\nOK = CUSTOM ORDER\nCancel = WHOLE SALE')
       ? 'custom' : 'wholesale';
+  }
+
+  function pricingDone(id, btn){
+    var t=btn.textContent; btn.disabled=true; btn.textContent='…';
+    jsonp(WEB_APP_URL+'?page=admin&action=dcPricingDone&id='+encodeURIComponent(id)+
+          '&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        btn.disabled=false;
+        if(!res || !res.ok){ btn.textContent=t; alert((res&&res.error)||'Gagal.'); return; }
+        btn.textContent='✓ pricing done';
+        btn.style.borderColor='#16a34a'; btn.style.color='#16a34a';
+      });
   }
 
   function convertInquiry(id, btn){
