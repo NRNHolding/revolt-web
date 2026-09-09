@@ -1768,8 +1768,12 @@
       '</tbody></table></div>';
 
     // ── 4. peringkat produk ──
+    /* Dua-duanya diurutkan di sini, bukan cuma yang omset. Sempat begitu -
+       mode qty menumpang pada urutan bawaan dari server, jadi kalau datanya
+       datang tidak terurut, tombolnya kelihatan bekerja padahal diam. */
     var pp=(r.perProduk||[]).slice();
     if(MPURUT==='omset') pp.sort(function(x,y){ return y.omset-x.omset || y.qty-x.qty; });
+    else                 pp.sort(function(x,y){ return y.qty-x.qty || y.omset-x.omset; });
     var maksP=Math.max.apply(null, [1].concat(pp.map(function(x){ return MPURUT==='omset'?x.omset:x.qty; })));
     var laku=
       '<div class="section-title" style="margin-top:20px">Yang paling laku '+
