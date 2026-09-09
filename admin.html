@@ -1979,6 +1979,7 @@
         if(!res||!res.ok){ el.innerHTML='<div class="error">'+esc((res&&res.error)||'Gagal.')+'</div>'; return; }
         renderDiscord(res);
         muatBot();
+        muatJembatan();
       });
   }
 
@@ -2037,6 +2038,135 @@
           '<button class="cbtn" onclick="muatBot()">↻ Cek ulang</button></div>'+
       '</div>';
   }
+  /* ── Jembatan Trello -> Discord ──
+
+     Bagian ini mengubah struktur server Discord orang lain: membuat channel,
+     memindahkannya antar kategori. Jadi tombol pertamanya "Lihat dulu", bukan
+     "Jalankan" - hasilnya bisa dibaca utuh sebelum ada satu pun yang tersentuh.
+     Tombol jalankan baru muncul setelah pratinjaunya dilihat. */
+  var JBT = { hasil: null, sudahLihat: false };
+
+  function muatJembatan(){
+    var el=document.getElementById('dcTrello');
+    if(!el){
+      el=document.createElement('div'); el.id='dcTrello';
+      var host=document.getElementById('dcBody');
+      var bot=document.getElementById('dcBot');
+      if(bot && bot.nextSibling) host.insertBefore(el, bot.nextSibling); else host.appendChild(el);
+    }
+    renderJembatan();
+    jsonp(WEB_APP_URL+'?page=admin&action=dcTrelloTrigger&key='+encodeURIComponent(ADMIN_KEY)+
+          '&_='+Date.now(),
+      function(res){ JBT.trigger = !!(res && res.aktif); renderJembatan(); });
+  }
+
+  var JBT_PETA = [
+    ['Design Preview Done, ON REVIEW CUSTOMER, On Review', 'WAITING FOR APPROVAL'],
+    ['TIMO, Design Request, On Going Design, REQ DEADLINE,\nDeadLine Final, Ready To Brief, Process to Production,\nProduction Done (QC), Hold', 'CUSTOM ORDER / WHOLE SALE ON GOING'],
+    ['Shipped, Packing and Shipping, Done <bulan>', 'CUSTOM ORDER / WHOLE SALE DONE'],
+    ['Administration - Cancel', 'CANCEL'],
+    ['TEMPLATE', '(dilewati)']
+  ];
+
+  function renderJembatan(){
+    var el=document.getElementById('dcTrello'); if(!el) return;
+    var r=JBT.hasil;
+
+    var peta='<table class="mini" style="margin-top:9px"><thead><tr>'+
+        '<th>List Trello</th><th style="width:44%">Kategori Discord</th></tr></thead><tbody>'+
+      JBT_PETA.map(function(x){
+        return '<tr><td style="font-size:11px;line-height:1.6">'+esc(x[0]).replace(/\n/g,'<br>')+'</td>'+
+          '<td><b>'+esc(x[1])+'</b></td></tr>'; }).join('')+
+      '</tbody></table>';
+
+    var hasil='';
+    if(r && !r.ok){
+      hasil='<div class="onote" style="color:#d97a7a;margin-top:9px">'+esc(r.error||'Gagal.')+'</div>';
+    } else if(r){
+      var a=r.aksi||[];
+      hasil='<div class="mphit">'+
+          (r.uji ? 'Pratinjau: ' : 'Selesai: ')+
+          '<b>'+a.length+'</b> channel '+(r.uji?'akan diubah':'diubah')+
+          ' \u00b7 '+r.dicek+' order dicek \u00b7 '+r.lewat+' sudah benar'+
+          ((r.gagal||[]).length?' <span style="color:#d97a7a">\u00b7 '+r.gagal.length+' gagal</span>':'')+
+        '</div>'+
+        (a.length
+          ? '<div class="table-scroll"><table class="mini"><thead><tr>'+
+              '<th>Order</th><th>Channel</th><th>List Trello</th><th>Kategori tujuan</th><th></th>'+
+            '</tr></thead><tbody>'+a.map(function(x){
+              return '<tr><td>'+esc(x.order)+'</td><td><code>'+esc(x.nama)+'</code></td>'+
+                '<td style="font-size:11px">'+esc(x.list)+'</td>'+
+                '<td><b>'+esc(x.ke)+'</b></td>'+
+                '<td>'+(x.jenis==='buat'
+                  ? '<span class="badge" style="background:#16a34a">baru</span>'
+                  : '<span class="badge" style="background:#b5762e">pindah</span>')+'</td></tr>';
+            }).join('')+'</tbody></table></div>'
+          : '<div class="loading">Semua channel sudah di kategori yang benar.</div>')+
+        ((r.gagal||[]).length
+          ? '<div class="onote" style="color:#d97a7a;margin-top:8px">'+
+              r.gagal.map(function(g){ return esc(g); }).join('<br>')+'</div>'
+          : '');
+    }
+
+    el.innerHTML=
+      '<div class="ocard" style="max-width:660px;margin-top:14px">'+
+        '<div class="ohead" style="margin-bottom:6px"><div><b>Jembatan Trello \u2192 Discord</b>'+
+          (JBT.trigger
+            ? ' <span class="badge" style="background:#16a34a">otomatis tiap 20 menit</span>'
+            : ' <span class="badge" style="background:#8a8a80">manual</span>')+
+          '<div class="osub">Kartu pindah list di Trello \u2192 channel ordernya pindah kategori '+
+          'di Discord, dan perpindahannya diumumkan di dalam channel itu.</div></div></div>'+
+        '<div class="ofoot" style="margin:8px 0 0">Board punya 27 list, Discord 12 kategori. '+
+          'Banyak list menuju satu kategori \u2014 dari sisi Discord yang perlu dibedakan cuma '+
+          'empat keadaan.</div>'+
+        peta+
+        '<div class="ofoot" style="margin-top:8px">Channel baru cuma dibuat untuk order yang masih '+
+          'jalan. Yang sudah terkirim tidak dibuatkan channel baru, tapi channel yang sudah ada '+
+          'tetap ikut pindah ke DONE. <b>Hold</b> ikut ON GOING \u2014 tidak ada kategori Hold di Discord.</div>'+
+        '<div class="ukbaris" style="margin-top:10px">'+
+          '<button class="cbtn" onclick="jbtJalan(this,1)">Lihat dulu</button>'+
+          (JBT.sudahLihat
+            ? '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" '+
+              'onclick="jbtJalan(this,0)">Jalankan sekarang</button>'
+            : '')+
+          (JBT.trigger ? ''
+            : '<button class="cbtn" onclick="jbtTrigger(this)">Nyalakan otomatis</button>')+
+          '<span id="jbtMsg" style="font-size:11.5px"></span>'+
+        '</div>'+
+        hasil+
+      '</div>';
+  }
+
+  function jbtJalan(btn, uji){
+    if(!uji && !confirm('Jalankan sekarang?\n\nChannel akan dibuat dan dipindahkan di server Discord, '+
+                        'dan pesan dikirim ke dalamnya. Pastikan pratinjaunya sudah dibaca.')) return;
+    var t=btn.textContent; btn.disabled=true; btn.textContent=uji?'Memeriksa\u2026':'Menjalankan\u2026';
+    document.getElementById('jbtMsg').innerHTML='';
+    jsonp(WEB_APP_URL+'?page=admin&action=dcTrelloSync&uji='+(uji?'1':'0')+
+          '&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        btn.disabled=false; btn.textContent=t;
+        JBT.hasil=res;
+        if(uji && res && res.ok) JBT.sudahLihat=true;
+        renderJembatan();
+      });
+  }
+
+  function jbtTrigger(btn){
+    var t=btn.textContent; btn.disabled=true; btn.textContent='Memasang\u2026';
+    jsonp(WEB_APP_URL+'?page=admin&action=dcTrelloTrigger&pasang=1'+
+          '&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        btn.disabled=false; btn.textContent=t;
+        if(!res || !res.ok){
+          document.getElementById('jbtMsg').innerHTML=
+            '<span style="color:#d97a7a">'+esc((res&&res.error)||'Gagal.')+'</span>';
+          return;
+        }
+        JBT.trigger=true; renderJembatan();
+      });
+  }
+
   function renderDiscord(c){
     window.__DC=c;
     var el=document.getElementById('dcBody');
