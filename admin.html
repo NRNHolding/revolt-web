@@ -100,6 +100,9 @@
     .mprow:hover { background: #1c1c16; }
     .mpvar { padding: 6px 8px 9px !important; }
     .mpvar span { display: inline-block; margin: 0 12px 4px 0; font-size: 11.5px; color: #9a9a8e; }
+    .mpbar { display: block; height: 7px; background: #23231c; border-radius: 4px; overflow: hidden; }
+    .mpbar i { display: block; height: 100%; background: #b5762e; }
+    .cbtn.aktif { border-color: #e0912f; color: #e0912f; }
     .ukbox { background: #171712; border: 1px solid #33332a; border-radius: 8px;
       padding: 11px 13px; margin-top: 10px; }
     .ukpil { display: flex; gap: 7px; flex-wrap: wrap; }
@@ -1679,6 +1682,22 @@
     loadMarket();
   }
 
+  /* Laporan disusun dari yang paling ringkas ke paling rinci: ringkasan dulu,
+     lalu tren, lalu kanal, baru peringkat produk. Yang biasanya ditanya
+     pertama ("bulan ini berapa?") harus terjawab tanpa menggulir. */
+  var MPURUT = 'qty';   // peringkat produk: 'qty' atau 'omset'
+
+  function mpPersen(n){
+    if(n===null || n===undefined) return '<span class="po-hint">\u2014</span>';
+    var w = n>=0 ? '#16a34a' : '#d97a7a';
+    return '<span style="color:'+w+'">'+(n>=0?'+':'')+n.toFixed(0)+'%</span>';
+  }
+  // Batang mini: perbandingan lebih cepat ditangkap mata daripada deretan angka.
+  function mpBar(n, maks){
+    var w = maks>0 ? Math.max(2, Math.round(n/maks*100)) : 0;
+    return '<span class="mpbar"><i style="width:'+w+'%"></i></span>';
+  }
+
   function renderMarket(){
     var el=document.getElementById('mpLap'), r=window.__MPL; if(!el||!r) return;
     if(!r.baris){
@@ -1686,63 +1705,230 @@
         'Pilih kanal dan berkas CSV di atas untuk mulai.</div>';
       return;
     }
-    var totOms=0, totQty=0, totPes=0;
-    r.perBulan.forEach(function(x){ totOms+=x.omset; totQty+=x.qty; totPes+=x.pesanan; });
+    var s=r.ringkas||{};
+    var saring=(MPL.bulan?MPL.bulan:'semua bulan')+' \u00b7 '+(MPL.kanal?MPL.kanal:'semua kanal');
 
     var opBulan='<option value="">Semua bulan</option>'+(r.bulanAda||[]).map(function(b){
       return '<option value="'+b+'"'+(MPL.bulan===b?' selected':'')+'>'+esc(b)+'</option>'; }).join('');
     var opKanal='<option value="">Semua kanal</option>'+(r.kanalAda||[]).map(function(k){
       return '<option value="'+esc(k)+'"'+(MPL.kanal===k?' selected':'')+'>'+esc(k)+'</option>'; }).join('');
 
-    el.innerHTML=
-      '<div class="section-title">Laporan penjualan '+
-        '<span class="po-hint">'+r.baris+' baris terimpor'+
-        (r.dibatal?' \u00b7 '+r.dibatal+' baris batal/refund tidak dihitung':'')+'</span></div>'+
-      '<div class="table-scroll"><table class="mini"><thead><tr>'+
-        '<th>Bulan</th><th>Kanal</th><th class="num">Pesanan</th><th class="num">Qty</th><th class="num">Omset</th>'+
-      '</tr></thead><tbody>'+
-      (r.perBulan.length ? r.perBulan.map(function(x){
-        return '<tr><td><b>'+esc(x.bulan)+'</b></td><td>'+esc(x.kanal)+'</td>'+
-          '<td class="num">'+x.pesanan+'</td><td class="num">'+x.qty+'</td>'+
-          '<td class="num">'+rp(x.omset)+'</td></tr>';
-      }).join('') : '<tr><td colspan="5" style="color:#888">Belum ada data.</td></tr>')+
-      '</tbody><tfoot><tr style="border-top:1px solid #33332a">'+
-        '<td colspan="2"><b>Total</b></td><td class="num"><b>'+totPes+'</b></td>'+
-        '<td class="num"><b>'+totQty+'</b></td><td class="num"><b>'+rp(totOms)+'</b></td>'+
-      '</tr></tfoot></table></div>'+
-
-      '<div class="section-title" style="margin-top:20px">Yang paling laku '+
-        '<span class="po-hint">urut dari qty terbanyak</span></div>'+
+    // ── 1. ringkasan ──
+    var ringkas=
+      '<div class="section-title">Ringkasan '+
+        '<span class="po-hint">'+esc(saring)+
+        (s.bulanAwal?' \u00b7 data '+esc(s.bulanAwal)+' s/d '+esc(s.bulanAkhir):'')+'</span></div>'+
       '<div class="toolbar">'+
         '<select id="mplBulan" onchange="mpUbahSaring()">'+opBulan+'</select>'+
         '<select id="mplKanal" onchange="mpUbahSaring()">'+opKanal+'</select>'+
-        '<span style="color:#888;font-size:11px">'+r.dipakai+' baris masuk hitungan</span>'+
+        '<button class="cbtn" onclick="mpUnduhLaporan()">\u2b07 Unduh CSV</button>'+
+        '<span style="color:#888;font-size:11px">'+r.dipakai+' dari '+r.baris+' baris masuk hitungan</span>'+
+      '</div>'+
+      '<div class="kpis">'+
+        kpiCard('Omset', rp(s.omset||0), 'accent')+
+        kpiCard('Pesanan', (s.pesanan||0))+
+        kpiCard('Terjual', (s.qty||0)+' pcs')+
+        kpiCard('Rata-rata / pesanan', rp(s.aov||0), 'accent')+
+        kpiCard('Item / pesanan', (s.itemPerPesanan||0).toFixed(1))+
+        kpiCard('Produk terjual', (s.produkAktif||0))+
+      '</div>';
+
+    // ── 2. tren bulanan ──
+    var bt=r.bulanTotal||[];
+    var maksOms=Math.max.apply(null, [1].concat(bt.map(function(x){ return x.omset; })));
+    var tren=
+      '<div class="section-title" style="margin-top:20px">Tren bulanan '+
+        '<span class="po-hint">seluruh kanal digabung \u00b7 pertumbuhan dibanding bulan sebelumnya</span></div>'+
+      '<div class="table-scroll"><table class="mini"><thead><tr>'+
+        '<th>Bulan</th><th class="num">Pesanan</th><th class="num">Qty</th>'+
+        '<th class="num">Omset</th><th class="num">Tumbuh</th><th style="width:120px"></th>'+
+      '</tr></thead><tbody>'+
+      (bt.length ? bt.map(function(x){
+        return '<tr><td><b>'+esc(x.bulan)+'</b></td><td class="num">'+x.pesanan+'</td>'+
+          '<td class="num">'+x.qty+'</td><td class="num">'+rp(x.omset)+'</td>'+
+          '<td class="num">'+mpPersen(x.tumbuh)+'</td><td>'+mpBar(x.omset, maksOms)+'</td></tr>';
+      }).join('') : '<tr><td colspan="6" style="color:#888">Belum ada data.</td></tr>')+
+      '</tbody></table></div>';
+
+    // ── 3. per kanal ──
+    var pk=r.perKanal||[];
+    var kanalTab=
+      '<div class="section-title" style="margin-top:20px">Per kanal '+
+        '<span class="po-hint">seluruh periode \u00b7 tidak ikut saringan di atas</span></div>'+
+      '<div class="table-scroll"><table class="mini"><thead><tr>'+
+        '<th>Kanal</th><th class="num">Pesanan</th><th class="num">Qty</th><th class="num">Omset</th>'+
+        '<th class="num">Porsi</th><th class="num">Rata-rata</th><th class="num">Batal</th>'+
+      '</tr></thead><tbody>'+
+      (pk.length ? pk.map(function(x){
+        return '<tr><td><b>'+esc(x.kanal)+'</b></td><td class="num">'+x.pesanan+'</td>'+
+          '<td class="num">'+x.qty+'</td><td class="num">'+rp(x.omset)+'</td>'+
+          '<td class="num">'+x.porsi.toFixed(0)+'%</td><td class="num">'+rp(x.aov)+'</td>'+
+          '<td class="num">'+(x.batal||0)+'</td></tr>';
+      }).join('') : '<tr><td colspan="7" style="color:#888">Belum ada data.</td></tr>')+
+      '</tbody></table></div>';
+
+    // ── 4. peringkat produk ──
+    var pp=(r.perProduk||[]).slice();
+    if(MPURUT==='omset') pp.sort(function(x,y){ return y.omset-x.omset || y.qty-x.qty; });
+    var maksP=Math.max.apply(null, [1].concat(pp.map(function(x){ return MPURUT==='omset'?x.omset:x.qty; })));
+    var laku=
+      '<div class="section-title" style="margin-top:20px">Yang paling laku '+
+        '<span class="po-hint">'+esc(saring)+' \u00b7 klik baris untuk rincian varian</span></div>'+
+      '<div class="toolbar">'+
+        '<button class="cbtn'+(MPURUT==='qty'?' aktif':'')+'" onclick="mpUrut(\'qty\')">Urut qty</button>'+
+        '<button class="cbtn'+(MPURUT==='omset'?' aktif':'')+'" onclick="mpUrut(\'omset\')">Urut omset</button>'+
+        '<span style="color:#888;font-size:11px">'+pp.length+' produk terjual</span>'+
       '</div>'+
       '<div class="table-scroll"><table class="mini"><thead><tr>'+
         '<th style="width:34px">#</th><th>Produk</th><th>Varian teratas</th>'+
-        '<th class="num">Qty</th><th class="num">Omset</th><th>Kanal</th>'+
+        '<th class="num">Pesanan</th><th class="num">Qty</th><th class="num">Omset</th>'+
+        '<th style="width:90px"></th>'+
       '</tr></thead><tbody>'+
-      (r.perProduk.length ? r.perProduk.map(function(x,i){
-        /* Satu baris = satu produk. Varian dilipat ke dalamnya: yang ingin
-           dilihat pertama "apa yang laku", baru "ukuran/warna mana". */
+      (pp.length ? pp.map(function(x,i){
         var lain=(x.jmlVarian||1)-1;
         return '<tr class="mprow" onclick="mpBukaVarian('+i+')">'+
             '<td>'+(i+1)+'</td><td><b>'+esc(x.produk)+'</b></td>'+
             '<td>'+esc(x.varianTeratas||'\u2014')+
               (lain>0?' <span class="po-hint">+'+lain+' varian</span>':'')+'</td>'+
-            '<td class="num">'+x.qty+'</td>'+
-            '<td class="num">'+rp(x.omset)+'</td><td>'+esc(x.kanal)+'</td></tr>'+
-          '<tr id="mpv'+i+'" hidden><td></td><td colspan="5" class="mpvar">'+
+            '<td class="num">'+(x.pesanan||0)+'</td>'+
+            '<td class="num">'+x.qty+'</td><td class="num">'+rp(x.omset)+'</td>'+
+            '<td>'+mpBar(MPURUT==='omset'?x.omset:x.qty, maksP)+'</td></tr>'+
+          '<tr id="mpv'+i+'" hidden><td></td><td colspan="6" class="mpvar">'+
             (x.rincian||[]).map(function(v){
               return '<span>'+esc(v.varian)+' <b>'+v.qty+'</b> pcs \u00b7 '+rp(v.omset)+'</span>';
             }).join('')+'</td></tr>';
-      }).join('') : '<tr><td colspan="6" style="color:#888">Tidak ada penjualan di saringan ini.</td></tr>')+
-      '</tbody></table></div>'+
+      }).join('') : '<tr><td colspan="7" style="color:#888">Tidak ada penjualan di saringan ini.</td></tr>')+
+      '</tbody></table></div>';
 
+    /* Produk paling sepi diambil dari ekor daftar yang sama. Sengaja hanya
+       yang PERNAH terjual - produk yang nol penjualan tidak ada di buku ini
+       sama sekali, dan mengarangnya dari katalog akan menyesatkan. */
+    var sepi = pp.slice().sort(function(x,y){ return x.qty-y.qty || x.omset-y.omset; }).slice(0,5);
+    var sepiTab = (pp.length>6)
+      ? '<div class="section-title" style="margin-top:20px">Paling sepi '+
+          '<span class="po-hint">terjual paling sedikit di periode ini \u2014 bukan yang nol</span></div>'+
+        '<div class="table-scroll"><table class="mini"><thead><tr>'+
+          '<th>Produk</th><th class="num">Qty</th><th class="num">Omset</th></tr></thead><tbody>'+
+        sepi.map(function(x){
+          return '<tr><td>'+esc(x.produk)+'</td><td class="num">'+x.qty+'</td>'+
+            '<td class="num">'+rp(x.omset)+'</td></tr>'; }).join('')+
+        '</tbody></table></div>'
+      : '';
+
+    // ── 5. varian lintas produk ──
+    var pv=r.perVarian||[];
+    var maksV=Math.max.apply(null, [1].concat(pv.map(function(x){ return x.qty; })));
+    var varianTab= pv.length
+      ? '<div class="section-title" style="margin-top:20px">Varian terlaris '+
+          '<span class="po-hint">lintas produk \u00b7 untuk rencana bahan dan produksi</span></div>'+
+        '<div class="table-scroll"><table class="mini"><thead><tr>'+
+          '<th>Varian</th><th class="num">Qty</th><th class="num">Omset</th>'+
+          '<th class="num">Dipakai produk</th><th style="width:110px"></th>'+
+        '</tr></thead><tbody>'+
+        pv.slice(0,15).map(function(x){
+          return '<tr><td><b>'+esc(x.varian)+'</b></td><td class="num">'+x.qty+'</td>'+
+            '<td class="num">'+rp(x.omset)+'</td><td class="num">'+x.produk+'</td>'+
+            '<td>'+mpBar(x.qty, maksV)+'</td></tr>'; }).join('')+
+        '</tbody></table></div>'
+      : '';
+
+    // ── 6. pola hari ──
+    var ph=r.perHari||[];
+    var maksH=Math.max.apply(null, [1].concat(ph.map(function(x){ return x.omset; })));
+    var hariTab= ph.length
+      ? '<div class="section-title" style="margin-top:20px">Pola hari '+
+          '<span class="po-hint">hari apa pesanan paling banyak masuk</span></div>'+
+        '<div class="table-scroll"><table class="mini"><thead><tr>'+
+          '<th>Hari</th><th class="num">Pesanan</th><th class="num">Qty</th>'+
+          '<th class="num">Omset</th><th style="width:130px"></th></tr></thead><tbody>'+
+        ph.map(function(x){
+          return '<tr><td>'+esc(x.hari)+'</td><td class="num">'+x.pesanan+'</td>'+
+            '<td class="num">'+x.qty+'</td><td class="num">'+rp(x.omset)+'</td>'+
+            '<td>'+mpBar(x.omset, maksH)+'</td></tr>'; }).join('')+
+        '</tbody></table></div>'
+      : '';
+
+    // ── 7. harian, hanya kalau satu bulan dipilih ──
+    var pt=r.perTanggal||[];
+    var maksT=Math.max.apply(null, [1].concat(pt.map(function(x){ return x.omset; })));
+    var harianTab= (MPL.bulan && pt.length)
+      ? '<div class="section-title" style="margin-top:20px">Harian '+
+          '<span class="po-hint">'+esc(MPL.bulan)+'</span></div>'+
+        '<div class="table-scroll"><table class="mini"><thead><tr>'+
+          '<th>Tanggal</th><th class="num">Pesanan</th><th class="num">Qty</th>'+
+          '<th class="num">Omset</th><th style="width:130px"></th></tr></thead><tbody>'+
+        pt.map(function(x){
+          return '<tr><td>'+esc(x.tanggal)+'</td><td class="num">'+x.pesanan+'</td>'+
+            '<td class="num">'+x.qty+'</td><td class="num">'+rp(x.omset)+'</td>'+
+            '<td>'+mpBar(x.omset, maksT)+'</td></tr>'; }).join('')+
+        '</tbody></table></div>'
+      : '';
+
+    /* Pembatalan ditampilkan, tidak disembunyikan. Angka ini yang memberi tahu
+       kalau ada yang salah - stok kosong, ongkir kemahalan, foto tidak sesuai. */
+    var batalTab= r.dibatal
+      ? '<div class="section-title" style="margin-top:20px">Pembatalan &amp; refund '+
+          '<span class="po-hint">tidak dihitung di omset mana pun</span></div>'+
+        '<div class="kpis">'+
+          kpiCard('Baris batal', r.dibatal)+
+          kpiCard('Nilai batal', rp(r.nilaiBatal||0), 'accent')+
+          kpiCard('Tingkat batal', (s.tingkatBatal||0).toFixed(1)+'%')+
+        '</div>'
+      : '';
+
+    el.innerHTML = ringkas + tren + kanalTab + laku + sepiTab + varianTab +
+      hariTab + harianTab + batalTab +
       '<div class="section-title" style="margin-top:20px">Riwayat impor '+
         '<span class="po-hint">salah impor bisa dibatalkan utuh</span></div>'+
-      '<div id="mpBatch"><div class="loading">Memuat'+'\u2026'+'</div></div>';
+      '<div id="mpBatch"><div class="loading">Memuat\u2026</div></div>';
     loadMpBatch();
+  }
+
+  function mpUrut(m){ MPURUT=m; renderMarket(); }
+
+  /* Unduh apa yang sedang terlihat, bukan seluruh buku - kalau saringannya
+     bulan Agustus Shopee, itu yang turun. */
+  function mpUnduhLaporan(){
+    var r=window.__MPL; if(!r) return;
+    var b=[], q=function(v){ return '"'+String(v==null?'':v).replace(/"/g,'""')+'"'; };
+    b.push('LAPORAN PENJUALAN MARKETPLACE');
+    b.push('Saringan,'+q((MPL.bulan||'semua bulan')+' / '+(MPL.kanal||'semua kanal')));
+    b.push('Dibuat,'+q(new Date().toLocaleString('id-ID')));
+    var s=r.ringkas||{};
+    b.push('');
+    b.push('RINGKASAN');
+    b.push('Omset,'+(s.omset||0)); b.push('Pesanan,'+(s.pesanan||0));
+    b.push('Terjual (pcs),'+(s.qty||0)); b.push('Rata-rata per pesanan,'+(s.aov||0));
+    b.push('Item per pesanan,'+(s.itemPerPesanan||0).toFixed(2));
+    b.push('Baris batal,'+(r.dibatal||0)); b.push('Nilai batal,'+(r.nilaiBatal||0));
+    b.push('');
+    b.push('TREN BULANAN'); b.push('Bulan,Pesanan,Qty,Omset,Tumbuh %');
+    (r.bulanTotal||[]).forEach(function(x){
+      b.push([x.bulan,x.pesanan,x.qty,x.omset,(x.tumbuh==null?'':x.tumbuh.toFixed(1))].join(',')); });
+    b.push('');
+    b.push('PER KANAL'); b.push('Kanal,Pesanan,Qty,Omset,Porsi %,Rata-rata,Batal');
+    (r.perKanal||[]).forEach(function(x){
+      b.push([q(x.kanal),x.pesanan,x.qty,x.omset,x.porsi.toFixed(1),x.aov,x.batal||0].join(',')); });
+    b.push('');
+    b.push('PERINGKAT PRODUK'); b.push('#,Produk,Varian teratas,Pesanan,Qty,Omset,Kanal');
+    (r.perProduk||[]).forEach(function(x,i){
+      b.push([i+1,q(x.produk),q(x.varianTeratas),x.pesanan||0,x.qty,x.omset,q(x.kanal)].join(',')); });
+    b.push('');
+    b.push('VARIAN TERLARIS'); b.push('Varian,Qty,Omset,Jumlah produk');
+    (r.perVarian||[]).forEach(function(x){ b.push([q(x.varian),x.qty,x.omset,x.produk].join(',')); });
+    b.push('');
+    b.push('POLA HARI'); b.push('Hari,Pesanan,Qty,Omset');
+    (r.perHari||[]).forEach(function(x){ b.push([q(x.hari),x.pesanan,x.qty,x.omset].join(',')); });
+    if((r.perTanggal||[]).length){
+      b.push(''); b.push('HARIAN'); b.push('Tanggal,Pesanan,Qty,Omset');
+      r.perTanggal.forEach(function(x){ b.push([x.tanggal,x.pesanan,x.qty,x.omset].join(',')); });
+    }
+    var blob=new Blob(['\uFEFF'+b.join('\n')], {type:'text/csv;charset=utf-8;'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='Laporan-Marketplace-'+(MPL.bulan||'semua')+'.csv';
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); document.body.removeChild(a); }, 500);
   }
 
   function mpBukaVarian(i){
