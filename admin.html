@@ -2017,7 +2017,32 @@
         '<div style="margin-top:7px">Token diisi langsung di sana, bukan lewat halaman ini — '+
         'biar tidak pernah lewat jaringan dashboard.</div></div>';
     } else if(b.error){
-      langkah='<div class="onote" style="color:#d97a7a;margin-top:8px">'+esc(b.error)+'</div>';
+      /* Kalau servernya tidak terbaca, yang ditampilkan bukan cuma pesan error:
+         Discord ditanya balik server mana saja yang botnya ada di dalamnya.
+         Itu langsung menunjukkan apakah botnya memang belum diundang, atau
+         diundang ke server lain — sekaligus memberi id yang benar. */
+      var srv = b.serverBot;
+      var bantu = '';
+      if(srv && srv.length){
+        bantu = '<div style="margin-top:8px;font-size:11.5px;color:#bbb">'+
+            'Bot ini sekarang ada di '+srv.length+' server:'+
+            '<div style="margin:5px 0 0;font-family:monospace;font-size:11px;color:#ddd">'+
+              srv.map(function(s){
+                var sama = String(s.id)===String(b.guildDipakai||'');
+                return (sama?'✓ ':'• ')+esc(s.nama)+'<br>&nbsp;&nbsp;<span style="color:'+
+                  (sama?'#9fe3bb':'#e0912f')+'">'+esc(s.id)+'</span>';
+              }).join('<br>')+
+            '</div>'+
+            '<div style="margin-top:7px">DISCORD_GUILD sekarang diisi <code>'+
+              esc(b.guildDipakai||'(kosong)')+'</code>. '+
+              'Kalau tidak sama dengan salah satu di atas, ganti pakai id yang benar.</div>'+
+          '</div>';
+      } else if(srv){
+        bantu = '<div style="margin-top:8px;font-size:11.5px;color:#bbb">'+
+            'Bot ini <b>belum ada di server mana pun</b>. Undangannya belum selesai — '+
+            'buka lagi URL undangannya dan pastikan sampai menekan <b>Authorize</b>.</div>';
+      }
+      langkah='<div class="onote" style="color:#d97a7a;margin-top:8px">'+esc(b.error)+'</div>'+bantu;
     }
 
     var kat = (b.kategori||[]).map(function(k){
