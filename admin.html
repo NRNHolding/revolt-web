@@ -100,6 +100,7 @@
     .mprow:hover { background: #1c1c16; }
     .mpvar { padding: 6px 8px 9px !important; }
     .mpvar span { display: inline-block; margin: 0 12px 4px 0; font-size: 11.5px; color: #9a9a8e; }
+    .jbtkat { display: flex; flex-wrap: wrap; gap: 5px 14px; margin-top: 6px; font-size: 11.5px; }
     .mpbar { display: block; height: 7px; background: #23231c; border-radius: 4px; overflow: hidden; }
     .mpbar i { display: block; height: 100%; background: #b5762e; }
     .cbtn.aktif { border-color: #e0912f; color: #e0912f; }
@@ -1993,6 +1994,9 @@
       function(b){
         if(!b||!b.ok){ el.innerHTML='<div class="error">'+esc((b&&b.error)||'Gagal.')+'</div>'; return; }
         renderBot(b);
+        // kategori yang dibutuhkan jembatan ikut dilaporkan di kartunya sendiri
+        JBT.kategori = b.jembatan || [];
+        if(document.getElementById('dcTrello')) renderJembatan();
       });
   }
   function renderBot(b){
@@ -2044,7 +2048,24 @@
      memindahkannya antar kategori. Jadi tombol pertamanya "Lihat dulu", bukan
      "Jalankan" - hasilnya bisa dibaca utuh sebelum ada satu pun yang tersentuh.
      Tombol jalankan baru muncul setelah pratinjaunya dilihat. */
-  var JBT = { hasil: null, sudahLihat: false };
+  var JBT = { hasil: null, sudahLihat: false, kategori: [] };
+
+  /* Enam kategori yang dibutuhkan jembatan, dicek satu per satu. Kalau ada yang
+     hilang, lebih baik ketahuan di sini daripada nanti waktu ada order yang mau
+     pindah ke sana dan diam-diam gagal. */
+  function jbtKategori(){
+    var k = JBT.kategori || [];
+    if(!k.length) return '';
+    var kurang = k.filter(function(x){ return !x.ada; });
+    return '<div class="ofoot" style="margin-top:9px">Kategori yang dibutuhkan '+
+        (kurang.length
+          ? '<span style="color:#d97a7a">— '+kurang.length+' belum ada di Discord</span>'
+          : '<span style="color:#9fe3bb">— lengkap</span>')+'</div>'+
+      '<div class="jbtkat">'+k.map(function(x){
+        return '<span style="color:'+(x.ada?'#9fe3bb':'#d97a7a')+'">'+(x.ada?'✓':'✕')+' '+
+          esc(x.nama || x.awalan)+'</span>';
+      }).join('')+'</div>';
+  }
 
   function muatJembatan(){
     var el=document.getElementById('dcTrello');
@@ -2120,6 +2141,7 @@
           'Banyak list menuju satu kategori \u2014 dari sisi Discord yang perlu dibedakan cuma '+
           'empat keadaan.</div>'+
         peta+
+        jbtKategori()+
         '<div class="ofoot" style="margin-top:8px">Channel baru cuma dibuat untuk order yang masih '+
           'jalan. Yang sudah terkirim tidak dibuatkan channel baru, tapi channel yang sudah ada '+
           'tetap ikut pindah ke DONE. <b>Hold</b> ikut ON GOING \u2014 tidak ada kategori Hold di Discord.</div>'+
