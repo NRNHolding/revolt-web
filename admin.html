@@ -2104,6 +2104,12 @@
     jsonp(WEB_APP_URL+'?page=admin&action=dcTrelloTrigger&key='+encodeURIComponent(ADMIN_KEY)+
           '&_='+Date.now(),
       function(res){ JBT.trigger = !!(res && res.aktif); renderJembatan(); });
+    jsonp(WEB_APP_URL+'?page=admin&action=dcRoles&key='+encodeURIComponent(ADMIN_KEY)+
+          '&_='+Date.now(),
+      function(res){
+        if(res && res.ok){ JBT.roles=res.roles||[]; JBT.rDesain=res.desainer||''; JBT.rTim=res.tim||''; }
+        renderJembatan();
+      });
   }
 
   var JBT_PETA = [
@@ -2113,6 +2119,43 @@
     ['Administration - Cancel', 'CANCEL'],
     ['TEMPLATE', '(dilewati)']
   ];
+
+  /* Role dipilih dari daftar, bukan diketik id-nya. Id role itu 19 angka yang
+     tidak bisa dinilai benar-salahnya dengan mata, dan kalau keliru gejalanya
+     cuma "mention tidak muncul" - tanpa keterangan apa pun. */
+  function jbtRole(){
+    var r = JBT.roles;
+    if(!r) return '';
+    if(!r.length) return '<div class="ofoot" style="margin-top:9px;color:#d97a7a">'+
+      'Tidak ada role yang bisa dipakai. Buat dulu di Server Settings → Roles.</div>';
+    function opsi(pilih){
+      return '<option value="">— tanpa mention —</option>'+r.map(function(x){
+        return '<option value="'+esc(x.id)+'"'+(String(pilih)===String(x.id)?' selected':'')+'>'+
+          esc(x.nama)+'</option>'; }).join('');
+    }
+    return '<div class="ofoot" style="margin-top:11px">Role yang dipanggil saat kartu masuk list tertentu</div>'+
+      '<div class="mpgrid" style="margin-top:6px">'+
+        '<label class="mpmap"><span>Design Request → desainer</span>'+
+          '<select id="jbtRDesain" onchange="jbtSimpanRole()">'+opsi(JBT.rDesain)+'</select></label>'+
+        '<label class="mpmap"><span>Design Preview Done → tim</span>'+
+          '<select id="jbtRTim" onchange="jbtSimpanRole()">'+opsi(JBT.rTim)+'</select></label>'+
+      '</div>'+
+      '<div id="jbtRoleMsg" style="font-size:11.5px;margin-top:5px"></div>';
+  }
+
+  function jbtSimpanRole(){
+    var d=(document.getElementById('jbtRDesain')||{}).value||'';
+    var t=(document.getElementById('jbtRTim')||{}).value||'';
+    var m=document.getElementById('jbtRoleMsg');
+    if(m) m.innerHTML='<span style="color:#8a8a80">menyimpan…</span>';
+    jsonp(WEB_APP_URL+'?page=admin&action=dcRoleSave&desainer='+encodeURIComponent(d)+
+          '&tim='+encodeURIComponent(t)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(!res || !res.ok){ if(m) m.innerHTML='<span style="color:#d97a7a">Gagal simpan.</span>'; return; }
+        JBT.rDesain=res.desainer||''; JBT.rTim=res.tim||'';
+        if(m) m.innerHTML='<span style="color:#16a34a">✓ tersimpan</span>';
+      });
+  }
 
   function renderJembatan(){
     var el=document.getElementById('dcTrello'); if(!el) return;
@@ -2167,6 +2210,7 @@
           'empat keadaan.</div>'+
         peta+
         jbtKategori()+
+        jbtRole()+
         '<div class="ofoot" style="margin-top:8px">Channel baru cuma dibuat untuk order yang masih '+
           'jalan. Yang sudah terkirim tidak dibuatkan channel baru, tapi channel yang sudah ada '+
           'tetap ikut pindah ke DONE. <b>Hold</b> ikut ON GOING \u2014 tidak ada kategori Hold di Discord.</div>'+
