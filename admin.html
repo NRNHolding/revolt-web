@@ -2216,6 +2216,8 @@
           'tetap ikut pindah ke DONE. <b>Hold</b> ikut ON GOING \u2014 tidak ada kategori Hold di Discord.</div>'+
         '<div class="ukbaris" style="margin-top:10px">'+
           '<button class="cbtn" onclick="jbtJalan(this,1)">Lihat dulu</button>'+
+          '<button class="cbtn" title="Siapa bisa melihat kategori apa, dan channel mana yang lepas dari kategorinya" '+
+            'onclick="jbtIzin(this)">Cek izin</button>'+
           (JBT.sudahLihat
             ? '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" '+
               'onclick="jbtJalan(this,0)">Jalankan sekarang</button>'
@@ -2225,7 +2227,53 @@
           '<span id="jbtMsg" style="font-size:11.5px"></span>'+
         '</div>'+
         hasil+
+        '<div id="jbtIzinBox"></div>'+
       '</div>';
+  }
+
+  /* Izin Discord menurun: channel memakai izin kategorinya KECUALI punya aturan
+     sendiri. Yang punya aturan sendiri berhenti ikut - diam-diam, tanpa tanda
+     apa pun di daftar channel. Jadi yang perlu dilihat bukan cuma kategorinya
+     sudah benar atau belum, tapi juga berapa channel yang sebenarnya tidak
+     mengikutinya. */
+  function jbtIzin(btn){
+    var t=btn.textContent; btn.disabled=true; btn.textContent='Membaca…';
+    jsonp(WEB_APP_URL+'?page=admin&action=dcIzin&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        btn.disabled=false; btn.textContent=t;
+        var el=document.getElementById('jbtIzinBox'); if(!el) return;
+        if(!res || !res.ok){
+          el.innerHTML='<div class="onote" style="color:#d97a7a;margin-top:9px">'+
+            esc((res&&res.error)||'Gagal.')+'</div>';
+          return;
+        }
+        var k=(res.kategori||[]).filter(function(x){
+          return x.kategori!=='Text Channels' && x.kategori!=='Voice Channels'; });
+        el.innerHTML=
+          '<div class="ofoot" style="margin-top:12px">Siapa bisa melihat apa '+
+            '<span class="po-hint">terbuka = seluruh isi server bisa lihat</span></div>'+
+          '<div class="table-scroll"><table class="mini"><thead><tr>'+
+            '<th>Kategori</th><th class="num">Ch</th><th>Boleh lihat</th>'+
+            '<th>Ditolak</th><th>Lepas dari kategori</th>'+
+          '</tr></thead><tbody>'+
+          k.map(function(x){
+            var terbuka=!x.boleh.length && !x.tolak.length;
+            return '<tr><td><b>'+esc(x.kategori)+'</b></td>'+
+              '<td class="num">'+x.channel+'</td>'+
+              '<td>'+(terbuka
+                 ? '<span style="color:#d97a7a">semua orang</span>'
+                 : esc(x.boleh.join(', ')||'—'))+'</td>'+
+              '<td>'+esc(x.tolak.join(', ')||'—')+'</td>'+
+              '<td>'+(x.lepas
+                 ? '<span style="color:#e0912f">'+x.lepas+' dari '+x.channel+'</span>'
+                 : '<span style="color:#9fe3bb">ikut kategori</span>')+'</td></tr>';
+          }).join('')+
+          '</tbody></table></div>'+
+          '<div class="osub" style="margin-top:6px">Channel yang <b>lepas</b> tidak ikut '+
+            'perubahan izin kategori. Untuk mengembalikannya: Edit Channel → Permissions '+
+            '→ Sync Now. Pastikan role <b>Revolt HUB</b> selalu boleh lihat — '+
+            'tanpa itu jembatan berhenti di kategori tersebut.</div>';
+      });
   }
 
   function jbtJalan(btn, uji){
