@@ -4981,6 +4981,12 @@
           ? '<span style="color:#16a34a;font-size:11px;font-weight:700">✓ order</span>'
           : (q.status === 'Batal' ? '<span style="color:#cc3333;font-size:11px;font-weight:700">batal</span>'
           : '<button class="cbtn" onclick="openDraft(\''+esc(q.id)+'\')">Draft</button> '+
+            /* Urutannya mengikuti alur kerja: rapikan draft dulu, baru kirim ke
+               Radja. Dulu channelnya dibuat otomatis begitu inquiry masuk, dan
+               yang Radja baca adalah versi yang belum jadi. */
+            '<button class="cbtn" style="border-color:#3b82f6;color:#7cb3ff" '+
+              'title="Buat channel di PRICING WITH RADJA dan kirim briefnya beserta foto referensi" '+
+              'onclick="kirimPricing(\''+esc(q.id)+'\', this)">→ Pricing</button> '+
             /* Radja sudah kasih harga -> channel Discord-nya turun ke PRICING DONE.
                Ditandai tangan, bukan disimpulkan dari terisinya kolom harga:
                harga di draft kadang diisi bertahap sambil dirundingkan. */
@@ -5104,6 +5110,20 @@
   function tanyaJenis(id){
     return confirm('Jenis order untuk ' + id + '?\n\nOK = CUSTOM ORDER\nCancel = WHOLE SALE')
       ? 'custom' : 'wholesale';
+  }
+
+  function kirimPricing(id, btn){
+    if(!confirm('Kirim '+id+' ke Radja untuk dihargai?\n\nChannel dibuat di PRICING WITH RADJA LEATHER, '+
+                'briefnya dikirim beserta foto referensi. Pastikan draftnya sudah dirapikan.')) return;
+    var t=btn.textContent; btn.disabled=true; btn.textContent='Mengirim…';
+    jsonp(WEB_APP_URL+'?page=admin&action=dcPricing&id='+encodeURIComponent(id)+
+          '&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        btn.disabled=false;
+        if(!res || !res.ok){ btn.textContent=t; alert((res&&res.error)||'Gagal.'); return; }
+        btn.textContent='✓ terkirim';
+        btn.style.borderColor='#16a34a'; btn.style.color='#16a34a';
+      });
   }
 
   function pricingDone(id, btn){
