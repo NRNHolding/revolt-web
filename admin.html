@@ -2107,7 +2107,9 @@
     jsonp(WEB_APP_URL+'?page=admin&action=dcRoles&key='+encodeURIComponent(ADMIN_KEY)+
           '&_='+Date.now(),
       function(res){
-        if(res && res.ok){ JBT.roles=res.roles||[]; JBT.rDesain=res.desainer||''; JBT.rTim=res.tim||''; }
+        if(res && res.ok){ JBT.roles=res.roles||[]; JBT.anggota=res.anggota||[];
+          JBT.anggotaCatatan=res.anggotaCatatan||'';
+          JBT.rDesain=res.desainer||''; JBT.rTim=res.tim||''; JBT.rPricer=res.pricer||''; }
         renderJembatan();
       });
   }
@@ -2123,36 +2125,50 @@
   /* Role dipilih dari daftar, bukan diketik id-nya. Id role itu 19 angka yang
      tidak bisa dinilai benar-salahnya dengan mata, dan kalau keliru gejalanya
      cuma "mention tidak muncul" - tanpa keterangan apa pun. */
+  /* Yang dipanggil boleh role atau orang. Orang disimpan sebagai "u:<id>" -
+     server membedakan tulisannya, jadi pilihan dari kelompok mana harus ikut
+     tersimpan, bukan cuma id-nya. */
   function jbtRole(){
-    var r = JBT.roles;
+    var r = JBT.roles, a = JBT.anggota || [];
     if(!r) return '';
-    if(!r.length) return '<div class="ofoot" style="margin-top:9px;color:#d97a7a">'+
+    if(!r.length && !a.length) return '<div class="ofoot" style="margin-top:9px;color:#d97a7a">'+
       'Tidak ada role yang bisa dipakai. Buat dulu di Server Settings → Roles.</div>';
     function opsi(pilih){
-      return '<option value="">— tanpa mention —</option>'+r.map(function(x){
+      var s='<option value="">— tanpa mention —</option>';
+      if(r.length) s+='<optgroup label="Role">'+r.map(function(x){
         return '<option value="'+esc(x.id)+'"'+(String(pilih)===String(x.id)?' selected':'')+'>'+
-          esc(x.nama)+'</option>'; }).join('');
+          esc(x.nama)+'</option>'; }).join('')+'</optgroup>';
+      if(a.length) s+='<optgroup label="Orang">'+a.map(function(x){
+        var v='u:'+x.id;
+        return '<option value="'+esc(v)+'"'+(String(pilih)===v?' selected':'')+'>'+
+          esc(x.nama)+(x.user && x.user!==x.nama?' ('+esc(x.user)+')':'')+'</option>'; }).join('')+'</optgroup>';
+      return s;
     }
-    return '<div class="ofoot" style="margin-top:11px">Role yang dipanggil saat kartu masuk list tertentu</div>'+
+    return '<div class="ofoot" style="margin-top:11px">Siapa yang dipanggil</div>'+
       '<div class="mpgrid" style="margin-top:6px">'+
-        '<label class="mpmap"><span>Design Request → desainer</span>'+
+        '<label class="mpmap"><span>→ Pricing → pricer</span>'+
+          '<select id="jbtRPricer" onchange="jbtSimpanRole()">'+opsi(JBT.rPricer)+'</select></label>'+
+        '<label class="mpmap"><span>Design Request · revisi · desain baru → desainer</span>'+
           '<select id="jbtRDesain" onchange="jbtSimpanRole()">'+opsi(JBT.rDesain)+'</select></label>'+
         '<label class="mpmap"><span>Design Preview Done → tim</span>'+
           '<select id="jbtRTim" onchange="jbtSimpanRole()">'+opsi(JBT.rTim)+'</select></label>'+
       '</div>'+
+      (JBT.anggotaCatatan?'<div class="ofoot" style="margin-top:5px;color:#b5762e">'+esc(JBT.anggotaCatatan)+'</div>':'')+
       '<div id="jbtRoleMsg" style="font-size:11.5px;margin-top:5px"></div>';
   }
 
   function jbtSimpanRole(){
     var d=(document.getElementById('jbtRDesain')||{}).value||'';
     var t=(document.getElementById('jbtRTim')||{}).value||'';
+    var p=(document.getElementById('jbtRPricer')||{}).value||'';
     var m=document.getElementById('jbtRoleMsg');
     if(m) m.innerHTML='<span style="color:#8a8a80">menyimpan…</span>';
     jsonp(WEB_APP_URL+'?page=admin&action=dcRoleSave&desainer='+encodeURIComponent(d)+
-          '&tim='+encodeURIComponent(t)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+          '&tim='+encodeURIComponent(t)+'&pricer='+encodeURIComponent(p)+
+          '&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
       function(res){
         if(!res || !res.ok){ if(m) m.innerHTML='<span style="color:#d97a7a">Gagal simpan.</span>'; return; }
-        JBT.rDesain=res.desainer||''; JBT.rTim=res.tim||'';
+        JBT.rDesain=res.desainer||''; JBT.rTim=res.tim||''; JBT.rPricer=res.pricer||'';
         if(m) m.innerHTML='<span style="color:#16a34a">✓ tersimpan</span>';
       });
   }
