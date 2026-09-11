@@ -2103,13 +2103,14 @@
     renderJembatan();
     jsonp(WEB_APP_URL+'?page=admin&action=dcTrelloTrigger&key='+encodeURIComponent(ADMIN_KEY)+
           '&_='+Date.now(),
-      function(res){ JBT.trigger = !!(res && res.aktif); renderJembatan(); });
+      function(res){ JBT.trigger = !!(res && res.aktif); JBT.terakhir = res && res.terakhir; renderJembatan(); });
     jsonp(WEB_APP_URL+'?page=admin&action=dcRoles&key='+encodeURIComponent(ADMIN_KEY)+
           '&_='+Date.now(),
       function(res){
         if(res && res.ok){ JBT.roles=res.roles||[]; JBT.anggota=res.anggota||[];
           JBT.anggotaCatatan=res.anggotaCatatan||'';
-          JBT.rDesain=res.desainer||''; JBT.rTim=res.tim||''; JBT.rPricer=res.pricer||''; }
+          JBT.rDesain=res.desainer||''; JBT.rTim=res.tim||''; JBT.rPricer=res.pricer||'';
+          JBT.rProdC=res.prodCustom||''; JBT.rProdM=res.prodMass||''; }
         renderJembatan();
       });
   }
@@ -2152,6 +2153,10 @@
           '<select id="jbtRDesain" onchange="jbtSimpanRole()">'+opsi(JBT.rDesain)+'</select></label>'+
         '<label class="mpmap"><span>Design Preview Done · pricing ulang → admin Revolt</span>'+
           '<select id="jbtRTim" onchange="jbtSimpanRole()">'+opsi(JBT.rTim)+'</select></label>'+
+        '<label class="mpmap"><span>Ready To Brief (custom) → minta jadwal</span>'+
+          '<select id="jbtRProdC" onchange="jbtSimpanRole()">'+opsi(JBT.rProdC)+'</select></label>'+
+        '<label class="mpmap"><span>Ready To Brief (wholesale) → minta jadwal</span>'+
+          '<select id="jbtRProdM" onchange="jbtSimpanRole()">'+opsi(JBT.rProdM)+'</select></label>'+
       '</div>'+
       (JBT.anggotaCatatan?'<div class="ofoot" style="margin-top:5px;color:#b5762e">'+esc(JBT.anggotaCatatan)+'</div>':'')+
       '<div id="jbtRoleMsg" style="font-size:11.5px;margin-top:5px"></div>';
@@ -2161,16 +2166,34 @@
     var d=(document.getElementById('jbtRDesain')||{}).value||'';
     var t=(document.getElementById('jbtRTim')||{}).value||'';
     var p=(document.getElementById('jbtRPricer')||{}).value||'';
+    var pc=(document.getElementById('jbtRProdC')||{}).value||'';
+    var pm=(document.getElementById('jbtRProdM')||{}).value||'';
     var m=document.getElementById('jbtRoleMsg');
     if(m) m.innerHTML='<span style="color:#8a8a80">menyimpan…</span>';
     jsonp(WEB_APP_URL+'?page=admin&action=dcRoleSave&desainer='+encodeURIComponent(d)+
           '&tim='+encodeURIComponent(t)+'&pricer='+encodeURIComponent(p)+
+          '&prodCustom='+encodeURIComponent(pc)+'&prodMass='+encodeURIComponent(pm)+
           '&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
       function(res){
         if(!res || !res.ok){ if(m) m.innerHTML='<span style="color:#d97a7a">Gagal simpan.</span>'; return; }
         JBT.rDesain=res.desainer||''; JBT.rTim=res.tim||''; JBT.rPricer=res.pricer||'';
+        JBT.rProdC=res.prodCustom||''; JBT.rProdM=res.prodMass||'';
         if(m) m.innerHTML='<span style="color:#16a34a">✓ tersimpan</span>';
       });
+  }
+
+  /* Trigger jalan tanpa layar. Yang ditampilkan: kapan terakhir, berapa yang
+     diurus, dan apa yang gagal - termasuk kartu dobel, yang tidak pernah
+     menghasilkan error apa pun di Discord. */
+  function jbtTerakhir(){
+    var t=JBT.terakhir; if(!t||!t.t) return '';
+    var w=new Date(t.t), jam=('0'+w.getHours()).slice(-2)+':'+('0'+w.getMinutes()).slice(-2);
+    var masalah=(t.gagal||[]).map(esc).concat((t.dobel||[]).map(function(d){
+      return 'Kartu dobel '+esc(d.order)+': dipantau di '+esc(d.dipantau)+', salinan di '+(d.lain||[]).map(esc).join(', '); }));
+    return '<div class="osub" style="margin-top:3px">Terakhir jalan '+jam+' \u00b7 '+(t.aksi||0)+' aksi'+
+      (t.desainBaru?' \u00b7 '+t.desainBaru+' desain baru':'')+
+      (masalah.length?' \u00b7 <span style="color:#d97a7a">'+masalah.length+' masalah</span>':'')+'</div>'+
+      (masalah.length?'<div class="onote" style="color:#d97a7a;margin-top:4px">'+masalah.join('<br>')+'</div>':'');
   }
 
   function renderJembatan(){
@@ -2209,6 +2232,13 @@
                   : '<span class="badge" style="background:#b5762e">pindah</span>')+'</td></tr>';
             }).join('')+'</tbody></table></div>'
           : '<div class="loading">Semua channel sudah di kategori yang benar.</div>')+
+        ((r.dobel||[]).length
+          ? '<div class="onote" style="color:#d97a7a;margin-top:8px"><b>Kartu dobel di Trello</b> \u2014 '+
+              'jembatan cuma mengikuti kartu yang tercatat di Schedule; salinannya tidak terbaca. '+
+              'Geser kartu, jangan Copy, lalu arsipkan salinannya:<br>'+
+              r.dobel.map(function(d){ return esc(d.order)+': dipantau di <b>'+esc(d.dipantau)+'</b>, salinan di '+
+                d.lain.map(esc).join(', '); }).join('<br>')+'</div>'
+          : '')+
         ((r.kembar||[]).length
           ? '<div class="onote" style="color:#b5762e;margin-top:8px"><b>Channel kembar</b> \u2014 order punya '+
               'channel sendiri padahal channel inquiry-nya masih ada. Tidak dihapus otomatis:<br>'+
@@ -2232,6 +2262,7 @@
           (JBT.trigger
             ? ' <span class="badge" style="background:#16a34a">otomatis tiap 15 menit</span>'
             : ' <span class="badge" style="background:#8a8a80">manual</span>')+
+          jbtTerakhir()+
           '<div class="osub">Kartu pindah list di Trello \u2192 channel ordernya pindah kategori '+
           'di Discord, dan perpindahannya diumumkan di dalam channel itu.</div></div></div>'+
         '<div class="ofoot" style="margin:8px 0 0">Board punya 27 list, Discord 12 kategori. '+
