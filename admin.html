@@ -2201,7 +2201,8 @@
             '</tr></thead><tbody>'+a.map(function(x){
               return '<tr><td>'+esc(x.order)+'</td><td><code>'+esc(x.nama)+'</code></td>'+
                 '<td style="font-size:11px">'+esc(x.list)+
-                  (x.revisi?' <span class="badge" style="background:#dc2626">'+esc(x.revisi)+'</span>':'')+'</td>'+
+                  (x.revisi?' <span class="badge" style="background:#dc2626">'+esc(x.revisi)+'</span>':'')+
+                  (x.pricing?' <span class="badge" style="background:#3b82f6">'+esc(x.pricing)+'</span>':'')+'</td>'+
                 '<td><b>'+esc(x.ke)+'</b></td>'+
                 '<td>'+(x.jenis==='buat'
                   ? '<span class="badge" style="background:#16a34a">baru</span>'
@@ -2236,6 +2237,10 @@
         '<div class="ofoot" style="margin-top:8px">Channel baru cuma dibuat untuk order yang masih '+
           'jalan. Yang sudah terkirim tidak dibuatkan channel baru, tapi channel yang sudah ada '+
           'tetap ikut pindah ke DONE. <b>Hold</b> ikut ON GOING \u2014 tidak ada kategori Hold di Discord.</div>'+
+        '<div class="ofoot" style="margin-top:6px"><b>Pricing ulang</b>: pasang label berisi kata '+
+          '<b>PRICING</b> di kartu Trello \u2192 channel pindah ke PRICING WITH RADJA LEATHER, brief + foto '+
+          'referensi + desain terbaru ikut. Cabut labelnya \u2192 channel kembali. Jangan geser channel '+
+          'dengan tangan: jembatan menariknya balik.</div>'+
         '<div class="ukbaris" style="margin-top:10px">'+
           '<button class="cbtn" onclick="jbtJalan(this,1)">Lihat dulu</button>'+
           '<button class="cbtn" title="Siapa bisa melihat kategori apa, dan channel mana yang lepas dari kategorinya" '+
