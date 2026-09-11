@@ -2150,7 +2150,7 @@
           '<select id="jbtRPricer" onchange="jbtSimpanRole()">'+opsi(JBT.rPricer)+'</select></label>'+
         '<label class="mpmap"><span>Design Request · revisi · desain baru → desainer</span>'+
           '<select id="jbtRDesain" onchange="jbtSimpanRole()">'+opsi(JBT.rDesain)+'</select></label>'+
-        '<label class="mpmap"><span>Design Preview Done → tim</span>'+
+        '<label class="mpmap"><span>Design Preview Done · pricing ulang → admin Revolt</span>'+
           '<select id="jbtRTim" onchange="jbtSimpanRole()">'+opsi(JBT.rTim)+'</select></label>'+
       '</div>'+
       (JBT.anggotaCatatan?'<div class="ofoot" style="margin-top:5px;color:#b5762e">'+esc(JBT.anggotaCatatan)+'</div>':'')+
@@ -2244,8 +2244,8 @@
           'jalan. Yang sudah terkirim tidak dibuatkan channel baru, tapi channel yang sudah ada '+
           'tetap ikut pindah ke DONE. <b>Hold</b> ikut ON GOING \u2014 tidak ada kategori Hold di Discord.</div>'+
         '<div class="ofoot" style="margin-top:6px"><b>Pricing ulang</b>: pasang label berisi kata '+
-          '<b>PRICING</b> di kartu Trello \u2192 channel pindah ke PRICING WITH RADJA LEATHER, brief + foto '+
-          'referensi + desain terbaru ikut. Cabut labelnya \u2192 channel kembali. Jangan geser channel '+
+          '<b>PRICING</b> di kartu Trello \u2192 channel pindah ke PRICING WITH RADJA LEATHER dan admin Revolt '+
+          'dipanggil untuk menjelaskan alasannya. Cabut labelnya \u2192 channel kembali. Jangan geser channel '+
           'dengan tangan: jembatan menariknya balik.</div>'+
         '<div class="ukbaris" style="margin-top:10px">'+
           '<button class="cbtn" onclick="jbtJalan(this,1)">Lihat dulu</button>'+
