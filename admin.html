@@ -2209,6 +2209,12 @@
                   : '<span class="badge" style="background:#b5762e">pindah</span>')+'</td></tr>';
             }).join('')+'</tbody></table></div>'
           : '<div class="loading">Semua channel sudah di kategori yang benar.</div>')+
+        ((r.kembar||[]).length
+          ? '<div class="onote" style="color:#b5762e;margin-top:8px"><b>Channel kembar</b> \u2014 order punya '+
+              'channel sendiri padahal channel inquiry-nya masih ada. Tidak dihapus otomatis:<br>'+
+              r.kembar.map(function(k){ return esc(k.order)+': <code>'+esc(k.channelOrder)+'</code> dan <code>'+
+                esc(k.channelInquiry)+'</code> ('+esc(k.inquiry)+', '+esc(k.kategoriInquiry)+')'; }).join('<br>')+'</div>'
+          : '')+
         ((r.desainBaru||[]).length
           ? '<div class="ofoot" style="margin-top:8px">Desain baru '+(r.uji?'yang akan dikirim':'terkirim')+': '+
               r.desainBaru.map(function(d){
