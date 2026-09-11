@@ -2184,13 +2184,19 @@
               '<th>Order</th><th>Channel</th><th>List Trello</th><th>Kategori tujuan</th><th></th>'+
             '</tr></thead><tbody>'+a.map(function(x){
               return '<tr><td>'+esc(x.order)+'</td><td><code>'+esc(x.nama)+'</code></td>'+
-                '<td style="font-size:11px">'+esc(x.list)+'</td>'+
+                '<td style="font-size:11px">'+esc(x.list)+
+                  (x.revisi?' <span class="badge" style="background:#dc2626">'+esc(x.revisi)+'</span>':'')+'</td>'+
                 '<td><b>'+esc(x.ke)+'</b></td>'+
                 '<td>'+(x.jenis==='buat'
                   ? '<span class="badge" style="background:#16a34a">baru</span>'
                   : '<span class="badge" style="background:#b5762e">pindah</span>')+'</td></tr>';
             }).join('')+'</tbody></table></div>'
           : '<div class="loading">Semua channel sudah di kategori yang benar.</div>')+
+        ((r.desainBaru||[]).length
+          ? '<div class="ofoot" style="margin-top:8px">Desain baru '+(r.uji?'yang akan dikirim':'terkirim')+': '+
+              r.desainBaru.map(function(d){
+                return '<b>'+esc(d.order)+'</b> ('+d.jumlah+' berkas, '+esc(d.list)+')'; }).join(' \u00b7 ')+'</div>'
+          : '')+
         ((r.gagal||[]).length
           ? '<div class="onote" style="color:#d97a7a;margin-top:8px">'+
               r.gagal.map(function(g){ return esc(g); }).join('<br>')+'</div>'
