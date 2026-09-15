@@ -11,6 +11,10 @@
     .header { background: #000; padding: 16px 24px; border-bottom: 1px solid #2a2a2a; display: flex; justify-content: space-between; align-items: center; }
     .header h1 { font-size: 16px; letter-spacing: 2px; text-transform: uppercase; }
     .header .ts { font-size: 11px; color: #888; }
+    .header .kanan { display: flex; align-items: center; gap: 8px; }
+    .header .segar { background: none; border: 1px solid #333; color: #bbb; border-radius: 7px;
+                     font-size: 15px; line-height: 1; padding: 5px 9px; cursor: pointer; }
+    .header .segar:active { background: #1c1c17; }
 
     .wrap { max-width: 1240px; margin: 24px auto; padding: 0 20px; }
 
@@ -550,14 +554,20 @@
   </style>
   <link rel="icon" type="image/png" sizes="32x32" href="https://nrnholding.github.io/revolt-web/favicon-32.png">
   <link rel="apple-touch-icon" href="https://nrnholding.github.io/revolt-web/apple-touch-icon.png">
-  <link rel="manifest" href="https://nrnholding.github.io/revolt-web/manifest.webmanifest">
-  <meta name="theme-color" content="#141414">
+  <link rel="manifest" href="https://nrnholding.github.io/revolt-web/manifest-admin.webmanifest">
+  <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-title" content="Revolt Admin">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
 </head>
 <body>
   <div class="header">
     <h1>Revolt Industry · Admin</h1>
-    <div class="ts" id="ts"></div>
+    <div class="kanan">
+      <div class="ts" id="ts"></div>
+      <button class="segar" onclick="loadData()" title="Perbarui data" aria-label="Perbarui data">↻</button>
+    </div>
   </div>
   <div class="wrap">
     <div id="content"><div class="loading">Memuat data…</div></div>
@@ -5135,6 +5145,7 @@
     el.innerHTML=html;
   }
   function downloadEvalPDF(){
+    if (keBrowser_('eval', 'PDF evaluasi dibuat di browser.')) return;
     if(!libPdfSiap_(function(){ downloadEvalPDF(); })) return;
     var el=document.getElementById('evalPanel'); if(!el || !el.innerHTML){ alert('Panel evaluasi belum termuat.'); return; }
     html2canvas(el,{scale:2, backgroundColor:'#ffffff'}).then(function(c){
@@ -5494,6 +5505,7 @@
   function rpv(n){ return 'Rp '+(Number(n)||0).toLocaleString('id-ID'); }
 
   function openInvoice(orderId, type){
+    if (keBrowser_('inv.' + orderId + '.' + type, 'Dokumen ' + orderId + ' dibuat di browser.')) return;
     var o=null; ((DATA&&DATA.orders)||[]).forEach(function(x){ if(String(x.orderId)===String(orderId)) o=x; });
     if(!o){ alert('Order tidak ditemukan.'); return; }
     INV_TYPE=type; INV_ORDERID=orderId; INV_NAMA=o.customer||''; INV_NOMOR='';
@@ -6307,6 +6319,7 @@
   function idr(n){ return n ? 'IDR '+Number(n).toLocaleString('id-ID') : 'IDR –'; }
 
   function openPO(orderId){
+    if (keBrowser_('po.' + orderId, 'PO ' + orderId + ' dibuat di browser.')) return;
     var o=findOrder(orderId); if(!o){ alert('Order tidak ditemukan.'); return; }
     PO_ORDERID=orderId;
     document.getElementById('poPaper').innerHTML = buildPOHTML(o);
@@ -6485,6 +6498,7 @@
   // ── Custom Sheet (editable teks + foto) → PDF/JPG, simpan ke Drive ──
   var SHEET_ORDERID='', SHEET_SLOT=null, SHEET_PHOTOS=[], PAN=null, SHEET_CACHE={};
   function openSheet(orderId){
+    if (keBrowser_('sheet.' + orderId, 'Custom sheet ' + orderId + ' dibuat di browser.')) return;
     SHEET_ORDERID = orderId;
     var modal=document.getElementById('sheetModal'), paper=document.getElementById('sheetPaper');
     var cached = SHEET_CACHE[orderId];
@@ -6712,7 +6726,50 @@
      lebih lama lagi kalau Apps Script baru bangun. Sekali gagal jangan langsung
      menyerah: satu gangguan jaringan sesaat sebelumnya membuat layar mati total
      sampai di-refresh tangan. */
-  var MUAT_KE = 0, DARI_CACHE = false, SUDAH_SEGAR = false, DISENTUH = false, DATA_BARU = null, JSON_CACHE = '';
+  /* ── Mode aplikasi (ikon di layar utama HP) ──
+
+     Di mode aplikasi tidak ada tarik-untuk-muat-ulang dan tidak ada tombol
+     kembali. Dua akibat yang ditangani di sini:
+
+     1. Data basi. Aplikasi yang ditinggal di latar belakang lalu dibuka lagi
+        tidak dimuat ulang - angka yang terlihat bisa dari berjam-jam lalu.
+        Jadi data diperbarui sendiri begitu aplikasi dibuka lagi (sesudah
+        tersembunyi lebih dari 30 detik), tiap 5 menit selama terlihat, dan
+        lewat tombol ↻.
+
+     2. Dokumen. Unduhan PDF di mode aplikasi iPhone bisa terbuka tanpa jalan
+        kembali. Editor invoice, PO, custom sheet, dan PDF evaluasi tidak
+        dibuka di aplikasi: yang terbuka browser, langsung di dokumen yang
+        sama untuk order yang sama. */
+  var MODE_APP = (window.navigator.standalone === true) ||
+                 !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  var BUKA = (new URLSearchParams(location.search)).get('buka') || '';
+
+  function keBrowser_(buka, pesan){
+    if (!MODE_APP) return false;
+    var u = new URL(location.href);
+    u.searchParams.set('buka', buka);
+    if (confirm(pesan + '\n\nDi aplikasi, unduhan PDF bisa macet. Buka di browser?')) window.open(u.toString(), '_blank');
+    return true;
+  }
+  // Dibuka dari aplikasi lewat keBrowser_: langsung ke dokumennya, sekali saja.
+  function jalankanBuka_(){
+    if (!BUKA) return;
+    var b = BUKA; BUKA = '';
+    try { var u = new URL(location.href); u.searchParams.delete('buka'); history.replaceState(null, '', u.toString()); } catch(e) {}
+    var p = b.split('.');
+    if (p[0] === 'inv' && p[1]) openInvoice(p[1], p.slice(2).join('.') || 'dp');
+    else if (p[0] === 'po' && p[1]) openPO(p[1]);
+    else if (p[0] === 'sheet' && p[1]) openSheet(p[1]);
+    else if (p[0] === 'eval') { var t = document.querySelector('.tabs > .tab[onclick="showTab(2,this)"]'); if (t) showTab(2, t); }
+  }
+
+  var MUAT_KE = 0, SEDANG_MUAT = false, SUDAH_SEGAR = false, CACHE_TERBACA = false;
+  var DATA_BARU = null, JSON_TAMPIL = '', DISENTUH = false;
+
+  // "Sudah disentuh" = ada yang ditekan atau diketik sejak terakhir digambar.
+  document.addEventListener('click', function(){ DISENTUH = true; }, true);
+  document.addEventListener('focusin', function(){ DISENTUH = true; }, true);
 
   function tandaCache_(html){
     var ts = document.getElementById('ts'); if (!ts || !DATA) return;
@@ -6720,16 +6777,14 @@
   }
   function jamCache_(t){ var w = new Date(t); return ('0'+w.getHours()).slice(-2) + ':' + ('0'+w.getMinutes()).slice(-2); }
   function tanpaWaktu_(d){ var c = {}; for (var k in d) if (k !== 'generatedAt') c[k] = d[k]; return JSON.stringify(c); }
+  function adaTampilan_(){ return !!(DATA && document.querySelector('#content .tabs')); }
 
-  /* Gambar ulang dengan data baru. Otomatis cuma kalau belum ada yang ditekan
-     atau diketik - kalau sudah, tampilan yang sedang dipakai tidak dirombak
-     tiba-tiba; yang muncul tombol "Tampilkan". */
-  function gambarUlang_(){
-    if (!DATA_BARU) return;
+  // Gambar ulang tanpa memindahkan orang dari tab dan posisi gulirnya.
+  function tampilkan_(d){
     var aktif = document.querySelector('.tabs > .tab.active');
     var klik = aktif ? aktif.getAttribute('onclick') : '', gulir = window.scrollY;
-    var d = DATA_BARU; DATA_BARU = null; DARI_CACHE = false;
     render(d);
+    JSON_TAMPIL = tanpaWaktu_(d); DISENTUH = false;
     if (klik) {
       var b = document.querySelector('.tabs > .tab[onclick="' + klik + '"]');
       var n = parseInt((klik.match(/showTab\((\d+)/) || [])[1], 10);
@@ -6737,32 +6792,39 @@
     }
     window.scrollTo(0, gulir);
   }
+  function gambarUlang_(){
+    if (!DATA_BARU) return;
+    var d = DATA_BARU; DATA_BARU = null;
+    tampilkan_(d);
+    jalankanBuka_();
+  }
 
-  function loadData(){
+  /* mode: 'awal'  = pembukaan halaman: data tersimpan dulu, lalu data baru.
+           'paksa' = diminta (↻, sesudah menyimpan sesuatu): data baru selalu digambar.
+           'latar' = otomatis (aplikasi dibuka lagi, tiap 5 menit): digambar kalau
+                     tampilan belum disentuh; kalau sudah, muncul tombol "Tampilkan". */
+  function muat_(mode){
     if (WEB_APP_URL.indexOf('PASTE_URL') > -1){ showErr('WEB_APP_URL belum diisi.'); return; }
-    var maksimal = 3;
+    if (mode === 'latar' && SEDANG_MUAT) return;
     MUAT_KE++;
-    var percobaan = 0;
+    var ke = MUAT_KE, maksimal = 3, percobaan = 0;
+    SEDANG_MUAT = true;
 
-    if (MUAT_KE === 1) {
+    if (mode === 'awal') {
       bacaCache_().then(function(c){
         if (!c || SUDAH_SEGAR) return;      // data baru lebih dulu datang
-        DARI_CACHE = true; JSON_CACHE = tanpaWaktu_(c.d);
-        render(c.d);
+        CACHE_TERBACA = true;
+        tampilkan_(c.d);
         tandaCache_('data tersimpan ' + jamCache_(c.t) + ', memperbarui…');
-        document.addEventListener('click', function(){ DISENTUH = true; }, true);
-        document.addEventListener('focusin', function(){ DISENTUH = true; }, true);
       });
-    } else {
-      DARI_CACHE = false;                   // muat ulang yang diminta: perilaku biasa
     }
 
     function coba(){
       percobaan++;
-      if (DARI_CACHE) tandaCache_(percobaan === 1 ? 'memperbarui…' : 'mencoba lagi (' + percobaan + '/' + maksimal + ')…');
+      if (adaTampilan_()) tandaCache_(percobaan === 1 ? 'memperbarui…' : 'mencoba lagi (' + percobaan + '/' + maksimal + ')…');
       else showMuat(percobaan === 1 ? 'Memuat data…' : 'Sambungan gagal, mencoba lagi (' + percobaan + '/' + maksimal + ')…');
 
-      var cbName = 'cb_' + MUAT_KE + '_' + percobaan + '_' + Date.now();
+      var cbName = 'cb_' + ke + '_' + percobaan + '_' + Date.now();
       var s = document.createElement('script');
       var selesai = false;
       // 40 detik: panggilan normal 5-10 detik, cold start bisa dua kali lipat
@@ -6776,26 +6838,29 @@
       function gagal(pesan){
         if (selesai) return; selesai = true;
         bersih();
-        if (percobaan < maksimal) setTimeout(coba, 1500);
-        else if (DARI_CACHE) tandaCache_('gagal memperbarui, yang tampil data tersimpan · <button class="cbtn" onclick="loadData()">Coba lagi</button>');
+        if (percobaan < maksimal) { setTimeout(coba, 1500); return; }
+        if (ke === MUAT_KE) SEDANG_MUAT = false;
+        if (adaTampilan_()) tandaCache_('gagal memperbarui · <button class="cbtn" onclick="loadData()">Coba lagi</button>');
         else showErr(pesan + ' Dicoba ' + maksimal + ' kali.', true);
       }
 
       window[cbName] = function(d){
         if (selesai) return; selesai = true;
         bersih();
+        if (ke !== MUAT_KE) return;                              // sudah ada permintaan yang lebih baru
+        SEDANG_MUAT = false;
         if (d && d.error){                                      // ditolak server: mengulang tidak menolong
-          if (DARI_CACHE) hapusCache_();                        // key sudah tidak berlaku: jangan tampilkan lagi
+          if (CACHE_TERBACA) hapusCache_();                     // key yang membuka cache sudah tidak berlaku
           showErr(d.error, true); return;
         }
         SUDAH_SEGAR = true;
         simpanCache_(d);
-        if (!DARI_CACHE) { render(d); return; }
-        if (tanpaWaktu_(d) === JSON_CACHE) {                    // isinya sama: cukup ganti jamnya
-          DATA.generatedAt = d.generatedAt; DARI_CACHE = false; tandaCache_(''); return;
+        if (!adaTampilan_()) { tampilkan_(d); jalankanBuka_(); return; }
+        if (tanpaWaktu_(d) === JSON_TAMPIL) {                   // isinya sama: cukup ganti jamnya
+          DATA.generatedAt = d.generatedAt; DATA_BARU = null; tandaCache_(''); jalankanBuka_(); return;
         }
         DATA_BARU = d;
-        if (!DISENTUH) gambarUlang_();
+        if (mode === 'paksa' || !DISENTUH) gambarUlang_();
         else tandaCache_('ada data baru · <button class="cbtn" onclick="gambarUlang_()">Tampilkan</button>');
       };
       s.onerror = function(){ gagal('Gagal konek ke server.'); };
@@ -6805,6 +6870,21 @@
     }
     coba();
   }
+  function loadData(){ muat_(MUAT_KE === 0 ? 'awal' : 'paksa'); }
+
+  var TERSEMBUNYI_SEJAK = 0;
+  document.addEventListener('visibilitychange', function(){
+    if (document.hidden) { TERSEMBUNYI_SEJAK = Date.now(); return; }
+    var lama = TERSEMBUNYI_SEJAK ? Date.now() - TERSEMBUNYI_SEJAK : 0;
+    TERSEMBUNYI_SEJAK = 0;
+    if (lama < 30000 || !DATA) return;
+    // Balik sesudah ditinggal: pemakaian sebelumnya dianggap selesai - kecuali
+    // masih ada jendela dokumen yang terbuka.
+    if (!document.querySelector('[id$="Modal"].show')) DISENTUH = false;
+    muat_('latar');
+  });
+  window.addEventListener('pageshow', function(e){ if (e.persisted && DATA) muat_('latar'); });
+  setInterval(function(){ if (!document.hidden && DATA) muat_('latar'); }, 5 * 60 * 1000);
   loadData();
 </script>
 
