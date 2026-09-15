@@ -548,8 +548,11 @@
     }
     @media (max-width: 380px) { .kpis { grid-template-columns: 1fr 1fr; } .ev-kpis { grid-template-columns: 1fr 1fr; } }
   </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="icon" type="image/png" sizes="32x32" href="https://nrnholding.github.io/revolt-web/favicon-32.png">
+  <link rel="apple-touch-icon" href="https://nrnholding.github.io/revolt-web/apple-touch-icon.png">
+  <link rel="manifest" href="https://nrnholding.github.io/revolt-web/manifest.webmanifest">
+  <meta name="theme-color" content="#141414">
+  <meta name="apple-mobile-web-app-title" content="Revolt Admin">
 </head>
 <body>
   <div class="header">
@@ -566,6 +569,103 @@
   // Key TIDAK ditanam (biar aman di-host publik): dari ?key= URL, atau sesi, atau minta sekali.
   var ADMIN_KEY = (new URLSearchParams(location.search)).get('key') || sessionStorage.getItem('rvlt_admin_key') || (window.prompt('Masukkan Admin Key:') || '');
   if (ADMIN_KEY) sessionStorage.setItem('rvlt_admin_key', ADMIN_KEY);
+
+  /* ── Library PDF dimuat saat dibutuhkan ──
+
+     html2canvas dan jsPDF cuma dipakai waktu menerbitkan invoice, PO, custom
+     sheet, dan PDF evaluasi. Dulu dua-duanya ada di <head> dan menahan
+     tampilan: 133 KB terkompresi (±550 KB setelah dibuka) yang harus diunduh
+     dan diurai sebelum dashboard muncul. Di HP itu terasa sebagai layar kosong
+     di setiap pembukaan, termasuk yang cuma mau melihat status order. Sekarang
+     diunduh begitu tombolnya ditekan pertama kali, sekali saja. */
+  var LIB_PDF = null;
+  function libPdfAda_(){ return !!(window.jspdf && window.html2canvas && !window.html2canvas.__tunda); }
+  function muatLibPdf_(){
+    if (libPdfAda_()) return Promise.resolve();
+    if (LIB_PDF) return LIB_PDF;
+    function tag(src){
+      return new Promise(function(ok, gagal){
+        var s = document.createElement('script');
+        s.src = src; s.onload = ok;
+        s.onerror = function(){ gagal(new Error('Library PDF gagal dimuat — cek koneksi.')); };
+        document.head.appendChild(s);
+      });
+    }
+    LIB_PDF = Promise.all([
+      tag('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'),
+      tag('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js')
+    ]).catch(function(e){ LIB_PDF = null; throw e; });
+    return LIB_PDF;
+  }
+  // true = bisa dipakai sekarang. false = sedang dimuat; lanjut() jalan begitu siap.
+  function libPdfSiap_(lanjut){
+    if (libPdfAda_()) return true;
+    muatLibPdf_().then(lanjut, function(e){ alert(e.message); });
+    return false;
+  }
+  // Jaring pengaman untuk pemanggil html2canvas yang tidak lewat libPdfSiap_.
+  window.html2canvas = function(){
+    var a = arguments;
+    return muatLibPdf_().then(function(){
+      if (window.html2canvas.__tunda) throw new Error('html2canvas tidak termuat.');
+      return window.html2canvas.apply(null, a);
+    });
+  };
+  window.html2canvas.__tunda = true;
+
+  /* ── Buka instan dari data terakhir ──
+
+     Data dashboard dibaca Apps Script dari tiga sheet: 4-8 detik, sesekali
+     15 detik kalau Apps Script baru bangun. Dari HP, selama itu yang terlihat
+     cuma "Memuat data…". Servernya tidak bisa dibuat jauh lebih cepat -
+     panggilan paling ringan pun sudah 2 detik.
+
+     Jadi data yang terakhir berhasil dimuat disimpan di perangkat, ditampilkan
+     begitu halaman dibuka, lalu diganti data baru begitu datang. Tanda "data
+     tersimpan" di kepala halaman menyebut jamnya sampai data baru masuk.
+
+     Disimpan TERENKRIPSI dengan admin key (AES-GCM, kunci diturunkan lewat
+     PBKDF2). Isinya nomor HP, alamat, dan harga jual: tanpa key yang benar,
+     browser yang dibuka orang lain tidak bisa membacanya. */
+  var CACHE_NAMA = 'rvlt_admin_cache_v1', KUNCI_CACHE = null;
+  function kunciCache_(){
+    if (KUNCI_CACHE) return KUNCI_CACHE;
+    if (!ADMIN_KEY || !window.crypto || !crypto.subtle || !window.TextEncoder) return Promise.reject(new Error('crypto'));
+    var enc = new TextEncoder();
+    KUNCI_CACHE = crypto.subtle.importKey('raw', enc.encode(ADMIN_KEY), 'PBKDF2', false, ['deriveKey'])
+      .then(function(bahan){
+        return crypto.subtle.deriveKey(
+          { name:'PBKDF2', salt:enc.encode('revolt-hub-cache'), iterations:100000, hash:'SHA-256' },
+          bahan, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']);
+      });
+    return KUNCI_CACHE;
+  }
+  function b64_(buf){
+    var a = new Uint8Array(buf), s = '';
+    for (var i = 0; i < a.length; i += 0x8000) s += String.fromCharCode.apply(null, a.subarray(i, i + 0x8000));
+    return btoa(s);
+  }
+  function unb64_(t){ var b = atob(t), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
+  function simpanCache_(d){
+    try {
+      kunciCache_().then(function(k){
+        var iv = crypto.getRandomValues(new Uint8Array(12));
+        return crypto.subtle.encrypt({ name:'AES-GCM', iv:iv }, k, new TextEncoder().encode(JSON.stringify(d)))
+          .then(function(ct){ localStorage.setItem(CACHE_NAMA, JSON.stringify({ iv:b64_(iv), ct:b64_(ct), t:Date.now() })); });
+      }).catch(function(){});
+    } catch(e) {}
+  }
+  function bacaCache_(){
+    try {
+      var o = JSON.parse(localStorage.getItem(CACHE_NAMA) || 'null');
+      if (!o || !o.ct) return Promise.resolve(null);
+      return kunciCache_()
+        .then(function(k){ return crypto.subtle.decrypt({ name:'AES-GCM', iv:unb64_(o.iv) }, k, unb64_(o.ct)); })
+        .then(function(p){ return { d:JSON.parse(new TextDecoder().decode(p)), t:o.t }; })
+        .catch(function(){ return null; });   // key lain atau data rusak: anggap tidak ada
+    } catch(e) { return Promise.resolve(null); }
+  }
+  function hapusCache_(){ try { localStorage.removeItem(CACHE_NAMA); } catch(e) {} }
 
   var STATUS_COLOR = {
     'Order Received':'#6b7280','Proses Desain':'#3b82f6','Approval Desain':'#8b5cf6',
@@ -675,7 +775,10 @@
     var bel=(d.inquiries||[]).filter(function(q){ return inqGrup(q.status)==='aktif'; }).length;
     var bd=document.getElementById('inqBadge');
     if(bd && bel){ bd.textContent=bel; bd.style.display=''; }
-    checkNewOrders();
+    /* Sekali per pembukaan halaman. Dashboard sekarang bisa digambar dua kali
+       (data tersimpan, lalu data baru) - tanpa ini WooCommerce ditanya dua kali. */
+    if (window.__ORDER_WEB) tampilOrderWeb_(window.__ORDER_WEB);
+    if (!window.__CEK_ORDER) { window.__CEK_ORDER = 1; checkNewOrders(); }
   }
 
   // Sub-tab Administrasi
@@ -695,6 +798,12 @@
     jsonp(WEB_APP_URL+'?page=admin&action=wooPending&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
       function(res){
         if(!res||!res.ok) return;
+        window.__ORDER_WEB = res;
+        tampilOrderWeb_(res);
+      });
+  }
+  function tampilOrderWeb_(res){
+    (function(){
         var b=document.getElementById('ordBadge');
         if(b){ if(res.count){ b.textContent=res.count; b.style.display=''; } else b.style.display='none'; }
         var box=document.getElementById('ordAlert');
@@ -709,7 +818,7 @@
             (res.count>res.items.length?'<div style="color:#888;font-size:11px;padding-top:6px">+'+(res.count-res.items.length)+' lainnya…</div>':'')+
           '</div>';
         }
-      });
+    })();
   }
   function gotoOrders(){
     var t=document.getElementById('tabKatalog'); if(t) showTab(4,t);
@@ -5026,7 +5135,7 @@
     el.innerHTML=html;
   }
   function downloadEvalPDF(){
-    if(!window.jspdf || typeof html2canvas==='undefined'){ alert('Library belum termuat, cek koneksi.'); return; }
+    if(!libPdfSiap_(function(){ downloadEvalPDF(); })) return;
     var el=document.getElementById('evalPanel'); if(!el || !el.innerHTML){ alert('Panel evaluasi belum termuat.'); return; }
     html2canvas(el,{scale:2, backgroundColor:'#ffffff'}).then(function(c){
       var sel=document.getElementById('evmonth'); var lbl=(sel&&sel.value)?sel.value:'semua';
@@ -5610,7 +5719,7 @@
      "Unduh saja" tetap disediakan untuk yang memang cuma perlu berkasnya -
      mencetak ulang, mengirim ulang - tanpa menyentuh arsip. */
   function terbitkanDokumen(btn, mode){
-    if(typeof html2canvas==='undefined'){ alert('html2canvas belum termuat — cek koneksi internet.'); return; }
+    if(!libPdfSiap_(function(){ terbitkanDokumen(btn, mode); })) return;
     var unduhSaja = (mode === 'unduh');
     var old=btn.textContent; btn.disabled=true;
     btn.textContent = unduhSaja ? 'Mengunduh…' : 'Menerbitkan…';
@@ -6333,12 +6442,12 @@
     return pdf;
   }
   function downloadPOPDF(){
-    if(!window.jspdf || typeof html2canvas==='undefined'){ alert('Library belum termuat, cek koneksi.'); return; }
+    if(!libPdfSiap_(function(){ downloadPOPDF(); })) return;
     poCanvas().then(function(canvas){ canvasToPdfMulti(canvas).save('PO-'+PO_ORDERID+'.pdf'); })
       .catch(function(e){ alert('Gagal render PDF: '+e.message); });
   }
   function downloadPOJPG(){
-    if(typeof html2canvas==='undefined'){ alert('html2canvas belum termuat — cek koneksi internet.'); return; }
+    if(!libPdfSiap_(function(){ downloadPOJPG(); })) return;
     poCanvas().then(function(canvas){
       var a=document.createElement('a'); a.href=canvas.toDataURL('image/jpeg',0.95);
       a.download='PO-'+PO_ORDERID+'.jpg'; a.click();
@@ -6347,7 +6456,7 @@
   /* Sama seperti Sheet: sekali render, turun ke komputer dan masuk arsip.
      Nama berkasnya tetap "PO - RI-075.pdf" supaya revisi menimpa yang lama. */
   function terbitkanPO(btn){
-    if(!window.jspdf || typeof html2canvas==='undefined'){ alert('Library belum termuat.'); return; }
+    if(!libPdfSiap_(function(){ terbitkanPO(btn); })) return;
     var old=btn.textContent; btn.disabled=true; btn.textContent='Menerbitkan…';
     poCanvas().then(function(canvas){
       var pdf = canvasToPdfMulti(canvas);
@@ -6362,7 +6471,7 @@
   }
   // Lampirkan PO (PDF) ke card Trello order ini
   function sendPOToTrello(btn){
-    if(!window.jspdf || typeof html2canvas==='undefined'){ alert('Library belum termuat.'); return; }
+    if(!libPdfSiap_(function(){ sendPOToTrello(btn); })) return;
     var old=btn.textContent; btn.disabled=true; btn.textContent='Mengirim…';
     poCanvas().then(function(canvas){
       var b64=canvasToPdfMulti(canvas).output('datauristring').split(',')[1];
@@ -6550,10 +6659,11 @@
     });
   }
   function downloadSheetPDF(){
-    if(!window.jspdf || typeof html2canvas==='undefined'){ alert('Library belum termuat, cek koneksi.'); return; }
+    if(!libPdfSiap_(function(){ downloadSheetPDF(); })) return;
     sheetToPdf().then(function(r){ r.pdf.save('Custom-Sheet-'+SHEET_ORDERID+'.pdf'); }).catch(function(e){ alert('Gagal: '+e.message); });
   }
   function downloadSheetJPG(){
+    if(!libPdfSiap_(function(){ downloadSheetJPG(); })) return;
     html2canvas(document.getElementById('sheetPaper'), {scale:4, backgroundColor:'#ffffff', useCORS:true, imageTimeout:0}).then(function(canvas){
       var a=document.createElement('a'); a.href=canvas.toDataURL('image/jpeg',0.98); a.download='Custom-Sheet-'+SHEET_ORDERID+'.jpg'; a.click();
     }).catch(function(e){ alert('Gagal: '+e.message); });
@@ -6574,7 +6684,7 @@
      RI-075.pdf" selalu sama, jadi terbitan berikutnya menimpa yang lama.
      Revisi terakhir yang berlaku, dan folder customer tidak menumpuk versi. */
   function terbitkanSheet(btn){
-    if(!window.jspdf || typeof html2canvas==='undefined'){ alert('Library belum termuat, cek koneksi.'); return; }
+    if(!libPdfSiap_(function(){ terbitkanSheet(btn); })) return;
     var old=btn.textContent; btn.disabled=true; btn.textContent='Menerbitkan…';
     sheetToPdf().then(function(r){
       r.pdf.save('Custom-Sheet-'+SHEET_ORDERID+'.pdf');          // ke komputer
@@ -6602,16 +6712,55 @@
      lebih lama lagi kalau Apps Script baru bangun. Sekali gagal jangan langsung
      menyerah: satu gangguan jaringan sesaat sebelumnya membuat layar mati total
      sampai di-refresh tangan. */
-  var MUAT_KE = 0;
+  var MUAT_KE = 0, DARI_CACHE = false, SUDAH_SEGAR = false, DISENTUH = false, DATA_BARU = null, JSON_CACHE = '';
+
+  function tandaCache_(html){
+    var ts = document.getElementById('ts'); if (!ts || !DATA) return;
+    ts.innerHTML = esc('Update: ' + DATA.generatedAt) + (html ? ' · <span style="color:#e0912f">' + html + '</span>' : '');
+  }
+  function jamCache_(t){ var w = new Date(t); return ('0'+w.getHours()).slice(-2) + ':' + ('0'+w.getMinutes()).slice(-2); }
+  function tanpaWaktu_(d){ var c = {}; for (var k in d) if (k !== 'generatedAt') c[k] = d[k]; return JSON.stringify(c); }
+
+  /* Gambar ulang dengan data baru. Otomatis cuma kalau belum ada yang ditekan
+     atau diketik - kalau sudah, tampilan yang sedang dipakai tidak dirombak
+     tiba-tiba; yang muncul tombol "Tampilkan". */
+  function gambarUlang_(){
+    if (!DATA_BARU) return;
+    var aktif = document.querySelector('.tabs > .tab.active');
+    var klik = aktif ? aktif.getAttribute('onclick') : '', gulir = window.scrollY;
+    var d = DATA_BARU; DATA_BARU = null; DARI_CACHE = false;
+    render(d);
+    if (klik) {
+      var b = document.querySelector('.tabs > .tab[onclick="' + klik + '"]');
+      var n = parseInt((klik.match(/showTab\((\d+)/) || [])[1], 10);
+      if (b && n && n !== 1) showTab(n, b);
+    }
+    window.scrollTo(0, gulir);
+  }
+
   function loadData(){
     if (WEB_APP_URL.indexOf('PASTE_URL') > -1){ showErr('WEB_APP_URL belum diisi.'); return; }
     var maksimal = 3;
     MUAT_KE++;
     var percobaan = 0;
 
+    if (MUAT_KE === 1) {
+      bacaCache_().then(function(c){
+        if (!c || SUDAH_SEGAR) return;      // data baru lebih dulu datang
+        DARI_CACHE = true; JSON_CACHE = tanpaWaktu_(c.d);
+        render(c.d);
+        tandaCache_('data tersimpan ' + jamCache_(c.t) + ', memperbarui…');
+        document.addEventListener('click', function(){ DISENTUH = true; }, true);
+        document.addEventListener('focusin', function(){ DISENTUH = true; }, true);
+      });
+    } else {
+      DARI_CACHE = false;                   // muat ulang yang diminta: perilaku biasa
+    }
+
     function coba(){
       percobaan++;
-      showMuat(percobaan === 1 ? 'Memuat data…' : 'Sambungan gagal, mencoba lagi (' + percobaan + '/' + maksimal + ')…');
+      if (DARI_CACHE) tandaCache_(percobaan === 1 ? 'memperbarui…' : 'mencoba lagi (' + percobaan + '/' + maksimal + ')…');
+      else showMuat(percobaan === 1 ? 'Memuat data…' : 'Sambungan gagal, mencoba lagi (' + percobaan + '/' + maksimal + ')…');
 
       var cbName = 'cb_' + MUAT_KE + '_' + percobaan + '_' + Date.now();
       var s = document.createElement('script');
@@ -6628,14 +6777,26 @@
         if (selesai) return; selesai = true;
         bersih();
         if (percobaan < maksimal) setTimeout(coba, 1500);
+        else if (DARI_CACHE) tandaCache_('gagal memperbarui, yang tampil data tersimpan · <button class="cbtn" onclick="loadData()">Coba lagi</button>');
         else showErr(pesan + ' Dicoba ' + maksimal + ' kali.', true);
       }
 
       window[cbName] = function(d){
         if (selesai) return; selesai = true;
         bersih();
-        if (d && d.error){ showErr(d.error, true); return; }   // ditolak server: mengulang tidak menolong
-        render(d);
+        if (d && d.error){                                      // ditolak server: mengulang tidak menolong
+          if (DARI_CACHE) hapusCache_();                        // key sudah tidak berlaku: jangan tampilkan lagi
+          showErr(d.error, true); return;
+        }
+        SUDAH_SEGAR = true;
+        simpanCache_(d);
+        if (!DARI_CACHE) { render(d); return; }
+        if (tanpaWaktu_(d) === JSON_CACHE) {                    // isinya sama: cukup ganti jamnya
+          DATA.generatedAt = d.generatedAt; DARI_CACHE = false; tandaCache_(''); return;
+        }
+        DATA_BARU = d;
+        if (!DISENTUH) gambarUlang_();
+        else tandaCache_('ada data baru · <button class="cbtn" onclick="gambarUlang_()">Tampilkan</button>');
       };
       s.onerror = function(){ gagal('Gagal konek ke server.'); };
       s.src = WEB_APP_URL + '?page=admin&format=json&callback=' + cbName +
