@@ -5395,7 +5395,9 @@
         if(!res || !res.ok){ document.getElementById('draftText').value=''; document.getElementById('draftHint').textContent=(res&&res.error)||'Gagal memuat.'; return; }
         document.getElementById('draftText').value=res.draft||'';
         document.getElementById('draftCardTitle').textContent=res.title||'';
-        document.getElementById('draftHint').textContent = res.saved ? '● Draft tersimpan dipakai saat → Order' : '○ Belum disimpan — ini template auto dari data inquiry';
+        document.getElementById('draftHint').innerHTML = (res.saved ? '● Draft tersimpan dipakai saat → Order' : '○ Belum disimpan — ini template auto dari data inquiry') +
+          ' · <span style="color:#e0a256">Harga jual, DP, dan tanggal bayar tidak ditulis di card — isi lewat tombol 💰 di baris order. ' +
+          'Yang ditulis di sini ikut terbawa ke sheet, bukan ke card.</span>';
       });
   }
   function closeDraft(){ document.getElementById('draftModal').classList.remove('show'); }
