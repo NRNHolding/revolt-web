@@ -2222,7 +2222,8 @@
     renderJembatan();
     jsonp(WEB_APP_URL+'?page=admin&action=dcTrelloTrigger&key='+encodeURIComponent(ADMIN_KEY)+
           '&_='+Date.now(),
-      function(res){ JBT.trigger = !!(res && res.aktif); JBT.terakhir = res && res.terakhir; renderJembatan(); });
+      function(res){ JBT.trigger = !!(res && res.aktif); JBT.terakhir = res && res.terakhir;
+        JBT.ingat = !!(res && (res.trigger || []).indexOf('pengingatDeadline') > -1); renderJembatan(); });
     jsonp(WEB_APP_URL+'?page=admin&action=dcRoles&key='+encodeURIComponent(ADMIN_KEY)+
           '&_='+Date.now(),
       function(res){
@@ -2397,6 +2398,18 @@
           '<b>PRICING</b> di kartu Trello \u2192 channel pindah ke PRICING WITH RADJA LEATHER dan admin Revolt '+
           'dipanggil untuk menjelaskan alasannya. Cabut labelnya \u2192 channel kembali. Jangan geser channel '+
           'dengan tangan: jembatan menariknya balik.</div>'+
+        '<div class="ofoot" style="margin-top:10px"><b>Pengingat deadline</b> '+
+          (JBT.ingat
+            ? '<span class="badge" style="background:#16a34a">nyala \u00b7 tiap jam 9 pagi</span>'
+            : '<span class="badge" style="background:#8a8a80">mati</span>')+
+          '<div class="osub">H-2 dan H-1 sebelum due date kartu, ke channel ordernya, memanggil tim produksi. '+
+          'Cuma untuk order yang sudah masuk Process to Production sampai QC.</div></div>'+
+        '<div class="ukbaris" style="margin-top:6px">'+
+          '<button class="cbtn" onclick="jbtIngat(this,1)">Lihat yang jatuh tempo</button>'+
+          '<button class="cbtn" onclick="jbtIngatTrigger(this,'+(JBT.ingat?'0':'1')+')">'+
+            (JBT.ingat?'Matikan pengingat':'Nyalakan pengingat')+'</button>'+
+          '<span id="jbtIngatMsg" style="font-size:11.5px"></span>'+
+        '</div>'+
         '<div class="ukbaris" style="margin-top:10px">'+
           '<button class="cbtn" onclick="jbtJalan(this,1)">Lihat dulu</button>'+
           '<button class="cbtn" title="Siapa bisa melihat kategori apa, dan channel mana yang lepas dari kategorinya" '+
@@ -2471,6 +2484,36 @@
         JBT.hasil=res;
         if(uji && res && res.ok) JBT.sudahLihat=true;
         renderJembatan();
+      });
+  }
+
+  function jbtIngat(btn, uji){
+    var t=btn.textContent; btn.disabled=true; btn.textContent='Memeriksa\u2026';
+    jsonp(WEB_APP_URL+'?page=admin&action=dcIngat&uji='+(uji?'1':'0')+
+          '&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        btn.disabled=false; btn.textContent=t;
+        var m=document.getElementById('jbtIngatMsg'); if(!m) return;
+        if(!res || !res.ok){ m.innerHTML='<span style="color:#d97a7a">'+esc((res&&res.error)||'Gagal.')+'</span>'; return; }
+        var k=res.kirim||[];
+        m.innerHTML = k.length
+          ? '<span style="color:#e0912f">'+k.map(function(x){
+              return 'H-'+x.sisa+' '+esc(x.order)+' ('+esc(x.deadline)+')'; }).join(' \u00b7 ')+'</span>'
+          : '<span style="color:#8a8a80">Hari ini tidak ada yang H-2 atau H-1.</span>';
+      });
+  }
+  function jbtIngatTrigger(btn, pasang){
+    var t=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan\u2026';
+    jsonp(WEB_APP_URL+'?page=admin&action=dcIngatTrigger&pasang='+pasang+
+          '&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        btn.disabled=false; btn.textContent=t;
+        if(!res || !res.ok){
+          var m=document.getElementById('jbtIngatMsg');
+          if(m) m.innerHTML='<span style="color:#d97a7a">'+esc((res&&res.error)||'Gagal.')+'</span>';
+          return;
+        }
+        JBT.ingat = !!res.aktif; renderJembatan();
       });
   }
 
