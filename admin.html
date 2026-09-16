@@ -2309,7 +2309,10 @@
     var t=JBT.terakhir; if(!t||!t.t) return '';
     var w=new Date(t.t), jam=('0'+w.getHours()).slice(-2)+':'+('0'+w.getMinutes()).slice(-2);
     var masalah=(t.gagal||[]).map(esc).concat((t.dobel||[]).map(function(d){
-      return 'Kartu dobel '+esc(d.order)+': dipantau di '+esc(d.dipantau)+', salinan di '+(d.lain||[]).map(esc).join(', '); }));
+      return 'Kartu dobel '+esc(d.order)+': dipantau di '+esc(d.dipantau)+', salinan di '+(d.lain||[]).map(esc).join(', '); }))
+      .concat((t.judulAsing||[]).map(function(j){
+        return 'Judul tidak dikenali '+esc(j.order)+': <i>'+esc(j.judul)+'</i> — dilewati. '+
+               'Awali dengan CUSTOM, REPAIR, MOCKUP, PROTOTYPE, atau MASS.'; }));
     return '<div class="osub" style="margin-top:3px">Terakhir jalan '+jam+' \u00b7 '+(t.aksi||0)+' aksi'+
       (t.desainBaru?' \u00b7 '+t.desainBaru+' desain baru':'')+
       (masalah.length?' \u00b7 <span style="color:#d97a7a">'+masalah.length+' masalah</span>':'')+'</div>'+
