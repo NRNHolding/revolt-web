@@ -983,7 +983,8 @@
 
      Semua penanda klik lewat atribut data-*, bukan argumen di onclick: ID dan
      tanggal tidak perlu di-escape di dalam string HTML. */
-  var KT = { bulan: null, peta: {}, dimuat: {}, muat: false, ke: 0, galat: '', buka: null, kotor: false };
+  var KT = { bulan: null, peta: {}, dimuat: {}, ambil: {}, segar: 0, jaga: null,
+             muat: false, ke: 0, galat: '', buka: null, kotor: false };
   var KT_JENIS  = ['Story foto', 'Story video', 'Reels', 'Carousel', 'Single photo'];
   var KT_STATUS = ['Ide', 'Produksi', 'Siap posting', 'Terposting'];
   var KT_KELAS  = { 'Ide': 'st-ide', 'Produksi': 'st-produksi', 'Siap posting': 'st-siap', 'Terposting': 'st-terposting' };
@@ -1015,24 +1016,51 @@
     return g;
   }
 
+  /* Gambar dulu dari yang sudah ada, lalu ambil yang terbaru di belakang layar.
+
+     Sebelumnya isinya dianggap masih segar selama 5 menit, jadi konten yang
+     ditulis di laptop lain baru muncul sesudah lewat 5 menit itu - termasuk
+     waktu tombol ↻ ditekan, karena tombol itu memuat ulang data dashboard, bukan
+     kalender ini. */
   function bukaKonten(){
     if(!KT.bulan){ var n=new Date(); KT.bulan=new Date(n.getFullYear(), n.getMonth(), 1); }
-    var t=KT.dimuat[ktKunci_(KT.bulan)];
-    if(!t || Date.now()-t > 5*60*1000) muatKonten(); else gambarKonten();
+    gambarKonten();
+    muatKonten();
+    ktJaga_();
+  }
+
+  function ktTampak_(){
+    var p=document.getElementById('page6');
+    return !!p && p.style.display !== 'none' && !document.hidden;
+  }
+
+  /* Selama tab Konten terbuka dan jendelanya dilihat, isinya diambil ulang tiap
+     menit - dan langsung begitu jendelanya kembali dilihat, supaya pindah dari
+     laptop satu ke laptop lain tidak perlu menunggu apa pun. */
+  function ktJaga_(){
+    if(KT.jaga) return;
+    KT.jaga=setInterval(function(){ if(ktTampak_()) muatKonten(); }, 60000);
+    document.addEventListener('visibilitychange', function(){ if(ktTampak_()) muatKonten(); });
+    window.addEventListener('pageshow', function(e){ if(e.persisted && ktTampak_()) muatKonten(); });
   }
 
   function muatKonten(){
-    var r=ktRentang_(KT.bulan), kunci=ktKunci_(KT.bulan), ke=++KT.ke;
-    var dari=ktIso_(r.awal), sampai=ktIso_(r.akhir);
+    var r=ktRentang_(KT.bulan), kunci=ktKunci_(KT.bulan);
+    // Tab yang diklik bolak-balik tidak perlu menembak server berkali-kali.
+    if(KT.ambil[kunci] && Date.now()-KT.ambil[kunci] < 3000) return;
+    KT.ambil[kunci]=Date.now();
+    var ke=++KT.ke, dari=ktIso_(r.awal), sampai=ktIso_(r.akhir);
     KT.muat=true; KT.galat=''; gambarKonten();
     jsonp(WEB_APP_URL+'?page=admin&action=kontenList&dari='+dari+'&sampai='+sampai+
           '&key='+encodeURIComponent(ADMIN_KEY),
       function(res){
+        KT.ambil[kunci]=0;
         if(ke===KT.ke) KT.muat=false;
         if(!res || !res.ok){
           if(ke===KT.ke){ KT.galat=(res&&res.error)||'Server tidak menjawab.'; gambarKonten(); }
           return;
         }
+        KT.segar=Date.now();
         // Rentang ini diganti seluruhnya: yang dihapus di perangkat lain ikut hilang di sini.
         Object.keys(KT.peta).forEach(function(id){ var t=KT.peta[id].tanggal; if(t>=dari && t<=sampai) delete KT.peta[id]; });
         (res.item||[]).forEach(function(k){ KT.peta[k.id]=k; });
@@ -1070,16 +1098,19 @@
       var k=KT.peta[id], d=ktDariIso_(k.tanggal);
       if(d.getMonth()===bln && d.getFullYear()===th){ jumlah++; if(k.status!=='Terposting') belum++; }
     });
+    var w=KT.segar ? new Date(KT.segar) : null;
+    var segar = w ? ' · diperbarui '+('0'+w.getHours()).slice(-2)+':'+('0'+w.getMinutes()).slice(-2) : '';
     var info = KT.muat ? 'memuat…'
       : KT.galat ? '<span style="color:#d97a7a">'+esc(KT.galat)+'</span> <a class="link" href="javascript:void 0" onclick="muatKonten()">coba lagi</a>'
-      : jumlah ? jumlah+' konten'+(belum ? ' · '+belum+' belum tayang' : ' · semua sudah tayang')
-      : 'belum ada konten';
+      : (jumlah ? jumlah+' konten'+(belum ? ' · '+belum+' belum tayang' : ' · semua sudah tayang')
+                : 'belum ada konten')+segar;
 
     var h='<div class="kt-atas">'+
         '<button class="kt-nav" onclick="ktGeser(-1)" title="Bulan sebelumnya">‹</button>'+
         '<div class="kt-bulan">'+KT_BULAN[bln]+' '+th+'</div>'+
         '<button class="kt-nav" onclick="ktGeser(1)" title="Bulan berikutnya">›</button>'+
         '<button class="kt-nav" onclick="ktHariIni()">Hari ini</button>'+
+        '<button class="kt-nav" onclick="muatKonten()" title="Muat ulang jadwal konten">↻</button>'+
         '<span class="kt-info">'+info+'</span>'+
         '<button class="kt-tambah" onclick="ktKlikTambah(null)">+ Konten</button>'+
       '</div>'+
@@ -4640,9 +4671,9 @@
     setTimeout(function(){ if(form.parentNode) document.body.removeChild(form); }, 1000);
     var tries=0;
     (function poll(){
-      tries++; if(tries>20){ done({ok:false,error:'Timeout.'}); return; }
+      tries++; if(tries>24){ done({ok:false,error:'Timeout.'}); return; }
       jsonp(WEB_APP_URL+'?page=admin&action=pollResult&token='+token+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
-        function(res){ if(res && !res.pending) done(res); else setTimeout(poll,1500); });
+        function(res){ if(res && !res.pending) done(res); else setTimeout(poll, tries<5 ? 600 : 1500); });
     })();
   }
   // POST (file besar) lalu ambil hasilnya via token + polling JSONP
@@ -7294,7 +7325,8 @@
     }
     coba();
   }
-  function loadData(){ muat_(MUAT_KE === 0 ? 'awal' : 'paksa'); }
+  // Tombol ↻ di header: kalau yang sedang dibuka tab Konten, kalendernya ikut.
+  function loadData(){ muat_(MUAT_KE === 0 ? 'awal' : 'paksa'); if(ktTampak_()) muatKonten(); }
 
   var TERSEMBUNYI_SEJAK = 0;
   document.addEventListener('visibilitychange', function(){
