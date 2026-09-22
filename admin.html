@@ -469,6 +469,14 @@
     .warn-row { display: block; width: 100%; text-align: left; background: transparent; border: none; border-top: 1px solid #3a2a16; color: #ddd; font-size: 12px; padding: 7px 2px; cursor: pointer; }
     .warn-row:first-of-type { border-top: none; }
     .warn-row:hover { color: #fff; }
+    .warn-grup { margin-top: 13px; }
+    .warn-gh { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 12px;
+      font-weight: 800; color: #ffd9a6; letter-spacing: .3px; }
+    .warn-gn { font-size: 10.5px; font-weight: 700; color: #241a10; background: #ffbd6b;
+      border-radius: 20px; padding: 0 7px; }
+    .warn-aksi { font-size: 11.5px; color: #d3bfa4; line-height: 1.5; margin: 4px 0 6px; }
+    .warn-tag { color: #ffbd6b; }
+    .warn-uang { color: #ff9b9b; }
     .an-box { border-radius: 10px; padding: 12px 14px; margin: 2px 0 14px; }
     .an-ok    { background: #14251a; border: 1px solid #26502f; }
     .an-warn  { background: #241a10; border: 1px solid #6b4415; }
@@ -5456,20 +5464,68 @@
       sec('Detail Order Selesai ('+ (d.completed||[]).length +')', detailBody, false);
   }
 
-  // ── Banner peringatan: order berjalan terlalu lama / lewat deadline ──
+  /* ── Banner peringatan: order berjalan terlalu lama / lewat deadline ──
+
+     Dipisah per tahap, dan tiap tahap disebut apa yang perlu dikerjakan.
+     Delapan belas baris berderet tanpa pengelompokan tidak memberi tahu harus
+     mulai dari mana - padahal yang tertahan di Produksi ditanyakan ke Radja,
+     yang di Approval Desain ditagih ke customer: dua pekerjaan berbeda, dan
+     orang yang mengerjakannya juga berbeda. */
+  var WARN_URUT = ['Order Received','Proses Desain','Approval Desain','Produksi','Review Customer','Quality Check'];
+  var WARN_AKSI = {
+    'Order Received' : 'Belum masuk antrian desain. Lengkapi detail yang masih kurang ke customer, lalu geser kartunya ke Design Request.',
+    'Proses Desain'  : 'Tanya progres desain ke Faiz. Kalau bahan atau ukurannya belum jelas, lengkapi dulu briefnya.',
+    'Approval Desain': 'Preview sudah di tangan customer - tagih approval-nya. Kalau dua hari tidak ada kabar, telepon.',
+    'Produksi'       : 'Tanya progres ke Radja di channel ordernya, minta foto terbaru. Kalau deadline sudah lewat, minta tanggal baru dan kabari customer.',
+    'Review Customer': 'Barang sudah dilihat customer - minta keputusannya: lanjut, revisi, atau langsung kirim.',
+    'Quality Check'  : 'Selesaikan QC lalu jadwalkan pengiriman.'
+  };
+
   function warnBanner(orders){
     var flagged = (orders||[]).filter(function(o){ var w=o.warn||{}; return w.aging || w.overdue; });
     if (!flagged.length) return '';
-    flagged.sort(function(a,b){ return (b.warn.ageDays||0)-(a.warn.ageDays||0); });
-    var items = flagged.map(function(o){
-      var w=o.warn, tags=[];
-      if (w.aging) tags.push(w.ageDays+' hari sejak inquiry');
-      if (w.overdue) tags.push('lewat deadline '+w.overdueDays+' hari');
-      return '<button class="warn-row" onclick="openTimeline(\''+esc(o.orderId)+'\')" title="Klik lihat riwayat & analisa">'+
-        '<b>'+esc(o.orderId)+'</b> '+esc(o.customer)+' — '+esc(o.status)+' · <span style="color:#ffbd6b">'+tags.join(' · ')+'</span></button>';
+
+    var grup = {};
+    flagged.forEach(function(o){ (grup[o.status] = grup[o.status] || []).push(o); });
+    var tahap = Object.keys(grup).sort(function(a,b){
+      var ia=WARN_URUT.indexOf(a), ib=WARN_URUT.indexOf(b);
+      return (ia<0?99:ia) - (ib<0?99:ib);
+    });
+    var telat = flagged.filter(function(o){ return o.warn.overdue; }).length;
+
+    var isi = tahap.map(function(st){
+      // Yang sudah lewat deadline naik ke atas: itu yang paling perlu dijawab hari ini.
+      var g = grup[st].sort(function(a,b){
+        var oa=a.warn.overdue?0:1, ob=b.warn.overdue?0:1;
+        if(oa!==ob) return oa-ob;
+        if(oa===0) return (b.warn.overdueDays||0)-(a.warn.overdueDays||0);
+        return (b.warn.ageDays||0)-(a.warn.ageDays||0);
+      });
+      var lewat = g.filter(function(o){ return o.warn.overdue; }).length;
+      return '<div class="warn-grup">'+
+        '<div class="warn-gh">'+esc(st)+' <span class="warn-gn">'+g.length+' order</span>'+
+          (lewat ? '<span class="warn-uang">'+lewat+' lewat deadline</span>' : '')+'</div>'+
+        '<div class="warn-aksi">→ '+esc(WARN_AKSI[st] || 'Buka riwayatnya, tentukan langkah berikutnya.')+'</div>'+
+        g.map(function(o){
+          var w=o.warn, tags=[];
+          if (w.overdue) tags.push('lewat deadline '+w.overdueDays+' hari');
+          if (w.aging) tags.push(w.ageDays+' hari sejak inquiry');
+          /* Uang ikut disebut karena mengubah tindakannya: produksi yang DP-nya
+             belum masuk bukan ditagih progresnya ke Radja, tapi ke customer. */
+          var uang = (o.paymentStatus === 'Belum')
+            ? ' · <span class="warn-uang">DP belum masuk</span>'
+            : ((st === 'Quality Check' || st === 'Review Customer') && Number(o.sisaTagihan) > 0
+                ? ' · <span class="warn-uang">belum lunas, tagih sebelum kirim</span>' : '');
+          return '<button class="warn-row" data-id="'+esc(o.orderId)+'" onclick="warnKlik(this)" title="Klik lihat riwayat & analisa">'+
+            '<b>'+esc(o.orderId)+'</b> '+esc(o.customer)+(o.product ? ' — '+esc(o.product) : '')+
+            ' · <span class="warn-tag">'+tags.join(' · ')+'</span>'+uang+'</button>';
+        }).join('')+'</div>';
     }).join('');
-    return '<div class="warn-box"><div class="warn-h">⚠ '+flagged.length+' order perlu perhatian (terlalu lama / lewat deadline)</div>'+items+'</div>';
+
+    return '<div class="warn-box"><div class="warn-h">⚠ '+flagged.length+' order perlu perhatian'+
+      (telat ? ' · '+telat+' lewat deadline' : '')+'</div>'+isi+'</div>';
   }
+  function warnKlik(b){ openTimeline(b.getAttribute('data-id')); }
 
   // ── Order rows ──
 
