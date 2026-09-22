@@ -788,7 +788,24 @@
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   // Link WA: pakai SATU tab WhatsApp Web (named target "wa") & langsung ke chat, tidak buka tab baru tiap klik
   function waAnchor(phone, label){ var d=String(phone||'').replace(/[^0-9]/g,''); return d ? '<a class="link" href="https://web.whatsapp.com/send?phone='+d+'" target="wa" rel="noopener">'+(label||'wa')+'</a>' : ''; }
-  function payBadge(s){ var t=String(s||'').toLowerCase(); var c=t.indexOf('lunas')>-1?'#16a34a':t.indexOf('dp')>-1?'#c47f00':'#cc3333'; return '<span class="badge" style="background:'+c+'">'+esc(s||'Belum')+'</span>'; }
+  /* "Tanpa ..." diperiksa lebih dulu: "Tanpa DP" memuat kata "dp", dan kalau
+     urutannya terbalik ia tampil kuning seperti order yang sudah bayar DP. */
+  function payBadge(s){
+    var t=String(s||'').toLowerCase();
+    var c = t.indexOf('tanpa tagihan')>-1 ? '#4a7c59'
+          : t.indexOf('tanpa dp')>-1      ? '#5b6b7a'
+          : t.indexOf('lunas')>-1         ? '#16a34a'
+          : t.indexOf('dp')>-1            ? '#c47f00' : '#cc3333';
+    return '<span class="badge" style="background:'+c+'">'+esc(s||'Belum')+'</span>';
+  }
+  function statusBayarJs(tglDP, tglLunas){
+    var d=String(tglDP||'').trim(), l=String(tglLunas||'').trim();
+    if(l==='-') return 'Tanpa tagihan';
+    if(l) return 'Lunas';
+    if(d && d!=='-') return 'DP';
+    if(d==='-') return 'Tanpa DP';
+    return 'Belum';
+  }
   function statusBadge(s){ var c=STATUS_COLOR[s]||'#6b7280'; return '<span class="badge" style="background:'+c+'">'+esc(s)+'</span>'; }
   function kpiCard(label,val,cls){ return '<div class="kpi '+(cls||'')+'"><label>'+label+'</label><div class="val '+(cls?'money':'')+'">'+val+'</div></div>'; }
 
@@ -4890,7 +4907,7 @@
     var ordersBody =
       '<div class="toolbar">' +
         '<input id="q" placeholder="Cari order / customer / produk…" oninput="filterOrders()">' +
-        '<select id="fpay" onchange="filterOrders()"><option value="">Semua bayar</option><option>Belum</option><option>DP</option><option>Lunas</option></select>' +
+        '<select id="fpay" onchange="filterOrders()"><option value="">Semua bayar</option><option>Belum</option><option>DP</option><option>Lunas</option><option>Tanpa DP</option><option>Tanpa tagihan</option></select>' +
         '<select id="fdl" onchange="filterOrders()"><option value="">Semua deadline</option><option value="near">≤ 3 hari</option><option value="over">Terlewat</option></select>' +
         '<label style="color:#e0912f;font-size:12px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="fwarn" onchange="filterOrders()"> Cuma yang ⚠</label>' +
         '<select id="furut" onchange="renderPipeline()" title="Urutan kartu di dalam kolom">' +
@@ -4959,7 +4976,7 @@
              ada di data mana pun. */
           dp: 0,
           sisaTagihan: 0,
-          paymentStatus: x.tglLunas ? 'Lunas' : (x.tglDP ? 'DP' : 'Belum'),
+          paymentStatus: statusBayarJs(x.tglDP, x.tglLunas),
           tglDP: x.tglDP || '', tglLunas: x.tglLunas || '',
           estCompletion: x.est || '', estMs: 0, warn: {},
           trackingLink: x.trackingLink || '', driveLink: x.driveLink || '',
@@ -5100,14 +5117,19 @@
         barisK('Status', o.tglLunas ? 'Lunas '+esc(o.tglLunas) : 'sudah dikirim',
                true, o.tglLunas ? '#16a34a' : '#9a9a8e');
     }
+    var tanpaDp = String(o.tglDP||'').trim()==='-', tanpaLns = String(o.tglLunas||'').trim()==='-';
     return kepala + pokok +
-      barisK('DP masuk', rp(dp)+(o.tglDP?' <span class="ksub">'+esc(o.tglDP)+'</span>':''))+
-      barisK('Sisa tagihan', rp(sisa), true, sisa>0?'#e0912f':'#16a34a');
+      barisK('DP masuk', tanpaDp ? '<span class="ksub">tanpa DP</span>'
+                                 : rp(dp)+(o.tglDP?' <span class="ksub">'+esc(o.tglDP)+'</span>':''))+
+      (tanpaLns
+        ? barisK('Tagihan', 'tanpa pelunasan', true, '#4a7c59')
+        : barisK('Sisa tagihan', rp(sisa), true, sisa>0?'#e0912f':'#16a34a'));
   }
 
   function ubahUang(){
     var o=null; ((DATA&&DATA.orders)||[]).forEach(function(x){ if(x.orderId===KARTU_ID) o=x; });
     if(!o) return;
+    var tdp=String(o.tglDP||'').trim(), tln=String(o.tglLunas||'').trim();
     function inp(id,val,ph){
       return '<input id="'+id+'" value="'+esc(val==null?'':String(val))+'" placeholder="'+ph+'" '+
              'style="width:100%;font-size:12px;padding:3px 6px">';
@@ -5118,8 +5140,16 @@
         '<label>Harga jual</label>'+inp('uHj', Number(o.hargaJual)||'', '0')+
         '<label>HPP</label>'+inp('uHpp', Number(o.hpp)||'', '0')+
         '<label>DP masuk</label>'+inp('uDp', Number(o.dp)||'', '0')+
-        '<label>Tanggal DP</label>'+inp('uTdp', o.tglDP||'', 'dd/mm/yyyy')+
-        '<label>Tanggal pelunasan</label>'+inp('uTln', o.tglLunas||'', 'kosongkan bila belum')+
+        '<label>Tanggal DP</label>'+inp('uTdp', tdp==='-'?'':tdp, 'dd/mm/yyyy')+
+        '<label>Tanggal pelunasan</label>'+inp('uTln', tln==='-'?'':tln, 'kosongkan bila belum')+
+      '</div>'+
+      /* Sampling ke client jalan tanpa DP, kadang tanpa tagihan sama sekali.
+         Tanpa dua pilihan ini, order begitu selamanya terbaca "belum bayar". */
+      '<div class="ukbaris" style="margin-top:8px;gap:14px">'+
+        '<label style="display:flex;gap:6px;align-items:center;cursor:pointer;font-size:12px">'+
+          '<input type="checkbox" id="uTanpaDp"'+(tdp==='-'?' checked':'')+' onchange="uangTanpa(this,1)"> Tanpa DP</label>'+
+        '<label style="display:flex;gap:6px;align-items:center;cursor:pointer;font-size:12px">'+
+          '<input type="checkbox" id="uTanpaLns"'+(tln==='-'?' checked':'')+' onchange="uangTanpa(this,0)"> Tanpa pelunasan (sampling)</label>'+
       '</div>'+
       '<div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap">'+
         '<button class="cbtn" style="border-color:#16a34a;color:#16a34a" onclick="simpanUang(this)">Simpan</button>'+
@@ -5127,6 +5157,16 @@
         '<button class="cbtn" onclick="isiHariIni()">Tanggal hari ini</button>'+
       '</div>'+
       '<div id="uMsg" style="margin-top:8px;font-size:11.5px"></div>';
+    // Kolom tanggalnya ikut terkunci sejak form dibuka, bukan hanya waktu dicentang.
+    [['uTanpaDp',1],['uTanpaLns',0]].forEach(function(x){
+      var c=document.getElementById(x[0]); if(c && c.checked) uangTanpa(c, x[1]);
+    });
+  }
+  function uangTanpa(el, dp){
+    var kolom=document.getElementById(dp ? 'uTdp' : 'uTln');
+    if(!kolom) return;
+    if(el.checked){ kolom.value=''; kolom.placeholder='tidak ada'; kolom.disabled=true; kolom.style.opacity=.5; }
+    else { kolom.disabled=false; kolom.style.opacity=1; kolom.placeholder = dp ? 'dd/mm/yyyy' : 'kosongkan bila belum'; }
   }
   function batalUang(){
     var o=null; ((DATA&&DATA.orders)||[]).forEach(function(x){ if(x.orderId===KARTU_ID) o=x; });
@@ -5141,13 +5181,14 @@
   function simpanUang(btn){
     var id=KARTU_ID, msg=document.getElementById('uMsg');
     function v(x){ return (document.getElementById(x).value||'').trim(); }
+    function tgl(x, centang){ return document.getElementById(centang).checked ? '-' : v(x); }
     var teks=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan\u2026';
     msg.innerHTML='<span style="color:#888">Menulis ke Sheet dan card Trello\u2026</span>';
     jsonp(WEB_APP_URL+'?page=admin&action=uangSimpan&key='+encodeURIComponent(ADMIN_KEY)+
           '&id='+encodeURIComponent(id)+
           '&hargaJual='+encodeURIComponent(v('uHj'))+'&hpp='+encodeURIComponent(v('uHpp'))+
           '&dp='+encodeURIComponent(v('uDp'))+
-          '&tglDP='+encodeURIComponent(v('uTdp'))+'&tglLunas='+encodeURIComponent(v('uTln'))+
+          '&tglDP='+encodeURIComponent(tgl('uTdp','uTanpaDp'))+'&tglLunas='+encodeURIComponent(tgl('uTln','uTanpaLns'))+
           '&_='+Date.now(),
       function(res){
         btn.disabled=false; btn.textContent=teks;
@@ -5157,7 +5198,7 @@
           o.hargaJual=Number(v('uHj').replace(/[^0-9]/g,''))||0;
           o.hpp=Number(v('uHpp').replace(/[^0-9]/g,''))||0;
           o.dp=Number(v('uDp').replace(/[^0-9]/g,''))||0;
-          o.tglDP=v('uTdp'); o.tglLunas=v('uTln');
+          o.tglDP=tgl('uTdp','uTanpaDp'); o.tglLunas=tgl('uTln','uTanpaLns');
           o.paymentStatus=res.status; o.sisaTagihan=res.sisa;
           document.getElementById('kboxUang').innerHTML=isiUang(o);
           var bd=document.querySelector('#kartuBody .kbadge');
