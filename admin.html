@@ -469,6 +469,10 @@
     .warn-row { display: block; width: 100%; text-align: left; background: transparent; border: none; border-top: 1px solid #3a2a16; color: #ddd; font-size: 12px; padding: 7px 2px; cursor: pointer; }
     .warn-row:first-of-type { border-top: none; }
     .warn-row:hover { color: #fff; }
+    .cbtn.sudah { border-color: #2c5e3a; color: #74b98e; }
+    .inqtag { font-size: 10.5px; color: #8a8a80; margin-left: 5px; white-space: nowrap; }
+    .inqtag.ok { color: #16a34a; }
+    .inqtag.gagal { color: #d97a7a; }
     .warn-grup { margin-top: 13px; }
     .warn-gh { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 12px;
       font-weight: 800; color: #ffd9a6; letter-spacing: .3px; }
@@ -5793,22 +5797,27 @@
       var img = q.folder ? '<a class="link" href="'+esc(q.folder)+'" target="_blank">lihat</a>' : '-';
       var opts = statuses.map(function(st){ return '<option'+(st===q.status?' selected':'')+'>'+esc(st)+'</option>'; }).join('');
       function ed(field, val){ val = val==null?'':val; return '<td class="edit" contenteditable="true" data-id="'+esc(q.id)+'" data-field="'+field+'" data-orig="'+esc(val)+'" onblur="saveInquiry(this)">'+esc(val)+'</td>'; }
+      /* Empat tombol sejajar membuat alurnya terbaca seperti wajib berurutan -
+         padahal pricing sering dilewati: harganya sudah ketahuan, langsung jadi
+         order. Yang berdiri sendiri sekarang cuma dua langkah yang dipakai tiap
+         inquiry (rapikan draft, jadikan order); urusan Radja masuk menu.
+
+         Inquiry yang briefnya sudah dikirim ditandai "di pricing", dan itu
+         datang dari ada tidaknya channel Discord-nya, bukan dari ingatan siapa
+         pun soal tombol mana yang pernah ditekan. */
       var convert = (q.status === 'Jadi Order')
           ? '<span style="color:#16a34a;font-size:11px;font-weight:700">✓ order</span>'
           : (q.status === 'Batal' ? '<span style="color:#cc3333;font-size:11px;font-weight:700">batal</span>'
-          : '<button class="cbtn" onclick="openDraft(\''+esc(q.id)+'\')">Draft</button> '+
-            /* Urutannya mengikuti alur kerja: rapikan draft dulu, baru kirim ke
-               Radja. Dulu channelnya dibuat otomatis begitu inquiry masuk, dan
-               yang Radja baca adalah versi yang belum jadi. */
-            '<button class="cbtn" style="border-color:#3b82f6;color:#7cb3ff" '+
-              'title="Buat channel di PRICING WITH RADJA dan kirim briefnya beserta foto referensi" '+
-              'onclick="kirimPricing(\''+esc(q.id)+'\', this)">→ Pricing</button> '+
-            /* Radja sudah kasih harga -> channel Discord-nya turun ke PRICING DONE.
-               Ditandai tangan, bukan disimpulkan dari terisinya kolom harga:
-               harga di draft kadang diisi bertahap sambil dirundingkan. */
-            '<button class="cbtn" title="Tandai harga dari Radja sudah masuk — channel Discord pindah ke PRICING DONE" '+
-              'onclick="pricingDone(\''+esc(q.id)+'\', this)">✓ Harga masuk</button> '+
-            '<button class="cbtn" onclick="convertInquiry(\''+esc(q.id)+'\', this)">→ Order</button>');
+          : '<button class="cbtn" data-id="'+esc(q.id)+'" onclick="klikDraft(this)" '+
+              'title="Rapikan brief yang akan dipakai waktu jadi order">Draft</button> '+
+            '<button class="cbtn" style="border-color:#e0912f" data-id="'+esc(q.id)+'" '+
+              'title="Buat card Trello dan jadikan order" onclick="klikOrder(this)">→ Order</button> '+
+            '<button class="cbtn'+(q.pricing ? ' sudah' : '')+'" data-id="'+esc(q.id)+'" onclick="klikPricing(this)" '+
+              'title="'+(q.pricing
+                 ? 'Briefnya sudah dikirim ke Radja — klik untuk mengirim ulang'
+                 : 'Kirim brief ke Radja untuk dihargai')+'">'+
+              (q.pricing ? '✓ di pricing' : 'Pricing')+'</button>'+
+            '<span class="inqtag"></span>');
       return '<tr data-st="'+esc(q.status||'')+'">' +
         '<td data-v="'+num+'">'+esc(q.time)+'</td>' +
         '<td data-v="'+num+'"><b>'+esc(q.id)+'</b></td>' +
@@ -5928,31 +5937,34 @@
       ? 'custom' : 'wholesale';
   }
 
-  function kirimPricing(id, btn){
-    if(!confirm('Kirim '+id+' ke Radja untuk dihargai?\n\nChannel dibuat di PRICING WITH RADJA LEATHER, '+
-                'briefnya dikirim beserta foto referensi. Pastikan draftnya sudah dirapikan.')) return;
-    var t=btn.textContent; btn.disabled=true; btn.textContent='Mengirim…';
+  function klikDraft(b){ openDraft(b.getAttribute('data-id')); }
+  function klikOrder(b){ convertInquiry(b.getAttribute('data-id'), b); }
+
+  /* Cuma pricing yang jadi langkah tambahan. "Harga masuk" dulu ditandai
+     tangan lewat tombolnya sendiri, dan itu satu tombol lagi yang harus diingat
+     padahal channelnya toh pindah sendiri begitu inquiry jadi order. */
+  function klikPricing(b){
+    var id = b.getAttribute('data-id');
+    var sudah = b.classList.contains('sudah');
+    if(!confirm((sudah ? 'Kirim ULANG brief ' + id + ' ke Radja?' : 'Kirim ' + id + ' ke Radja untuk dihargai?') +
+                String.fromCharCode(10,10) +
+                'Channel dibuat di PRICING WITH RADJA LEATHER, briefnya dikirim beserta foto referensi. ' +
+                'Pastikan draftnya sudah dirapikan.')) return;
+    var tag = b.parentNode.querySelector('.inqtag');
+    function kabar(teks, kelas){ if(tag){ tag.className = 'inqtag' + (kelas ? ' ' + kelas : ''); tag.textContent = teks; } }
+    b.disabled = true; kabar('mengirim…');
     jsonp(WEB_APP_URL+'?page=admin&action=dcPricing&id='+encodeURIComponent(id)+
           '&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
       function(res){
-        btn.disabled=false;
-        if(!res || !res.ok){ btn.textContent=t; alert((res&&res.error)||'Gagal.'); return; }
-        btn.textContent='✓ terkirim';
-        btn.style.borderColor='#16a34a'; btn.style.color='#16a34a';
+        b.disabled = false;
+        if(!res || !res.ok){ kabar((res&&res.error)||'gagal', 'gagal'); return; }
+        b.className = 'cbtn sudah'; b.textContent = '✓ di pricing';
+        b.title = 'Briefnya sudah dikirim ke Radja — klik untuk mengirim ulang';
+        kabar('terkirim ✓', 'ok');
       });
   }
 
-  function pricingDone(id, btn){
-    var t=btn.textContent; btn.disabled=true; btn.textContent='…';
-    jsonp(WEB_APP_URL+'?page=admin&action=dcPricingDone&id='+encodeURIComponent(id)+
-          '&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
-      function(res){
-        btn.disabled=false;
-        if(!res || !res.ok){ btn.textContent=t; alert((res&&res.error)||'Gagal.'); return; }
-        btn.textContent='✓ pricing done';
-        btn.style.borderColor='#16a34a'; btn.style.color='#16a34a';
-      });
-  }
+
 
   function convertInquiry(id, btn){
     if (!confirm('Buat card Trello untuk ' + id + '?\nCard masuk list "TIMO (LENGKAPI)" dan status inquiry jadi "Jadi Order".')) return;
