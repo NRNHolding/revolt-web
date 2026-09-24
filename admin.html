@@ -788,15 +788,27 @@
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   // Link WA: pakai SATU tab WhatsApp Web (named target "wa") & langsung ke chat, tidak buka tab baru tiap klik
   function waAnchor(phone, label){ var d=String(phone||'').replace(/[^0-9]/g,''); return d ? '<a class="link" href="https://web.whatsapp.com/send?phone='+d+'" target="wa" rel="noopener">'+(label||'wa')+'</a>' : ''; }
-  /* "Tanpa ..." diperiksa lebih dulu: "Tanpa DP" memuat kata "dp", dan kalau
+  /* Lencananya menyebut apa yang masih kurang, bukan cuma "Belum": yang belum
+     apa-apa beda urusan dengan yang DP-nya sudah masuk tapi belum dilunasi -
+     satu ditagih uang muka, satunya ditagih sisanya.
+
+     "Tanpa ..." diperiksa lebih dulu: "Tanpa DP" memuat kata "dp", dan kalau
      urutannya terbalik ia tampil kuning seperti order yang sudah bayar DP. */
+  function payLabel(s){
+    var t=String(s||'').toLowerCase();
+    if(t.indexOf('tanpa tagihan')>-1) return 'Tanpa tagihan';
+    if(t.indexOf('tanpa dp')>-1)      return 'Bayar di akhir';      // tanpa uang muka, ditagih di akhir
+    if(t.indexOf('lunas')>-1)         return 'Lunas';
+    if(t.indexOf('dp')>-1)            return 'Belum pelunasan';
+    return 'Belum DP';
+  }
   function payBadge(s){
     var t=String(s||'').toLowerCase();
     var c = t.indexOf('tanpa tagihan')>-1 ? '#4a7c59'
           : t.indexOf('tanpa dp')>-1      ? '#5b6b7a'
           : t.indexOf('lunas')>-1         ? '#16a34a'
           : t.indexOf('dp')>-1            ? '#c47f00' : '#cc3333';
-    return '<span class="badge" style="background:'+c+'">'+esc(s||'Belum')+'</span>';
+    return '<span class="badge" style="background:'+c+'">'+esc(payLabel(s))+'</span>';
   }
   function statusBayarJs(tglDP, tglLunas){
     var d=String(tglDP||'').trim(), l=String(tglLunas||'').trim();
@@ -4907,7 +4919,7 @@
     var ordersBody =
       '<div class="toolbar">' +
         '<input id="q" placeholder="Cari order / customer / produk…" oninput="filterOrders()">' +
-        '<select id="fpay" onchange="filterOrders()"><option value="">Semua bayar</option><option>Belum</option><option>DP</option><option>Lunas</option><option>Tanpa DP</option><option>Tanpa tagihan</option></select>' +
+        '<select id="fpay" onchange="filterOrders()"><option value="">Semua bayar</option><option value="Belum">Belum DP</option><option value="DP">Belum pelunasan</option><option value="Lunas">Lunas</option><option value="Tanpa DP">Bayar di akhir</option><option value="Tanpa tagihan">Tanpa tagihan</option></select>' +
         '<select id="fdl" onchange="filterOrders()"><option value="">Semua deadline</option><option value="near">≤ 3 hari</option><option value="over">Terlewat</option></select>' +
         '<label style="color:#e0912f;font-size:12px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="fwarn" onchange="filterOrders()"> Cuma yang ⚠</label>' +
         '<select id="furut" onchange="renderPipeline()" title="Urutan kartu di dalam kolom">' +
