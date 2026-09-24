@@ -5345,24 +5345,46 @@
     return ((c.orderId||'')+' '+(c.customer||'')+' '+(c.product||'')).toLowerCase().indexOf(q) > -1;
   }
 
+  /* Keterangan di kartu tidak boleh saling bertabrakan.
+
+     Dulu sudut kanan bawah selalu menulis "lunas" begitu sisa tagihannya nol -
+     padahal 21 dari 37 order aktif sisanya nol semata-mata karena harga
+     jualnya belum diisi. Jadi kartunya memakai lencana merah "Belum" dan
+     tulisan "lunas" sekaligus. Yang harganya memang sudah lunas juga menulis
+     dua kali: lencana hijau "Lunas" di atas, kata "lunas" lagi di bawah.
+
+     Sekarang lencana yang menyebut keadaan, dan baris bawah hanya menambahkan
+     yang tidak muat di lencana: sisa yang masih ditagih. */
   function kartuPipa(o, warna){
     var days = o.estMs ? Math.ceil((o.estMs-Date.now())/86400000) : null;
-    // Sheet menulis "-" untuk order tanpa deadline, jadi itu bukan tanggal
+    // Sheet menulis "-" untuk order yang deadline-nya belum ada, jadi itu bukan tanggal
     var adaDl = o.estCompletion && String(o.estCompletion).trim() !== '-';
     var dl = adaDl
       ? '<span'+(days!==null&&days<0 ? ' style="color:#cc3333;font-weight:700"'
               : (days!==null&&days<=3 ? ' style="color:#e0912f;font-weight:700"' : ''))+'>'+
         esc(o.estCompletion)+(days!==null&&days<0?' ⚠':'')+'</span>'
-      : '<span style="color:#55554e">tanpa deadline</span>';
-    var sisa = Number(o.sisaTagihan)||0;
+      : '<span style="color:#55554e">belum ada deadline</span>';
+
+    var harga = Number(o.hargaJual)||0, sisa = Number(o.sisaTagihan)||0;
+    /* Order yang sengaja ditandai tanpa tagihan tidak ikut disuruh mengisi
+       harga - di situ memang tidak ada yang perlu diisi. */
+    var tanpaTagihan = /tanpa tagihan/i.test(String(o.paymentStatus||''));
+    var lencana = (harga || tanpaTagihan)
+      ? payBadge(o.paymentStatus)
+      : '<span class="badge" style="background:#4a4a42">harga belum diisi</span>';
+    var kanan = !harga ? ''
+      : (sisa ? '<span style="color:#e0912f">sisa '+rp(sisa)+'</span>' : '');
+
     return '<div class="kartu" style="border-left-color:'+warna+'" title="Klik untuk rincian" '+
-      'onclick="bukaKartu(\''+esc(o.orderId)+'\')">'+
-      '<div class="jud"><span>'+esc(o.orderId)+'</span>'+payBadge(o.paymentStatus)+'</div>'+
+      'data-id="'+esc(o.orderId)+'" onclick="klikKartuPipa(this)">'+
+      '<div class="jud"><span>'+esc(o.orderId)+'</span>'+lencana+'</div>'+
       '<div class="prod">'+esc(o.product||'-')+'</div>'+
-      '<div class="baris"><span>'+esc(o.customer||'-')+'</span><span>'+rp(o.hargaJual)+'</span></div>'+
-      '<div class="baris">'+dl+'<span>'+(sisa?'sisa '+rp(sisa):'lunas')+'</span></div>'+
+      '<div class="baris"><span>'+esc(o.customer||'-')+'</span><span>'+
+        (harga ? rp(harga) : '<span style="color:#55554e">—</span>')+'</span></div>'+
+      '<div class="baris">'+dl+'<span>'+kanan+'</span></div>'+
     '</div>';
   }
+  function klikKartuPipa(el){ bukaKartu(el.getAttribute('data-id')); }
 
   /* ── PAGE 3: Inquiry ──
      Dipisah dari Operasional karena inquiry belum tentu jadi order - kalau
