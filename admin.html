@@ -470,6 +470,9 @@
     .warn-row:first-of-type { border-top: none; }
     .warn-row:hover { color: #fff; }
     .cbtn.sudah { border-color: #2c5e3a; color: #74b98e; }
+    td.umurSel { cursor: pointer; white-space: nowrap; }
+    td.umurSel:hover { background: #1c1c16; }
+    .inqst { display: block; font-size: 10px; color: #8a8a80; }
     .inqtag { font-size: 10.5px; color: #8a8a80; margin-left: 5px; white-space: nowrap; }
     .inqtag.ok { color: #16a34a; }
     .inqtag.gagal { color: #d97a7a; }
@@ -5439,7 +5442,7 @@
         '<th class="sortable" onclick="sortT(this,4)">Email</th>' +
         '<th>Lahir</th><th>Alamat</th><th>Produk</th><th>Spesifikasi</th><th class="num">Qty</th>' +
         '<th>Bhs</th><th>Gambar</th>' +
-        '<th class="sortable" onclick="sortT(this,12)">Status</th><th>Aksi</th>' +
+        '<th class="sortable" onclick="sortT(this,12)" title="Umur inquiry sejak masuk — klik selnya untuk ubah status">Umur</th><th>Aksi</th>' +
       '</tr></thead><tbody>' + inquiryRows(d.inquiries || [], d.inqStatuses || []) + '</tbody></table></div>' +
       '<div id="inqKosong" class="loading" style="display:none">Tidak ada inquiry di kelompok ini.</div>';
   }
@@ -5832,10 +5835,70 @@
         ed('qty', q.qty) +
         '<td>'+esc(q.lang)+'</td>' +
         '<td>'+img+'</td>' +
-        '<td data-v="'+esc(q.status)+'"><select class="istatus" onchange="changeInquiryStatus(\''+esc(q.id)+'\', this.value, this)">'+opts+'</select></td>' +
+        '<td class="umurSel" data-v="'+(q.umur===''||q.umur==null?-1:q.umur)+'" data-id="'+esc(q.id)+'" '+
+          'data-status="'+esc(q.status||'')+'" title="Klik untuk ubah status" onclick="inqUbahStatus(this)">'+
+          umurIsi(q)+'</td>' +
         '<td>'+convert+'</td>' +
       '</tr>';
     }).join('');
+  }
+
+  /* Kolom ini dulu dropdown status yang harus diisi tangan tiap baris, dan
+     hampir selalu tetap "New": yang benar-benar dipakai cuma Ditolak/Batal,
+     sementara "Jadi Order" diisi sendiri waktu cardnya dibuat.
+
+     Yang lebih berguna dilihat sekilas justru umurnya - inquiry yang menunggu
+     dua minggu itu yang perlu dikejar. Statusnya tetap bisa diubah: klik
+     selnya, dropdownnya muncul di situ. */
+  var INQ_WARNA_UMUR = [[14, '#d97a7a'], [7, '#e0912f'], [3, '#c9c9bd']];
+
+  function umurTeks(hari){
+    if (hari === '' || hari == null || isNaN(hari)) return '-';
+    hari = Number(hari);
+    if (hari <= 0) return 'hari ini';
+    if (hari === 1) return 'kemarin';
+    return hari + ' hari';
+  }
+  function umurWarna(hari, status){
+    if (status === 'Jadi Order' || status === 'Ditolak' || status === 'Batal') return '#6f6f66';
+    for (var i = 0; i < INQ_WARNA_UMUR.length; i++) if (Number(hari) >= INQ_WARNA_UMUR[i][0]) return INQ_WARNA_UMUR[i][1];
+    return '#8a8a80';
+  }
+  function umurIsi(q){
+    var st = String(q.status || '');
+    var ekor = (st === 'Jadi Order') ? '<span class="inqst" style="color:#16a34a">jadi order</span>'
+             : (st === 'Ditolak' || st === 'Batal') ? '<span class="inqst" style="color:#cc3333">'+esc(st.toLowerCase())+'</span>'
+             : (st && st !== 'New') ? '<span class="inqst">'+esc(st.toLowerCase())+'</span>' : '';
+    return '<span style="color:'+umurWarna(q.umur, st)+'">'+umurTeks(q.umur)+'</span>'+ekor;
+  }
+
+  // Sel umur diklik -> dropdown statusnya muncul di tempat, lalu kembali jadi teks.
+  function inqUbahStatus(td){
+    if (td.querySelector('select')) return;
+    var id = td.getAttribute('data-id'), st = td.getAttribute('data-status');
+    var isi = td.innerHTML;
+    var opsi = (DATA && DATA.inqStatuses ? DATA.inqStatuses : ['New','Dihubungi','Jadi Order','Ditolak','Batal']);
+    td.innerHTML = '<select class="istatus">'+opsi.map(function(o){
+      return '<option'+(o===st?' selected':'')+'>'+esc(o)+'</option>'; }).join('')+'</select>';
+    var sel = td.querySelector('select');
+    sel.focus();
+    sel.onblur = function(){ if(!sel.disabled) td.innerHTML = isi; };
+    sel.onchange = function(){
+      var baru = sel.value;
+      if (baru === st) { td.innerHTML = isi; return; }
+      sel.disabled = true;
+      jsonp(WEB_APP_URL+'?page=admin&action=inquiryStatus&id='+encodeURIComponent(id)+
+            '&status='+encodeURIComponent(baru)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+        function(res){
+          if(!res || !res.ok){ sel.disabled=false; alert((res&&res.error)||'Gagal mengubah status.'); return; }
+          td.setAttribute('data-status', baru);
+          var tr = td.parentNode; if(tr) tr.setAttribute('data-st', baru);
+          var q = null;
+          ((DATA&&DATA.inquiries)||[]).forEach(function(x){ if(x.id===id){ x.status=baru; q=x; } });
+          td.innerHTML = umurIsi(q || { umur: td.getAttribute('data-v'), status: baru });
+          filterInquiry();
+        });
+    };
   }
 
   function saveInquiry(el){
@@ -5924,12 +5987,6 @@
     s.onerror = function(){ finish(null); };
     s.src = url + '&callback=' + name + '&_=' + Date.now();
     document.body.appendChild(s);
-  }
-
-  function changeInquiryStatus(id, status, el){
-    el.disabled = true;
-    jsonp(WEB_APP_URL + '?page=admin&action=inquiryStatus&id=' + encodeURIComponent(id) + '&status=' + encodeURIComponent(status) + '&key=' + encodeURIComponent(ADMIN_KEY),
-      function(res){ el.disabled=false; if (!res || !res.ok){ alert((res && res.error) || 'Gagal mengubah status.'); } });
   }
 
   // Jenis order menentukan channel Discord-nya pindah ke kategori mana
