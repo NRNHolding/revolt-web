@@ -6024,9 +6024,17 @@
 
 
   // ── Draft Card (edit deskripsi card sebelum → Order) ──
-  var DRAFT_ID='';
+  /* Enam draft pernah tersimpan berisi kata "Memuat…" - tombol Simpan ditekan
+     sementara isinya belum datang dari server, dan teks penunggu itu yang ikut
+     tersimpan. Deskripsi card ikut jadi "Memuat…" kalau lolos sampai dibuat. */
+  var DRAFT_ID='', DRAFT_SIAP=false;
+  function draftSiap_(){
+    if (DRAFT_SIAP) return true;
+    alert('Draftnya belum selesai dimuat. Tunggu sebentar, lalu simpan lagi.');
+    return false;
+  }
   function openDraft(id){
-    DRAFT_ID=id;
+    DRAFT_ID=id; DRAFT_SIAP=false;
     document.getElementById('draftTitle').textContent='Draft Card — '+id;
     document.getElementById('draftText').value='Memuat…';
     document.getElementById('draftCardTitle').textContent='';
@@ -6035,6 +6043,7 @@
     jsonp(WEB_APP_URL+'?page=admin&action=getDraft&id='+encodeURIComponent(id)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
       function(res){
         if(!res || !res.ok){ document.getElementById('draftText').value=''; document.getElementById('draftHint').textContent=(res&&res.error)||'Gagal memuat.'; return; }
+        DRAFT_SIAP=true;
         document.getElementById('draftText').value=res.draft||'';
         document.getElementById('draftCardTitle').textContent=res.title||'';
         document.getElementById('draftHint').innerHTML = (res.saved ? '● Draft tersimpan, dipakai waktu cardnya dibuat' : '○ Belum disimpan — ini template auto dari data inquiry') +
@@ -6047,7 +6056,7 @@
     if(!confirm('Timpa isi editor dengan template auto dari data inquiry terbaru?\n(Draft tersimpan tidak berubah sampai kamu klik Simpan.)')) return;
     var t=document.getElementById('draftText');
     jsonp(WEB_APP_URL+'?page=admin&action=getDraft&fresh=1&id='+encodeURIComponent(DRAFT_ID)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
-      function(res){ if(res&&res.ok){ t.value=res.draft||''; document.getElementById('draftHint').textContent='○ Template auto dimuat — klik Simpan untuk menyimpan'; } else alert((res&&res.error)||'Gagal.'); });
+      function(res){ if(res&&res.ok){ DRAFT_SIAP=true; t.value=res.draft||''; document.getElementById('draftHint').textContent='○ Template auto dimuat — klik Simpan untuk menyimpan'; } else alert((res&&res.error)||'Gagal.'); });
   }
   /* Hasilnya ikut dibaca (lewat token, seperti simpanan POST lain), bukan
      sekadar menunggu 1,4 detik: server ikut memindahkan channel pricing kalau
@@ -6071,6 +6080,7 @@
     })();
   }
   function saveDraft(btn){
+    if(!draftSiap_()) return;
     var old=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan…';
     postDraft(DRAFT_ID, document.getElementById('draftText').value, function(res){
       btn.disabled=false; btn.textContent=old;
@@ -6083,6 +6093,7 @@
     });
   }
   function saveConvertDraft(btn){
+    if(!draftSiap_()) return;
     if(!confirm('Simpan draft ini lalu buat card Trello untuk '+DRAFT_ID+'?')) return;
     var old=btn.textContent; btn.disabled=true; btn.textContent='Memproses…';
     postDraft(DRAFT_ID, document.getElementById('draftText').value, function(simpan){
