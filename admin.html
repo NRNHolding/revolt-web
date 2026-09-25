@@ -5808,10 +5808,11 @@
       var convert = (q.status === 'Jadi Order')
           ? '<span style="color:#16a34a;font-size:11px;font-weight:700">✓ order</span>'
           : (q.status === 'Batal' ? '<span style="color:#cc3333;font-size:11px;font-weight:700">batal</span>'
+          /* Membuat card dilakukan dari jendela Draft ("Simpan & Buat Card"):
+             di situ briefnya kelihatan, jadi tidak bisa terlanjur dibuat dengan
+             isi yang belum dirapikan. */
           : '<button class="cbtn" data-id="'+esc(q.id)+'" onclick="klikDraft(this)" '+
-              'title="Rapikan brief yang akan dipakai waktu jadi order">Draft</button> '+
-            '<button class="cbtn" style="border-color:#e0912f" data-id="'+esc(q.id)+'" '+
-              'title="Buat card Trello dan jadikan order" onclick="klikOrder(this)">→ Order</button> '+
+              'title="Rapikan brief, isi HPP, lalu buat cardnya dari sini">Draft</button> '+
             '<button class="cbtn'+(q.pricing ? ' sudah' : '')+'" data-id="'+esc(q.id)+'" onclick="klikPricing(this)" '+
               'title="'+(q.pricing
                  ? 'Briefnya sudah dikirim ke Radja — klik untuk mengirim ulang'
@@ -5938,7 +5939,6 @@
   }
 
   function klikDraft(b){ openDraft(b.getAttribute('data-id')); }
-  function klikOrder(b){ convertInquiry(b.getAttribute('data-id'), b); }
 
   /* Cuma pricing yang jadi langkah tambahan. "Harga masuk" dulu ditandai
      tangan lewat tombolnya sendiri, dan itu satu tombol lagi yang harus diingat
@@ -5966,17 +5966,6 @@
 
 
 
-  function convertInquiry(id, btn){
-    if (!confirm('Buat card Trello untuk ' + id + '?\nCard masuk list "TIMO (LENGKAPI)" dan status inquiry jadi "Jadi Order".')) return;
-    var jenis = tanyaJenis(id);
-    btn.disabled = true; btn.textContent = '…';
-    jsonp(WEB_APP_URL + '?page=admin&action=convertInquiry&id=' + encodeURIComponent(id) + '&jenis=' + jenis + '&key=' + encodeURIComponent(ADMIN_KEY),
-      function(res){
-        if (res && res.ok){ btn.outerHTML = '<span style="color:#16a34a;font-size:11px;font-weight:700">✓ terbuat</span>'; if (res.cardUrl) window.open(res.cardUrl, '_blank'); }
-        else { alert((res && res.error) || 'Gagal convert.'); btn.disabled=false; btn.textContent='→ Order'; }
-      });
-  }
-
   // ── Draft Card (edit deskripsi card sebelum → Order) ──
   var DRAFT_ID='';
   function openDraft(id){
@@ -5991,7 +5980,7 @@
         if(!res || !res.ok){ document.getElementById('draftText').value=''; document.getElementById('draftHint').textContent=(res&&res.error)||'Gagal memuat.'; return; }
         document.getElementById('draftText').value=res.draft||'';
         document.getElementById('draftCardTitle').textContent=res.title||'';
-        document.getElementById('draftHint').innerHTML = (res.saved ? '● Draft tersimpan dipakai saat → Order' : '○ Belum disimpan — ini template auto dari data inquiry') +
+        document.getElementById('draftHint').innerHTML = (res.saved ? '● Draft tersimpan, dipakai waktu cardnya dibuat' : '○ Belum disimpan — ini template auto dari data inquiry') +
           ' · <span style="color:#e0a256">Harga jual, DP, dan tanggal bayar tidak ditulis di card — isi lewat tombol 💰 di baris order. ' +
           'Yang ditulis di sini ikut terbawa ke sheet, bukan ke card.</span>';
       });
@@ -6003,25 +5992,49 @@
     jsonp(WEB_APP_URL+'?page=admin&action=getDraft&fresh=1&id='+encodeURIComponent(DRAFT_ID)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
       function(res){ if(res&&res.ok){ t.value=res.draft||''; document.getElementById('draftHint').textContent='○ Template auto dimuat — klik Simpan untuk menyimpan'; } else alert((res&&res.error)||'Gagal.'); });
   }
+  /* Hasilnya ikut dibaca (lewat token, seperti simpanan POST lain), bukan
+     sekadar menunggu 1,4 detik: server ikut memindahkan channel pricing kalau
+     HPP-nya sudah terisi, dan itu perlu dikabarkan ke layar. */
   function postDraft(id, text, done){
+    var token='t'+Date.now()+Math.floor(Math.random()*9999);
     var frameName=postFrame_();
     var form=document.createElement('form'); form.method='POST'; form.action=WEB_APP_URL; form.target=frameName;
     function add(n,v){ var i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; form.appendChild(i); }
-    add('action','saveDraft'); add('key',ADMIN_KEY); add('id',id); add('draft',text);
+    add('action','saveDraft'); add('key',ADMIN_KEY); add('id',id); add('draft',text); add('token',token);
     document.body.appendChild(form); form.submit();
-    setTimeout(function(){ document.body.removeChild(form); if(done) done(); }, 1400);
+    setTimeout(function(){ if(form.parentNode) document.body.removeChild(form); }, 1000);
+    var tries=0;
+    (function poll(){
+      tries++; if(tries>20){ if(done) done({ ok:false, error:'Server tidak menjawab.' }); return; }
+      jsonp(WEB_APP_URL+'?page=admin&action=pollResult&token='+token+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+        function(res){
+          if(res && !res.pending){ if(done) done(res); return; }
+          setTimeout(poll, tries<5 ? 600 : 1500);
+        });
+    })();
   }
   function saveDraft(btn){
     var old=btn.textContent; btn.disabled=true; btn.textContent='Menyimpan…';
-    postDraft(DRAFT_ID, document.getElementById('draftText').value, function(){
+    postDraft(DRAFT_ID, document.getElementById('draftText').value, function(res){
       btn.disabled=false; btn.textContent=old;
-      document.getElementById('draftHint').textContent='● Draft tersimpan dipakai saat → Order';
+      var h=document.getElementById('draftHint');
+      if(!res || !res.ok){ h.innerHTML='<span style="color:#d97a7a">'+esc((res&&res.error)||'Gagal menyimpan.')+'</span>'; return; }
+      h.innerHTML='● Draft tersimpan, dipakai waktu cardnya dibuat'+
+        (res.pricing==='pindah'
+          ? ' · <span style="color:#16a34a">HPP terisi — channel Discord pindah ke PRICING DONE</span>'
+          : (res.pricing==='sudah' ? ' · <span style="color:#8a8a80">channel sudah di PRICING DONE</span>' : ''));
     });
   }
   function saveConvertDraft(btn){
     if(!confirm('Simpan draft ini lalu buat card Trello untuk '+DRAFT_ID+'?')) return;
     var old=btn.textContent; btn.disabled=true; btn.textContent='Memproses…';
-    postDraft(DRAFT_ID, document.getElementById('draftText').value, function(){
+    postDraft(DRAFT_ID, document.getElementById('draftText').value, function(simpan){
+      // Draftnya gagal tersimpan: cardnya jangan dibuat dari isi yang lama.
+      if(!simpan || !simpan.ok){
+        btn.disabled=false; btn.textContent=old;
+        alert((simpan && simpan.error) || 'Draft gagal tersimpan — card tidak dibuat.');
+        return;
+      }
       jsonp(WEB_APP_URL+'?page=admin&action=convertInquiry&id='+encodeURIComponent(DRAFT_ID)+'&jenis='+tanyaJenis(DRAFT_ID)+'&key='+encodeURIComponent(ADMIN_KEY),
         function(res){
           btn.disabled=false; btn.textContent=old;
