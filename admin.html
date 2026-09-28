@@ -470,6 +470,9 @@
     .warn-row:first-of-type { border-top: none; }
     .warn-row:hover { color: #fff; }
     .cbtn.sudah { border-color: #2c5e3a; color: #74b98e; }
+    select.inqvendor { background: #1c1c17; border: 1px solid #33332a; color: #c9c9bd; border-radius: 6px;
+      font-size: 11px; padding: 2px 4px; margin-left: 4px; }
+    select.inqvendor.lain { border-color: #7a5ca8; color: #c3a7e6; }
     td.umurSel { cursor: pointer; white-space: nowrap; }
     td.umurSel:hover { background: #1c1c16; }
     .inqst { display: block; font-size: 10px; color: #8a8a80; }
@@ -5821,6 +5824,13 @@
                  ? 'Briefnya sudah dikirim ke Radja — klik untuk mengirim ulang'
                  : 'Kirim brief ke Radja untuk dihargai')+'">'+
               (q.pricing ? '✓ di pricing' : 'Pricing')+'</button>'+
+            /* Vendor menempel di barisnya, bukan di jendela terpisah: yang perlu
+               dilihat sekilas adalah pekerjaan ini punya siapa. */
+            '<select class="inqvendor'+(q.vendor && q.vendor!=='Radja Leather' ? ' lain' : '')+'" '+
+              'data-id="'+esc(q.id)+'" title="Vendor yang mengerjakan" onchange="inqVendorUbah(this)">'+
+              ['Radja Leather','CV Harmonis'].map(function(v){
+                return '<option'+((q.vendor||'Radja Leather')===v ? ' selected' : '')+'>'+v+'</option>'; }).join('')+
+            '</select>'+
             '<span class="inqtag"></span>');
       return '<tr data-st="'+esc(q.status||'')+'">' +
         '<td data-v="'+num+'">'+esc(q.time)+'</td>' +
@@ -5996,6 +6006,25 @@
   }
 
   function klikDraft(b){ openDraft(b.getAttribute('data-id')); }
+
+  /* Vendornya menentukan siapa yang dipanggil di Discord: role RADJA tidak ikut
+     dipanggil untuk pekerjaan vendor lain, dan briefnya menyebut vendornya. */
+  function inqVendorUbah(sel){
+    var id = sel.getAttribute('data-id'), v = sel.value, semula = sel.getAttribute('data-lama') || 'Radja Leather';
+    var tag = sel.parentNode.querySelector('.inqtag');
+    function kabar(t, k){ if(tag){ tag.className='inqtag'+(k?' '+k:''); tag.textContent=t; } }
+    sel.disabled = true; kabar('menyimpan…');
+    jsonp(WEB_APP_URL+'?page=admin&action=inqVendor&id='+encodeURIComponent(id)+
+          '&vendor='+encodeURIComponent(v)+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        sel.disabled = false;
+        if(!res || !res.ok){ sel.value = semula; kabar((res&&res.error)||'gagal', 'gagal'); return; }
+        sel.setAttribute('data-lama', res.vendor);
+        sel.className = 'inqvendor' + (res.vendor !== 'Radja Leather' ? ' lain' : '');
+        ((DATA&&DATA.inquiries)||[]).forEach(function(x){ if(x.id===id) x.vendor = res.vendor; });
+        kabar('vendor: '+res.vendor, 'ok');
+      });
+  }
 
   /* Cuma pricing yang jadi langkah tambahan. "Harga masuk" dulu ditandai
      tangan lewat tombolnya sendiri, dan itu satu tombol lagi yang harus diingat
