@@ -470,6 +470,16 @@
     .warn-row:first-of-type { border-top: none; }
     .warn-row:hover { color: #fff; }
     .cbtn.sudah { border-color: #2c5e3a; color: #74b98e; }
+    /* Spesifikasi kadang satu paragraf penuh, dan satu baris inquiry bisa jadi
+       setinggi layar - daftarnya tidak bisa dibaca sekilas lagi. Dipendekkan
+       jadi tiga baris; klik "selengkapnya" (atau mulai mengetik) untuk penuh. */
+    td.spekSel { max-width: 300px; }
+    .spekIsi { max-height: 56px; overflow: hidden; white-space: normal; line-height: 1.45; }
+    .spekIsi.buka { max-height: none; }
+    .spekLagi { background: none; border: none; color: #e0912f; font-size: 10.5px; cursor: pointer;
+      padding: 2px 0 0; font-family: inherit; }
+    .spekLagi:hover { text-decoration: underline; }
+
     select.inqvendor { background: #1c1c17; border: 1px solid #33332a; color: #c9c9bd; border-radius: 6px;
       font-size: 11px; padding: 2px 4px; margin-left: 4px; }
     select.inqvendor.lain { border-color: #7a5ca8; color: #c3a7e6; }
@@ -5841,7 +5851,11 @@
         '<td class="edit" contenteditable="true" data-id="'+esc(q.id)+'" data-field="dob" data-orig="'+esc(q.dob||'')+'" onblur="saveInquiry(this)" title="Format: dd/mm/yyyy">'+esc(q.dob||'')+'</td>' +
         ed('address', q.address) +
         ed('produk', q.produk) +
-        '<td class="edit" contenteditable="true" style="white-space:normal;max-width:240px" data-id="'+esc(q.id)+'" data-field="spec" data-orig="'+esc(q.spec||'')+'" onblur="saveInquiry(this)">'+esc(q.spec||'')+'</td>' +
+        '<td class="spekSel"><div class="edit spekIsi" contenteditable="true" data-id="'+esc(q.id)+'" '+
+          'data-field="spec" data-orig="'+esc(q.spec||'')+'" onblur="saveInquiry(this)" onfocus="spekBuka(this)">'+
+          esc(q.spec||'')+'</div>'+
+          (String(q.spec||'').length > 140 ? '<button class="spekLagi" onclick="spekLipat(this)">selengkapnya</button>' : '')+
+        '</td>' +
         ed('qty', q.qty) +
         '<td>'+esc(q.lang)+'</td>' +
         '<td>'+img+'</td>' +
@@ -5909,6 +5923,16 @@
           filterInquiry();
         });
     };
+  }
+
+  function spekLipat(b){
+    var d = b.parentNode.querySelector('.spekIsi');
+    b.textContent = d.classList.toggle('buka') ? 'ringkas' : 'selengkapnya';
+  }
+  function spekBuka(d){
+    d.classList.add('buka');
+    var b = d.parentNode.querySelector('.spekLagi');
+    if (b) b.textContent = 'ringkas';
   }
 
   function saveInquiry(el){
