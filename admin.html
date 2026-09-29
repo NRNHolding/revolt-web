@@ -473,6 +473,16 @@
     /* Spesifikasi kadang satu paragraf penuh, dan satu baris inquiry bisa jadi
        setinggi layar - daftarnya tidak bisa dibaca sekilas lagi. Dipendekkan
        jadi tiga baris; klik "selengkapnya" (atau mulai mengetik) untuk penuh. */
+    .rk-atas { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .rk-bulan { font-size: 15px; font-weight: 700; min-width: 165px; }
+    .rk-tab td { vertical-align: middle; }
+    .rk-tgl { width: 92px; background: #1c1c17; border: 1px solid #2a2a22; color: #ececec;
+      border-radius: 6px; padding: 3px 6px; font-size: 11.5px; font-family: inherit; }
+    .rk-ket { width: 100%; min-width: 220px; background: #1c1c17; border: 1px solid #2a2a22; color: #ececec;
+      border-radius: 6px; padding: 4px 7px; font-size: 11.5px; font-family: inherit; resize: vertical; min-height: 30px; }
+    .rk-tgl:focus, .rk-ket:focus { outline: none; border-color: #e0912f; }
+    .rk-geser { color: #e0912f; font-weight: 700; }
+    .rk-simpan { font-size: 10.5px; color: #16a34a; }
     td.spekSel { max-width: 300px; }
     .spekIsi { max-height: 56px; overflow: hidden; white-space: normal; line-height: 1.45; }
     .spekIsi.buka { max-height: none; }
@@ -888,7 +898,9 @@
           '<button class="stab" onclick="admTab(4,this)">Cadangan</button>' +
           '<button class="stab" onclick="admTab(5,this)">Discord</button>' +
           '<button class="stab" onclick="admTab(6,this)">Marketplace</button>' +
+          '<button class="stab" onclick="admTab(7,this)">Update Vendor</button>' +
         '</div>' +
+        '<div id="adm7" style="display:none"><div id="rkBody"><div class="loading">Memuat…</div></div></div>' +
         '<div id="adm1">' + buildLaporan(d) + '</div>' +
         '<div id="adm2" style="display:none">' + buildCustomerDB(d) + '</div>' +
         '<div id="adm6" style="display:none">' +
@@ -946,7 +958,7 @@
 
   // Sub-tab Administrasi
   function admTab(n, btn){
-    for(var i=1;i<=6;i++){ var el=document.getElementById('adm'+i); if(el) el.style.display=(i===n?'':'none'); }
+    for(var i=1;i<=7;i++){ var el=document.getElementById('adm'+i); if(el) el.style.display=(i===n?'':'none'); }
     document.querySelectorAll('#page2 > .subtabs .stab').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
     if(n===1){ renderEval(); filterReport(); }
@@ -954,6 +966,113 @@
     if(n===4) loadCadangan();
     if(n===5) loadDiscord();
     if(n===6) loadMarket();
+    if(n===7) bukaRekap();
+  }
+
+  /* ── Update Vendor: rekap bulanan ──
+
+     Pengganti spreadsheet "Update Inquiry <bulan>" yang selama ini diketik
+     tangan. Yang bisa dihitung sendiri dihitung sendiri - client, produk, qty,
+     tanggal mulai produksi, jadwal awal, dan jadwal yang berlaku sekarang.
+     Yang tidak ada di sistem mana pun cuma dua: tanggal barang diterima Revolt
+     dan keterangannya. */
+  var RK = { bulan: '', baris: [], muat: false, galat: '' };
+
+  function rkBulanIni_(){ var n=new Date(); return n.getFullYear()+'-'+('0'+(n.getMonth()+1)).slice(-2); }
+  function rkNamaBulan_(b){
+    var p=String(b).split('-');
+    return (KT_BULAN[Number(p[1])-1]||'?')+' '+p[0];
+  }
+  function bukaRekap(){
+    if(!RK.bulan) RK.bulan = rkBulanIni_();
+    if(!RK.baris.length && !RK.muat) muatRekap(); else gambarRekap();
+  }
+  function rkGeser(n){
+    var p=RK.bulan.split('-'), d=new Date(Number(p[0]), Number(p[1])-1+n, 1);
+    RK.bulan = d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2);
+    muatRekap();
+  }
+  function muatRekap(segar){
+    RK.muat=true; RK.galat=''; gambarRekap();
+    jsonp(WEB_APP_URL+'?page=admin&action=rekapVendor&bulan='+RK.bulan+(segar?'&segar=1':'')+
+          '&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        RK.muat=false;
+        if(!res || !res.ok){ RK.galat=(res&&res.error)||'Server tidak menjawab.'; RK.baris=[]; gambarRekap(); return; }
+        RK.baris=res.baris||[]; gambarRekap();
+      });
+  }
+
+  function gambarRekap(){
+    var el=document.getElementById('rkBody'); if(!el) return;
+    var h='<div class="rk-atas">'+
+        '<button class="kt-nav" onclick="rkGeser(-1)">‹</button>'+
+        '<div class="rk-bulan">'+rkNamaBulan_(RK.bulan)+'</div>'+
+        '<button class="kt-nav" onclick="rkGeser(1)">›</button>'+
+        '<button class="cbtn" onclick="muatRekap(1)" title="Tarik ulang riwayat kartu dari Trello">↻ Segarkan</button>'+
+        '<button class="cbtn" onclick="rkSalin(this)">Salin tabel</button>'+
+        '<span class="kt-info">'+(RK.muat?'memuat…':(RK.galat
+          ? '<span style="color:#d97a7a">'+esc(RK.galat)+'</span>'
+          : RK.baris.length+' order'))+'</span>'+
+      '</div>'+
+      '<div class="osub" style="margin:0 0 9px">Jadwal awal = deadline yang dijanjikan waktu kartu masuk produksi. '+
+        'Tahap II = deadline yang berlaku sekarang. Yang bergeser ditandai oranye.</div>';
+
+    if(!RK.muat && !RK.baris.length){
+      el.innerHTML = h+'<div class="kt-kosong">Belum ada order yang masuk produksi di bulan ini.</div>';
+      return;
+    }
+    h+='<div class="table-scroll"><table class="mini rk-tab"><thead><tr>'+
+        '<th>No</th><th>Order</th><th>Nama client</th><th>Product</th><th class="num">Qty</th>'+
+        '<th>Mulai produksi</th><th>Jadwal awal</th><th>Jadwal tahap II</th><th>Diterima Revolt</th><th>Ket</th>'+
+      '</tr></thead><tbody>'+
+      RK.baris.map(function(b,i){
+        var geser = b.jadwalAwal && b.jadwalDua && b.jadwalAwal !== b.jadwalDua;
+        return '<tr>'+
+          '<td>'+(i+1)+'</td>'+
+          '<td><b>'+esc(b.order)+'</b>'+(b.selesai?' <span class="ksub">terkirim</span>':'')+'</td>'+
+          '<td>'+esc(b.customer||'-')+'</td>'+
+          '<td>'+esc(b.produk||'-')+'</td>'+
+          '<td class="num">'+esc(b.qty)+'</td>'+
+          '<td>'+esc(b.mulai||'-')+'</td>'+
+          '<td>'+esc(b.jadwalAwal||'-')+'</td>'+
+          '<td'+(geser?' class="rk-geser"':'')+'>'+esc(b.jadwalDua||'-')+'</td>'+
+          '<td><input class="rk-tgl" data-id="'+esc(b.order)+'" data-f="diterima" value="'+esc(b.diterima||'')+'" '+
+            'placeholder="dd/mm/yy" onchange="rkSimpan(this)"></td>'+
+          '<td><textarea class="rk-ket" rows="1" data-id="'+esc(b.order)+'" data-f="ket" '+
+            'onchange="rkSimpan(this)">'+esc(b.ket||'')+'</textarea></td>'+
+        '</tr>';
+      }).join('')+'</tbody></table></div>';
+    el.innerHTML=h;
+  }
+
+  // Dua kolom ini tidak ada di sistem mana pun, jadi keduanya dikirim bersama.
+  function rkSimpan(el){
+    var id=el.getAttribute('data-id');
+    var baris=null; RK.baris.forEach(function(b){ if(b.order===id) baris=b; });
+    if(!baris) return;
+    baris[el.getAttribute('data-f')] = el.value;
+    el.style.borderColor='#e0912f';
+    jsonp(WEB_APP_URL+'?page=admin&action=rekapSimpan&id='+encodeURIComponent(id)+
+          '&diterima='+encodeURIComponent(baris.diterima||'')+'&ket='+encodeURIComponent(baris.ket||'')+
+          '&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        el.style.borderColor = (res && res.ok) ? '#16a34a' : '#d97a7a';
+        setTimeout(function(){ el.style.borderColor='#2a2a22'; }, 1200);
+      });
+  }
+
+  // Disalin sebagai TSV: tinggal tempel ke spreadsheet kalau memang perlu dikirim ke luar.
+  function rkSalin(btn){
+    var judul=['No','Order','Nama client','Product','Qty','Mulai produksi','Jadwal awal','Jadwal tahap II','Diterima Revolt','Ket'];
+    var tab=String.fromCharCode(9), enter=String.fromCharCode(10);
+    var isi=RK.baris.map(function(b,i){
+      return [i+1, b.order, b.customer, b.produk, b.qty, b.mulai, b.jadwalAwal, b.jadwalDua, b.diterima,
+              String(b.ket||'').replace(/[\r\n\t]+/g,' ')].join(tab);
+    });
+    copyText([judul.join(tab)].concat(isi).join(enter));
+    var t=btn.textContent; btn.textContent='tersalin ✓';
+    setTimeout(function(){ btn.textContent=t; }, 1400);
   }
 
   // ── Notif pesanan web yang butuh tindakan ──
