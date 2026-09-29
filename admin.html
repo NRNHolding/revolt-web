@@ -481,6 +481,7 @@
     .rk-ket { width: 100%; min-width: 220px; background: #1c1c17; border: 1px solid #2a2a22; color: #ececec;
       border-radius: 6px; padding: 4px 7px; font-size: 11.5px; font-family: inherit; resize: vertical; min-height: 30px; }
     .rk-tgl:focus, .rk-ket:focus { outline: none; border-color: #e0912f; }
+    .rk-tgl.usul { color: #8a8a80; font-style: italic; }
     .rk-geser { color: #e0912f; font-weight: 700; }
     .rk-simpan { font-size: 10.5px; color: #16a34a; }
     td.spekSel { max-width: 300px; }
@@ -1038,7 +1039,11 @@
           '<td>'+esc(b.mulai||'-')+'</td>'+
           '<td>'+esc(b.jadwalAwal||'-')+'</td>'+
           '<td'+(geser?' class="rk-geser"':'')+'>'+esc(b.jadwalDua||'-')+'</td>'+
-          '<td><input class="rk-tgl" data-id="'+esc(b.order)+'" data-f="diterima" value="'+esc(b.diterima||'')+'" '+
+          /* Tanggal yang datang dari QC ditulis lebih redup: itu usulan dari
+             riwayat kartu, bukan sesuatu yang pernah diketik orang. Begitu
+             disunting, ia jadi catatan biasa. */
+          '<td><input class="rk-tgl'+(b.diterimaAuto ? ' usul' : '')+'" data-id="'+esc(b.order)+'" data-f="diterima" '+
+            'value="'+esc(b.diterima||'')+'" title="'+(b.diterimaAuto ? 'Dari tanggal kartu masuk Production Done (QC)' : '')+'" '+
             'placeholder="dd/mm/yy" onchange="rkSimpan(this)"></td>'+
           '<td><textarea class="rk-ket" rows="1" data-id="'+esc(b.order)+'" data-f="ket" '+
             'onchange="rkSimpan(this)">'+esc(b.ket||'')+'</textarea></td>'+
@@ -1053,6 +1058,7 @@
     var baris=null; RK.baris.forEach(function(b){ if(b.order===id) baris=b; });
     if(!baris) return;
     baris[el.getAttribute('data-f')] = el.value;
+    el.classList.remove('usul');
     el.style.borderColor='#e0912f';
     jsonp(WEB_APP_URL+'?page=admin&action=rekapSimpan&id='+encodeURIComponent(id)+
           '&diterima='+encodeURIComponent(baris.diterima||'')+'&ket='+encodeURIComponent(baris.ket||'')+
