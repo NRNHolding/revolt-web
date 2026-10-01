@@ -481,6 +481,25 @@
     .rk-ket { width: 100%; min-width: 220px; background: #1c1c17; border: 1px solid #2a2a22; color: #ececec;
       border-radius: 6px; padding: 4px 7px; font-size: 11.5px; font-family: inherit; resize: vertical; min-height: 30px; }
     .rk-tgl:focus, .rk-ket:focus { outline: none; border-color: #e0912f; }
+    /* ── Chip pengisi draft ── */
+    .chip-panel { background: #15150f; border: 1px solid #2a2a22; border-radius: 9px;
+      padding: 8px 10px; margin-bottom: 9px; max-height: 190px; overflow: auto; }
+    .chip-baris { display: flex; gap: 6px; align-items: flex-start; padding: 3px 0; flex-wrap: wrap; }
+    .chip-judul { flex: 0 0 125px; font-size: 10.5px; letter-spacing: .5px; text-transform: uppercase;
+      color: #8a8a80; padding-top: 4px; }
+    .chip { background: #23231c; border: 1px solid #35352c; color: #d6d6c9; border-radius: 14px;
+      padding: 3px 10px; font-size: 11.5px; cursor: pointer; font-family: inherit; }
+    .chip:hover { border-color: #e0912f; color: #e0912f; }
+    .chip.baru { background: #e0912f; border-color: #e0912f; color: #17120a; }
+    .chip-kosong { font-size: 11.5px; color: #8a8a80; }
+    .chip-x { background: none; border: none; color: #8a8a80; cursor: pointer; font-size: 11px; padding: 0 0 0 5px; }
+    .chip-x:hover { color: #d97a7a; }
+    .mc-bagian { border: 1px solid #26261f; border-radius: 10px; padding: 10px 12px; margin-bottom: 9px; }
+    .mc-judul { font-size: 12px; font-weight: 700; color: #cfcfc4; margin-bottom: 2px; }
+    .mc-cara { font-size: 10.5px; color: #8a8a80; margin-bottom: 7px; }
+    .mc-isi { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .mc-tambah { background: #1c1c17; border: 1px solid #33332a; color: #ececec; border-radius: 6px;
+      padding: 4px 8px; font-size: 11.5px; font-family: inherit; min-width: 190px; }
     .rk-tgl.usul { color: #8a8a80; font-style: italic; }
     .rk-geser { color: #e0912f; font-weight: 700; }
     .rk-simpan { font-size: 10.5px; color: #16a34a; }
@@ -900,8 +919,10 @@
           '<button class="stab" onclick="admTab(5,this)">Discord</button>' +
           '<button class="stab" onclick="admTab(6,this)">Marketplace</button>' +
           '<button class="stab" onclick="admTab(7,this)">Update Vendor</button>' +
+          '<button class="stab" onclick="admTab(8,this)">Master Chip</button>' +
         '</div>' +
         '<div id="adm7" style="display:none"><div id="rkBody"><div class="loading">Memuat…</div></div></div>' +
+        '<div id="adm8" style="display:none"><div id="mcBody"><div class="loading">Memuat…</div></div></div>' +
         '<div id="adm1">' + buildLaporan(d) + '</div>' +
         '<div id="adm2" style="display:none">' + buildCustomerDB(d) + '</div>' +
         '<div id="adm6" style="display:none">' +
@@ -959,7 +980,7 @@
 
   // Sub-tab Administrasi
   function admTab(n, btn){
-    for(var i=1;i<=7;i++){ var el=document.getElementById('adm'+i); if(el) el.style.display=(i===n?'':'none'); }
+    for(var i=1;i<=8;i++){ var el=document.getElementById('adm'+i); if(el) el.style.display=(i===n?'':'none'); }
     document.querySelectorAll('#page2 > .subtabs .stab').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
     if(n===1){ renderEval(); filterReport(); }
@@ -968,6 +989,180 @@
     if(n===5) loadDiscord();
     if(n===6) loadMarket();
     if(n===7) bukaRekap();
+    if(n===8) bukaMaster();
+  }
+
+  /* ── Chip pengisi draft ──
+
+     Brief diketik ulang tiap order padahal pilihannya itu-itu saja. Pilihannya
+     sekarang disimpan sebagai chip, dan yang mengisi tinggal mengklik.
+
+     Chip tidak ditempel di posisi kursor, melainkan ke BAGIAN yang benar:
+     material masuk ke daftar bernomor di bawah MAIN MATERIAL, aksesoris jadi
+     butir minus di bawah ACCESORIES, finishing mengisi baris "* Finishing :".
+     Brief yang dibaca Radja urutannya tetap, walau chipnya diklik acak. */
+  var CHIP = { bagian: [], isi: {}, muat: false };
+
+  function muatChip(lanjut){
+    if (CHIP.bagian.length) { if (lanjut) lanjut(); return; }
+    if (CHIP.muat) return;
+    CHIP.muat = true;
+    jsonp(WEB_APP_URL+'?page=admin&action=chipList&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        CHIP.muat = false;
+        if (res && res.ok) { CHIP.bagian = res.bagian || []; CHIP.isi = res.isi || {}; }
+        if (lanjut) lanjut();
+      });
+  }
+
+  // Baris penanda dicari dari awalnya, bukan sama persis: isinya sudah berubah
+  // begitu chip pertama masuk ("* Finishing : Burnish").
+  function chipCariBaris_(baris, penanda){
+    for (var i = 0; i < baris.length; i++) {
+      if (baris[i].replace(/^[\s]+/, '').indexOf(penanda) === 0) return i;
+    }
+    return -1;
+  }
+
+  function chipSisip(bagian, nilai){
+    var ta = document.getElementById('draftText');
+    if (!ta) return false;
+    var def = null;
+    CHIP.bagian.forEach(function(b){ if (b.k === bagian) def = b; });
+    if (!def) return false;
+
+    var baris = ta.value.split(/\r?\n/);
+    var i = chipCariBaris_(baris, def.baris);
+    if (i < 0) {                                  // penanda tidak ada: tempel di kursor
+      var p = ta.selectionStart || 0;
+      ta.value = ta.value.slice(0, p) + nilai + ta.value.slice(p);
+      return true;
+    }
+
+    if (def.cara === 'ganti') {
+      var titik = baris[i].indexOf(':');
+      baris[i] = (titik > -1) ? baris[i].slice(0, titik + 1) + ' ' + nilai : nilai;
+    } else {
+      // Cari ujung daftarnya: butir terakhir yang masih milik bagian ini.
+      var j = i, akhir = i, kosong = -1;
+      while (++j < baris.length) {
+        var t = baris[j].trim();
+        if (!t) continue;
+        if (/^[0-9]+[.)]/.test(t)) {
+          akhir = j;
+          if (kosong < 0 && /^[0-9]+[.)]\s*$/.test(t)) kosong = j;      // slot "2." yang masih kosong
+          continue;
+        }
+        if (/^[-*•]/.test(t)) {
+          if (/^\*\s*[A-Z]/.test(t) && def.cara !== 'titik') break;     // judul bagian berikutnya
+          akhir = j;
+          if (kosong < 0 && /^[-*•]\s*$/.test(t)) kosong = j;
+          continue;
+        }
+        break;                                                           // bukan butir lagi
+      }
+      if (def.cara === 'nomor') {
+        if (kosong > -1) baris[kosong] = baris[kosong].replace(/^(\s*[0-9]+[.)])\s*$/, '$1 ' + nilai);
+        else {
+          var n = 0;
+          for (var k = i; k <= akhir; k++) { var m = baris[k].trim().match(/^([0-9]+)[.)]/); if (m) n = Math.max(n, Number(m[1])); }
+          baris.splice(akhir + 1, 0, (n + 1) + '. ' + nilai);
+        }
+      } else {
+        if (kosong > -1) baris[kosong] = '- ' + nilai;
+        else baris.splice(akhir + 1, 0, '- ' + nilai);
+      }
+    }
+    ta.value = baris.join(String.fromCharCode(10));
+    return true;
+  }
+
+  function chipKlik(b){
+    if (chipSisip(b.getAttribute('data-k'), b.getAttribute('data-v'))) {
+      b.classList.add('baru');
+      setTimeout(function(){ b.classList.remove('baru'); }, 600);
+    }
+  }
+
+  function gambarChipDraft(){
+    var el = document.getElementById('draftChip'); if (!el) return;
+    var isi = CHIP.bagian.filter(function(b){ return (CHIP.isi[b.k] || []).length; });
+    if (!isi.length) {
+      el.innerHTML = '<div class="chip-kosong">Belum ada chip. Isi dulu di <b>Administrasi → Master Chip</b>, '+
+        'lalu pengisian brief tinggal klik.</div>';
+      return;
+    }
+    el.innerHTML = isi.map(function(b){
+      return '<div class="chip-baris"><div class="chip-judul">'+esc(b.j)+'</div>'+
+        (CHIP.isi[b.k]||[]).map(function(v){
+          return '<button class="chip" data-k="'+esc(b.k)+'" data-v="'+esc(v)+'" onclick="chipKlik(this)">'+esc(v)+'</button>';
+        }).join('')+'</div>';
+    }).join('');
+  }
+
+  /* ── Master Chip: tempat mengisi pilihannya ── */
+  function bukaMaster(){
+    var el = document.getElementById('mcBody'); if (!el) return;
+    if (!CHIP.bagian.length) { el.innerHTML = '<div class="loading">Memuat…</div>'; muatChip(gambarMaster); return; }
+    gambarMaster();
+  }
+
+  function gambarMaster(){
+    var el = document.getElementById('mcBody'); if (!el) return;
+    var cara = { ganti: 'mengisi baris itu', nomor: 'jadi butir bernomor', titik: 'jadi butir bertanda minus' };
+    el.innerHTML =
+      '<div class="section-title">Master chip pengisi draft</div>'+
+      '<div class="osub" style="margin:-4px 0 12px">Isi pilihan yang sering dipakai. Di jendela Draft, chip ini '+
+        'tinggal diklik dan masuk ke bagian yang benar — tidak menempel di posisi kursor.</div>'+
+      CHIP.bagian.map(function(b){
+        var isi = CHIP.isi[b.k] || [];
+        return '<div class="mc-bagian">'+
+          '<div class="mc-judul">'+esc(b.j)+' <span class="chip-kosong">· '+isi.length+' chip</span></div>'+
+          '<div class="mc-cara">Masuk ke "'+esc(b.baris)+'", '+esc(cara[b.cara]||'')+'</div>'+
+          '<div class="mc-isi" id="mc_'+esc(b.k)+'">'+
+            isi.map(function(v){
+              return '<span class="chip" style="cursor:default">'+esc(v)+
+                '<button class="chip-x" data-k="'+esc(b.k)+'" data-v="'+esc(v)+'" onclick="mcHapus(this)" title="Hapus">×</button></span>';
+            }).join('')+
+            '<input class="mc-tambah" data-k="'+esc(b.k)+'" placeholder="tambah pilihan, lalu Enter" '+
+              'onkeydown="mcEnter(event,this)">'+
+            '<span class="chip-kosong" id="mcMsg_'+esc(b.k)+'"></span>'+
+          '</div>'+
+        '</div>';
+      }).join('');
+  }
+
+  function mcEnter(ev, el){
+    if (ev.key !== 'Enter') return;
+    ev.preventDefault();
+    var k = el.getAttribute('data-k'), v = el.value.trim();
+    if (!v) return;
+    var isi = (CHIP.isi[k] || []).slice();
+    if (isi.indexOf(v) > -1) { el.value = ''; return; }
+    isi.push(v); el.value = '';
+    mcSimpan(k, isi);
+  }
+  function mcHapus(b){
+    var k = b.getAttribute('data-k'), v = b.getAttribute('data-v');
+    var isi = (CHIP.isi[k] || []).filter(function(x){ return x !== v; });
+    mcSimpan(k, isi);
+  }
+  function mcSimpan(k, isi){
+    var pesan = document.getElementById('mcMsg_'+k);
+    if (pesan) { pesan.textContent = 'menyimpan…'; pesan.style.color = '#8a8a80'; }
+    jsonp(WEB_APP_URL+'?page=admin&action=chipSimpan&bagian='+encodeURIComponent(k)+
+          '&nilai='+encodeURIComponent(JSON.stringify(isi))+
+          '&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if (!res || !res.ok) {
+          if (pesan) { pesan.textContent = (res && res.error) || 'gagal'; pesan.style.color = '#d97a7a'; }
+          return;
+        }
+        CHIP.isi[k] = res.nilai || isi;
+        gambarMaster();
+        var p = document.getElementById('mcMsg_'+k);
+        if (p) { p.textContent = 'tersimpan ✓'; p.style.color = '#16a34a'; setTimeout(function(){ p.textContent=''; }, 1400); }
+      });
   }
 
   /* ── Update Vendor: rekap bulanan ──
@@ -6301,6 +6496,7 @@
   }
   function openDraft(id){
     DRAFT_ID=id; DRAFT_SIAP=false;
+    muatChip(gambarChipDraft);
     document.getElementById('draftTitle').textContent='Draft Card — '+id;
     document.getElementById('draftText').value='Memuat…';
     document.getElementById('draftCardTitle').textContent='';
@@ -7882,6 +8078,7 @@
       <button class="inv-cls" onclick="closeDraft()">Tutup</button>
     </div>
     <div class="draft-meta">Judul card: <b id="draftCardTitle"></b></div>
+    <div id="draftChip" class="chip-panel"><span class="chip-kosong">Memuat chip…</span></div>
     <textarea id="draftText" spellcheck="false"></textarea>
     <div class="draft-meta" id="draftHint"></div>
   </div>
