@@ -505,6 +505,18 @@
     .chip:hover { border-color: #e0912f; color: #e0912f; }
     .chip.baru { background: #e0912f; border-color: #e0912f; color: #17120a; }
     .chip-kosong { font-size: 11.5px; color: #8a8a80; }
+    .chip.punya::after { content: ' ▾'; color: #8a8a80; font-size: 10px; }
+    .chip-pop { position: absolute; z-index: 240; background: #1c1c17; border: 1px solid #3a3a2e;
+      border-radius: 9px; padding: 7px 8px; display: flex; gap: 5px; flex-wrap: wrap; max-width: 330px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+    .chip-pop .chip { background: #23231c; }
+    .chip-pop .judul { width: 100%; font-size: 10.5px; color: #8a8a80; margin-bottom: 2px; }
+    .mc-warna { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin-left: 6px; }
+    .mc-warna .chip { font-size: 10.5px; padding: 1px 7px; background: #1a1a14; }
+    .mc-kecil { background: #1c1c17; border: 1px solid #2e2e26; color: #c9c9bd; border-radius: 6px;
+      padding: 2px 6px; font-size: 10.5px; font-family: inherit; width: 120px; }
+    .mc-chip { display: flex; align-items: center; gap: 4px; background: #23231c; border: 1px solid #35352c;
+      border-radius: 14px; padding: 3px 9px; font-size: 11.5px; color: #d6d6c9; flex-wrap: wrap; }
     .chip-x { background: none; border: none; color: #8a8a80; cursor: pointer; font-size: 11px; padding: 0 0 0 5px; }
     .chip-x:hover { color: #d97a7a; }
     .mc-bagian { border: 1px solid #26261f; border-radius: 10px; padding: 10px 12px; margin-bottom: 9px; }
@@ -1237,8 +1249,58 @@
     return true;
   }
 
+  /* Chip yang masih perlu dilengkapi tidak langsung menempel: kulit ditanya
+     warnanya, aksesoris ditanya jumlahnya. Pertanyaannya muncul sebagai chip
+     lagi tepat di bawahnya - tetap "klik klik", bukan mengetik. */
+  var CHIP_JUMLAH = ['1', '2', '3', '4', '5', '6', '8', '10', '12'];
+
+  function chipTutupPop(){
+    var p = document.getElementById('chipPop');
+    if (p && p.parentNode) p.parentNode.removeChild(p);
+  }
+  document.addEventListener('click', function(e){
+    var p = document.getElementById('chipPop');
+    if (p && !p.contains(e.target) && !e.target.classList.contains('chip')) chipTutupPop();
+  });
+
+  function chipPilihan(b, bagian, nilai, tambahan, opsi){
+    chipTutupPop();
+    var pop = document.createElement('div');
+    pop.id = 'chipPop'; pop.className = 'chip-pop';
+    var judul = (tambahan === 'warna') ? 'Warna ' + nilai : 'Jumlah ' + nilai;
+    pop.innerHTML = '<div class="judul">'+esc(judul)+'</div>' +
+      opsi.map(function(o){ return '<button class="chip" data-o="'+esc(o)+'">'+esc(o)+'</button>'; }).join('') +
+      '<button class="chip" data-o="">'+(tambahan === 'warna' ? 'tanpa warna' : 'lainnya…')+'</button>';
+
+    var r = b.getBoundingClientRect();
+    pop.style.left = Math.max(8, Math.min(r.left + window.scrollX, window.innerWidth - 340)) + 'px';
+    pop.style.top = (r.bottom + window.scrollY + 4) + 'px';
+    document.body.appendChild(pop);
+
+    pop.addEventListener('click', function(e){
+      var t = e.target;
+      if (!t.classList.contains('chip')) return;
+      var o = t.getAttribute('data-o');
+      if (!o && tambahan === 'jumlah') {
+        o = (window.prompt('Jumlah ' + nilai + '?', '1') || '').trim();
+        if (!o) { chipTutupPop(); return; }
+      }
+      var teks = !o ? nilai
+               : (tambahan === 'warna' ? nilai + ' - ' + o : nilai + ' - ' + o + ' pcs');
+      chipSisip(bagian, teks);
+      chipTutupPop();
+      b.classList.add('baru');
+      setTimeout(function(){ b.classList.remove('baru'); }, 600);
+    });
+  }
+
   function chipKlik(b){
-    if (chipSisip(b.getAttribute('data-k'), b.getAttribute('data-v'))) {
+    var bagian = b.getAttribute('data-k'), nilai = b.getAttribute('data-v');
+    var tambahan = b.getAttribute('data-t') || '';
+    var opsi = (b.getAttribute('data-o') || '').split('|').filter(function(x){ return x; });
+    if (tambahan === 'warna' && opsi.length) return chipPilihan(b, bagian, nilai, 'warna', opsi);
+    if (tambahan === 'jumlah') return chipPilihan(b, bagian, nilai, 'jumlah', CHIP_JUMLAH);
+    if (chipSisip(bagian, nilai)) {
       b.classList.add('baru');
       setTimeout(function(){ b.classList.remove('baru'); }, 600);
     }
@@ -1254,8 +1316,11 @@
     }
     el.innerHTML = isi.map(function(b){
       return '<div class="chip-baris"><div class="chip-judul">'+esc(b.j)+'</div>'+
-        (CHIP.isi[b.k]||[]).map(function(v){
-          return '<button class="chip" data-k="'+esc(b.k)+'" data-v="'+esc(v)+'" onclick="chipKlik(this)">'+esc(v)+'</button>';
+        (CHIP.isi[b.k]||[]).map(function(x){
+          var punya = (b.tambahan === 'jumlah') || (b.tambahan === 'warna' && (x.opsi||[]).length);
+          return '<button class="chip'+(punya?' punya':'')+'" data-k="'+esc(b.k)+'" data-v="'+esc(x.v)+'" '+
+            'data-t="'+esc(b.tambahan||'')+'" data-o="'+esc((x.opsi||[]).join('|'))+'" '+
+            'onclick="chipKlik(this)">'+esc(x.v)+'</button>';
         }).join('')+'</div>';
     }).join('');
   }
@@ -1270,6 +1335,7 @@
   function gambarMaster(){
     var el = document.getElementById('mcBody'); if (!el) return;
     var cara = { ganti: 'mengisi baris itu', nomor: 'jadi butir bernomor', titik: 'jadi butir bertanda minus' };
+    var tambah = { warna: ' · tiap pilihan bisa diberi daftar warna', jumlah: ' · jumlahnya ditanya waktu diklik' };
     el.innerHTML =
       '<div class="section-title">Master chip pengisi draft</div>'+
       '<div class="osub" style="margin:-4px 0 12px">Isi pilihan yang sering dipakai. Di jendela Draft, chip ini '+
@@ -1278,11 +1344,23 @@
         var isi = CHIP.isi[b.k] || [];
         return '<div class="mc-bagian">'+
           '<div class="mc-judul">'+esc(b.j)+' <span class="chip-kosong">· '+isi.length+' chip</span></div>'+
-          '<div class="mc-cara">Masuk ke "'+esc(b.baris)+'", '+esc(cara[b.cara]||'')+'</div>'+
+          '<div class="mc-cara">Masuk ke "'+esc(b.baris)+'", '+esc(cara[b.cara]||'')+esc(tambah[b.tambahan]||'')+'</div>'+
           '<div class="mc-isi" id="mc_'+esc(b.k)+'">'+
-            isi.map(function(v){
-              return '<span class="chip" style="cursor:default">'+esc(v)+
-                '<button class="chip-x" data-k="'+esc(b.k)+'" data-v="'+esc(v)+'" onclick="mcHapus(this)" title="Hapus">×</button></span>';
+            isi.map(function(x, i){
+              return '<span class="mc-chip">'+esc(x.v)+
+                '<button class="chip-x" data-k="'+esc(b.k)+'" data-i="'+i+'" onclick="mcHapus(this)" title="Hapus">×</button>'+
+                (b.tambahan === 'warna'
+                  ? '<span class="mc-warna">'+
+                      (x.opsi||[]).map(function(o, j){
+                        return '<span class="chip">'+esc(o)+
+                          '<button class="chip-x" data-k="'+esc(b.k)+'" data-i="'+i+'" data-j="'+j+'" '+
+                          'onclick="mcWarnaHapus(this)" title="Hapus warna">×</button></span>';
+                      }).join('')+
+                      '<input class="mc-kecil" data-k="'+esc(b.k)+'" data-i="'+i+'" placeholder="+ warna" '+
+                        'onkeydown="mcWarnaEnter(event,this)">'+
+                    '</span>'
+                  : '')+
+              '</span>';
             }).join('')+
             '<input class="mc-tambah" data-k="'+esc(b.k)+'" placeholder="tambah pilihan, lalu Enter" '+
               'onkeydown="mcEnter(event,this)">'+
@@ -1298,15 +1376,36 @@
     var k = el.getAttribute('data-k'), v = el.value.trim();
     if (!v) return;
     var isi = (CHIP.isi[k] || []).slice();
-    if (isi.indexOf(v) > -1) { el.value = ''; return; }
-    isi.push(v); el.value = '';
+    if (isi.some(function(x){ return x.v === v; })) { el.value = ''; return; }
+    isi.push({ v: v, opsi: [] }); el.value = '';
     mcSimpan(k, isi);
   }
   function mcHapus(b){
-    var k = b.getAttribute('data-k'), v = b.getAttribute('data-v');
-    var isi = (CHIP.isi[k] || []).filter(function(x){ return x !== v; });
+    var k = b.getAttribute('data-k'), i = Number(b.getAttribute('data-i'));
+    var isi = (CHIP.isi[k] || []).slice();
+    isi.splice(i, 1);
     mcSimpan(k, isi);
   }
+  function mcWarnaEnter(ev, el){
+    if (ev.key !== 'Enter') return;
+    ev.preventDefault();
+    var k = el.getAttribute('data-k'), i = Number(el.getAttribute('data-i')), v = el.value.trim();
+    if (!v) return;
+    var isi = (CHIP.isi[k] || []).slice();
+    if (!isi[i]) return;
+    isi[i] = { v: isi[i].v, opsi: (isi[i].opsi || []).concat([v]) };
+    el.value = '';
+    mcSimpan(k, isi);
+  }
+  function mcWarnaHapus(b){
+    var k = b.getAttribute('data-k'), i = Number(b.getAttribute('data-i')), j = Number(b.getAttribute('data-j'));
+    var isi = (CHIP.isi[k] || []).slice();
+    if (!isi[i]) return;
+    var o = (isi[i].opsi || []).slice(); o.splice(j, 1);
+    isi[i] = { v: isi[i].v, opsi: o };
+    mcSimpan(k, isi);
+  }
+
   function mcSimpan(k, isi){
     var pesan = document.getElementById('mcMsg_'+k);
     if (pesan) { pesan.textContent = 'menyimpan…'; pesan.style.color = '#8a8a80'; }
