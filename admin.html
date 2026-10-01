@@ -1037,27 +1037,31 @@
       return hp ? '<a class="cbtn" style="text-decoration:none" target="wa" rel="noopener" '+
         'href="https://web.whatsapp.com/send?phone='+hp+'">WA customer</a>' : '';
     }
-    if (dok === 'foto') return '<button class="cbtn" style="border-color:#3b82f6;color:#7cb3ff" '+
-        'data-id="'+esc(o.orderId)+'" onclick="ckFoto(this)">📷 Foto</button>';
+    if (dok === 'po') return '<button class="cbtn" style="border-color:#e0912f;color:#e0912f" '+
+        'data-id="'+esc(o.orderId)+'" onclick="ckPO(this)">PO</button>';
     if (!dok) return '';
     var nama = { dp: 'Invoice DP', lunas: 'Invoice Pelunasan', kwt: 'Cash Receipt' }[dok] || dok;
     return '<button class="cbtn" style="border-color:#b5762e;color:#e0a256" data-id="'+esc(o.orderId)+'" '+
       'data-t="'+dok+'" onclick="ckDok(this)">'+nama+'</button>';
   }
-  function ckFoto(b){ pickOrderPhoto(b.getAttribute('data-id')); }
   function ckSheet(b){ openSheet(b.getAttribute('data-id')); }
   function ckPO(b){ openPO(b.getAttribute('data-id')); }
   function ckDok(b){ openInvoice(b.getAttribute('data-id'), b.getAttribute('data-t')); }
 
+  /* Massal dikenali dari awalan judul kartunya, sama seperti yang dipakai bot
+     Discord: Prototype dan Mass masuk wholesale, Custom dan Repair tidak.
+     Dicocokkan dari awalan supaya "Protoype" yang salah ketik tetap terbaca. */
+  function orderMassal(o){ return /^(proto|mass)/i.test(String(o.orderType || '').trim()); }
+
   function isiChecklist(o){
     if (!CEK.item.length) return '<div class="kkosong">Memuat checklist…</div>';
-    var punya = CEK.isi[o.orderId] || {};
+    var punya = CEK.isi[o.orderId] || {}, massal = orderMassal(o);
     return CEK.item.map(function(it){
       var waktu = punya[it.k] || '';
       // Baris revisi cuma muncul kalau memang pernah direvisi; baris after sales
       // cuma untuk order yang sudah dikirim. Keduanya tetap tampil kalau sudah
       // dicentang - menyembunyikan yang sudah dikerjakan malah membingungkan.
-      var sembunyi = (it.revisi && !waktu) || (it.kirim && !o.selesai && !waktu);
+      var sembunyi = (it.revisi && !waktu) || (it.kirim && !o.selesai && !waktu) || (it.massal && !massal && !waktu);
       return '<div class="ck-baris'+(waktu?' sudah':'')+'" id="ck_'+esc(o.orderId)+'_'+it.k+'"'+
           (sembunyi ? ' style="display:none"' : '')+'>'+
         '<input type="checkbox"'+(waktu?' checked':'')+' data-id="'+esc(o.orderId)+'" data-k="'+it.k+'" onchange="cekUbah(this)">'+
@@ -5684,14 +5688,18 @@
       /* Yang tersisa di sini dokumen yang tidak terikat satu langkah:
          penawaran dikirim sebelum ordernya jadi, sheet dan PO menyusul
          kebutuhan. Invoice dan kwitansi sudah berdiri di checklist. */
+      /* Yang tersisa di sini dokumen yang tidak terikat satu langkah. Di order
+         massal, penawaran dan PO sudah berdiri di checklist - menampilkannya
+         dua kali cuma membuat ragu yang mana yang dicatat. */
       '<div class="kh" style="margin-top:16px">Dokumen lain</div>'+
       '<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">'+
-        '<button class="cbtn" style="border-color:#b5762e;color:#e0a256" data-id="'+esc(o.orderId)+'" '+
-          'data-t="quo" onclick="ckDok(this)">Quotation</button>'+
-        '<span class="kpisah"></span>'+
+        (orderMassal(o) ? '' :
+          '<button class="cbtn" style="border-color:#b5762e;color:#e0a256" data-id="'+esc(o.orderId)+'" '+
+            'data-t="quo" onclick="ckDok(this)">Quotation</button>'+
+          '<button class="cbtn" style="border-color:#e0912f;color:#e0912f" data-id="'+esc(o.orderId)+'" '+
+            'onclick="ckPO(this)">PO</button>'+
+          '<span class="kpisah"></span>')+
         '<button class="cbtn" data-id="'+esc(o.orderId)+'" onclick="ckSheet(this)">Sheet</button>'+
-        '<button class="cbtn" style="border-color:#e0912f;color:#e0912f" data-id="'+esc(o.orderId)+'" '+
-          'onclick="ckPO(this)">PO</button>'+
       '</div>'+
 
       '<div class="kh" style="margin-top:16px">Tindakan</div>'+
