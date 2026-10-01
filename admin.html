@@ -1032,8 +1032,11 @@
   }
 
   function cekTombol_(o, dok){
-    if (dok === 'wa') return o.phone ? '<a class="cbtn" style="text-decoration:none" target="wa" rel="noopener" '+
-        'href="https://web.whatsapp.com/send?phone='+String(o.phone).replace(/[^0-9]/g,'')+'">WA customer</a>' : '';
+    if (dok === 'wa') {
+      var hp = String(o.phone || hpCustomer(o.customer) || '').replace(/[^0-9]/g,'');
+      return hp ? '<a class="cbtn" style="text-decoration:none" target="wa" rel="noopener" '+
+        'href="https://web.whatsapp.com/send?phone='+hp+'">WA customer</a>' : '';
+    }
     if (dok === 'foto') return '<button class="cbtn" style="border-color:#3b82f6;color:#7cb3ff" '+
         'data-id="'+esc(o.orderId)+'" onclick="ckFoto(this)">📷 Foto</button>';
     if (!dok) return '';
@@ -1119,7 +1122,7 @@
       '<div class="osub" style="margin:-3px 0 7px">Sudah lewat sebulan sejak dikirim. Tanyakan hasilnya ke customer, '+
         'lalu centang "Tanya review" di kartunya.</div>'+
       perlu.slice(0, 12).map(function(x){
-        var ph = String(x.o.phone||'').replace(/[^0-9]/g,'');
+        var ph = String(x.o.phone || hpCustomer(x.o.customer) || '').replace(/[^0-9]/g,'');
         return '<div class="as-baris"><b>'+esc(x.o.orderId)+'</b> '+esc(x.o.customer||'-')+
           ' — '+esc(x.o.product||'-')+
           ' <span class="as-lama">dikirim '+esc(x.o.shipped||'-')+' · '+x.umur+' hari lalu</span>'+
