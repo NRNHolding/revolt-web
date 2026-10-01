@@ -511,6 +511,11 @@
       box-shadow: 0 6px 18px rgba(0,0,0,.5); }
     .chip-pop .chip { background: #23231c; }
     .chip-pop .judul { width: 100%; font-size: 10.5px; color: #8a8a80; margin-bottom: 2px; }
+    .chip-pop .grup { width: 100%; display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 5px; }
+    .chip-pop .grup .label { width: 100%; font-size: 10px; letter-spacing: .5px; text-transform: uppercase; color: #6f6f66; }
+    .chip-pop .chip.on { background: #e0912f; border-color: #e0912f; color: #17120a; }
+    .chip-pop .tambahkan { width: 100%; background: #e0912f; border: none; color: #17120a; border-radius: 7px;
+      padding: 5px 0; font-size: 11.5px; font-weight: 700; cursor: pointer; font-family: inherit; margin-top: 2px; }
     .mc-warna { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin-left: 6px; }
     .mc-warna .chip { font-size: 10.5px; padding: 1px 7px; background: #1a1a14; }
     .mc-kecil { background: #1c1c17; border: 1px solid #2e2e26; color: #c9c9bd; border-radius: 6px;
@@ -1263,47 +1268,97 @@
     if (p && !p.contains(e.target) && !e.target.classList.contains('chip')) chipTutupPop();
   });
 
-  function chipPilihan(b, bagian, nilai, tambahan, opsi){
-    chipTutupPop();
-    var pop = document.createElement('div');
-    pop.id = 'chipPop'; pop.className = 'chip-pop';
-    var judul = (tambahan === 'warna') ? 'Warna ' + nilai : 'Jumlah ' + nilai;
-    pop.innerHTML = '<div class="judul">'+esc(judul)+'</div>' +
-      opsi.map(function(o){ return '<button class="chip" data-o="'+esc(o)+'">'+esc(o)+'</button>'; }).join('') +
-      '<button class="chip" data-o="">'+(tambahan === 'warna' ? 'tanpa warna' : 'lainnya…')+'</button>';
-
+  function chipPopPasang_(pop, b){
     var r = b.getBoundingClientRect();
     pop.style.left = Math.max(8, Math.min(r.left + window.scrollX, window.innerWidth - 340)) + 'px';
     pop.style.top = (r.bottom + window.scrollY + 4) + 'px';
     document.body.appendChild(pop);
+  }
+  function chipSelesai_(b){
+    chipTutupPop();
+    b.classList.add('baru');
+    setTimeout(function(){ b.classList.remove('baru'); }, 600);
+  }
+
+  /* Satu pilihan, satu klik: warna kulit langsung menempel begitu dipilih. */
+  function chipPilihan(b, bagian, nilai, opsi){
+    chipTutupPop();
+    var pop = document.createElement('div');
+    pop.id = 'chipPop'; pop.className = 'chip-pop';
+    pop.innerHTML = '<div class="judul">Warna '+esc(nilai)+'</div>' +
+      opsi.map(function(o){ return '<button class="chip" data-o="'+esc(o)+'">'+esc(o)+'</button>'; }).join('') +
+      '<button class="chip" data-o="">tanpa warna</button>';
+    chipPopPasang_(pop, b);
+    pop.addEventListener('click', function(e){
+      if (!e.target.classList.contains('chip')) return;
+      var o = e.target.getAttribute('data-o');
+      chipSisip(bagian, o ? nilai + ' - ' + o : nilai);
+      chipSelesai_(b);
+    });
+  }
+
+  /* Aksesoris butuh tiga keterangan sekaligus - bahan, warna, jumlah - dan
+     memunculkannya satu per satu membuat jendelanya lompat tiga kali. Jadi
+     ketiganya berdiri di satu jendela, tinggal ditunjuk lalu Tambahkan.
+     Baris yang masternya kosong tidak ikut muncul. */
+  function chipPopGrup(b, bagian, nilai, grup){
+    chipTutupPop();
+    var pilih = {};
+    var pop = document.createElement('div');
+    pop.id = 'chipPop'; pop.className = 'chip-pop';
+    pop.innerHTML = '<div class="judul">'+esc(nilai)+'</div>' +
+      grup.map(function(g){
+        return '<div class="grup" data-g="'+esc(g.k)+'"><span class="label">'+esc(g.j)+'</span>'+
+          g.opsi.map(function(o){ return '<button class="chip" data-o="'+esc(o)+'">'+esc(o)+'</button>'; }).join('')+
+          (g.bebas ? '<button class="chip" data-o="?">lainnya…</button>' : '')+
+        '</div>';
+      }).join('') +
+      '<button class="tambahkan">Tambahkan</button>';
+    chipPopPasang_(pop, b);
 
     pop.addEventListener('click', function(e){
       var t = e.target;
-      if (!t.classList.contains('chip')) return;
-      var o = t.getAttribute('data-o');
-      if (!o && tambahan === 'jumlah') {
-        o = (window.prompt('Jumlah ' + nilai + '?', '1') || '').trim();
-        if (!o) { chipTutupPop(); return; }
+      if (t.classList.contains('tambahkan')) {
+        var bagianTeks = [nilai];
+        grup.forEach(function(g){
+          var v = pilih[g.k];
+          if (!v) return;
+          bagianTeks.push(g.k === 'jumlah' ? v + ' pcs' : v);
+        });
+        chipSisip(bagian, bagianTeks.join(' - '));
+        chipSelesai_(b);
+        return;
       }
-      var teks = !o ? nilai
-               : (tambahan === 'warna' ? nilai + ' - ' + o : nilai + ' - ' + o + ' pcs');
-      chipSisip(bagian, teks);
-      chipTutupPop();
-      b.classList.add('baru');
-      setTimeout(function(){ b.classList.remove('baru'); }, 600);
+      if (!t.classList.contains('chip')) return;
+      var kotak = t.parentNode, k = kotak.getAttribute('data-g'), o = t.getAttribute('data-o');
+      if (o === '?') {
+        o = (window.prompt('Jumlah ' + nilai + '?', '1') || '').trim();
+        if (!o) return;
+      }
+      // Pilihan yang sama diklik dua kali berarti dibatalkan.
+      var batal = pilih[k] === o;
+      [].slice.call(kotak.querySelectorAll('.chip')).forEach(function(c){ c.classList.remove('on'); });
+      if (batal) { delete pilih[k]; return; }
+      pilih[k] = o;
+      t.classList.add('on');
     });
   }
 
   function chipKlik(b){
     var bagian = b.getAttribute('data-k'), nilai = b.getAttribute('data-v');
     var tambahan = b.getAttribute('data-t') || '';
-    var opsi = (b.getAttribute('data-o') || '').split('|').filter(function(x){ return x; });
-    if (tambahan === 'warna' && opsi.length) return chipPilihan(b, bagian, nilai, 'warna', opsi);
-    if (tambahan === 'jumlah') return chipPilihan(b, bagian, nilai, 'jumlah', CHIP_JUMLAH);
-    if (chipSisip(bagian, nilai)) {
-      b.classList.add('baru');
-      setTimeout(function(){ b.classList.remove('baru'); }, 600);
+    function daftar(atr){ return (b.getAttribute(atr) || '').split('|').filter(function(x){ return x; }); }
+    var warna = daftar('data-o'), bahan = daftar('data-b');
+
+    if (tambahan === 'warna' && warna.length) return chipPilihan(b, bagian, nilai, warna);
+    if (tambahan === 'aksesoris') {
+      var grup = [];
+      if (bahan.length) grup.push({ k: 'bahan', j: 'Bahan', opsi: bahan });
+      if (warna.length) grup.push({ k: 'warna', j: 'Warna', opsi: warna });
+      grup.push({ k: 'jumlah', j: 'Jumlah', opsi: CHIP_JUMLAH, bebas: true });
+      return chipPopGrup(b, bagian, nilai, grup);
     }
+    if (chipSisip(bagian, nilai)) chipSelesai_(b);
   }
 
   function gambarChipDraft(){
@@ -1317,10 +1372,10 @@
     el.innerHTML = isi.map(function(b){
       return '<div class="chip-baris"><div class="chip-judul">'+esc(b.j)+'</div>'+
         (CHIP.isi[b.k]||[]).map(function(x){
-          var punya = (b.tambahan === 'jumlah') || (b.tambahan === 'warna' && (x.opsi||[]).length);
+          var punya = (b.tambahan === 'aksesoris') || (b.tambahan === 'warna' && (x.opsi||[]).length);
           return '<button class="chip'+(punya?' punya':'')+'" data-k="'+esc(b.k)+'" data-v="'+esc(x.v)+'" '+
             'data-t="'+esc(b.tambahan||'')+'" data-o="'+esc((x.opsi||[]).join('|'))+'" '+
-            'onclick="chipKlik(this)">'+esc(x.v)+'</button>';
+            'data-b="'+esc((x.bahan||[]).join('|'))+'" onclick="chipKlik(this)">'+esc(x.v)+'</button>';
         }).join('')+'</div>';
     }).join('');
   }
@@ -1332,10 +1387,22 @@
     gambarMaster();
   }
 
+  function mcSubChip_(bagian, i, medan, isi, judul){
+    return '<span class="mc-warna"><span class="label" style="font-size:9.5px;color:#6f6f66">'+esc(judul)+'</span>'+
+      (isi||[]).map(function(o, j){
+        return '<span class="chip">'+esc(o)+
+          '<button class="chip-x" data-k="'+esc(bagian)+'" data-i="'+i+'" data-j="'+j+'" data-m="'+medan+'" '+
+          'onclick="mcOpsiHapus(this)" title="Hapus">×</button></span>';
+      }).join('')+
+      '<input class="mc-kecil" data-k="'+esc(bagian)+'" data-i="'+i+'" data-m="'+medan+'" '+
+        'placeholder="+ '+esc(judul.toLowerCase())+'" onkeydown="mcOpsiEnter(event,this)"></span>';
+  }
+
   function gambarMaster(){
     var el = document.getElementById('mcBody'); if (!el) return;
     var cara = { ganti: 'mengisi baris itu', nomor: 'jadi butir bernomor', titik: 'jadi butir bertanda minus' };
-    var tambah = { warna: ' · tiap pilihan bisa diberi daftar warna', jumlah: ' · jumlahnya ditanya waktu diklik' };
+    var tambah = { warna: ' · tiap pilihan bisa diberi daftar warna',
+                   aksesoris: ' · tiap pilihan bisa diberi bahan dan warna; jumlahnya ditanya waktu diklik' };
     el.innerHTML =
       '<div class="section-title">Master chip pengisi draft</div>'+
       '<div class="osub" style="margin:-4px 0 12px">Isi pilihan yang sering dipakai. Di jendela Draft, chip ini '+
@@ -1349,16 +1416,9 @@
             isi.map(function(x, i){
               return '<span class="mc-chip">'+esc(x.v)+
                 '<button class="chip-x" data-k="'+esc(b.k)+'" data-i="'+i+'" onclick="mcHapus(this)" title="Hapus">×</button>'+
-                (b.tambahan === 'warna'
-                  ? '<span class="mc-warna">'+
-                      (x.opsi||[]).map(function(o, j){
-                        return '<span class="chip">'+esc(o)+
-                          '<button class="chip-x" data-k="'+esc(b.k)+'" data-i="'+i+'" data-j="'+j+'" '+
-                          'onclick="mcWarnaHapus(this)" title="Hapus warna">×</button></span>';
-                      }).join('')+
-                      '<input class="mc-kecil" data-k="'+esc(b.k)+'" data-i="'+i+'" placeholder="+ warna" '+
-                        'onkeydown="mcWarnaEnter(event,this)">'+
-                    '</span>'
+                (b.tambahan === 'warna' ? mcSubChip_(b.k, i, 'opsi', x.opsi, 'Warna') : '')+
+                (b.tambahan === 'aksesoris'
+                  ? mcSubChip_(b.k, i, 'bahan', x.bahan, 'Bahan') + mcSubChip_(b.k, i, 'opsi', x.opsi, 'Warna')
                   : '')+
               '</span>';
             }).join('')+
@@ -1370,39 +1430,42 @@
       }).join('');
   }
 
+  function mcSalin_(x){ return { v: x.v, opsi: (x.opsi||[]).slice(), bahan: (x.bahan||[]).slice() }; }
+
   function mcEnter(ev, el){
     if (ev.key !== 'Enter') return;
     ev.preventDefault();
     var k = el.getAttribute('data-k'), v = el.value.trim();
     if (!v) return;
-    var isi = (CHIP.isi[k] || []).slice();
+    var isi = (CHIP.isi[k] || []).map(mcSalin_);
     if (isi.some(function(x){ return x.v === v; })) { el.value = ''; return; }
-    isi.push({ v: v, opsi: [] }); el.value = '';
+    isi.push({ v: v, opsi: [], bahan: [] }); el.value = '';
     mcSimpan(k, isi);
   }
   function mcHapus(b){
     var k = b.getAttribute('data-k'), i = Number(b.getAttribute('data-i'));
-    var isi = (CHIP.isi[k] || []).slice();
+    var isi = (CHIP.isi[k] || []).map(mcSalin_);
     isi.splice(i, 1);
     mcSimpan(k, isi);
   }
-  function mcWarnaEnter(ev, el){
+  function mcOpsiEnter(ev, el){
     if (ev.key !== 'Enter') return;
     ev.preventDefault();
-    var k = el.getAttribute('data-k'), i = Number(el.getAttribute('data-i')), v = el.value.trim();
+    var k = el.getAttribute('data-k'), i = Number(el.getAttribute('data-i')), m = el.getAttribute('data-m');
+    var v = el.value.trim();
     if (!v) return;
-    var isi = (CHIP.isi[k] || []).slice();
+    var isi = (CHIP.isi[k] || []).map(mcSalin_);
     if (!isi[i]) return;
-    isi[i] = { v: isi[i].v, opsi: (isi[i].opsi || []).concat([v]) };
+    isi[i][m] = (isi[i][m] || []).concat([v]);
     el.value = '';
     mcSimpan(k, isi);
   }
-  function mcWarnaHapus(b){
-    var k = b.getAttribute('data-k'), i = Number(b.getAttribute('data-i')), j = Number(b.getAttribute('data-j'));
-    var isi = (CHIP.isi[k] || []).slice();
+  function mcOpsiHapus(b){
+    var k = b.getAttribute('data-k'), i = Number(b.getAttribute('data-i'));
+    var j = Number(b.getAttribute('data-j')), m = b.getAttribute('data-m');
+    var isi = (CHIP.isi[k] || []).map(mcSalin_);
     if (!isi[i]) return;
-    var o = (isi[i].opsi || []).slice(); o.splice(j, 1);
-    isi[i] = { v: isi[i].v, opsi: o };
+    isi[i][m].splice(j, 1);
     mcSimpan(k, isi);
   }
 
