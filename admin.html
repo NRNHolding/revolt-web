@@ -1040,7 +1040,7 @@
     if (dok === 'po') return '<button class="cbtn" style="border-color:#e0912f;color:#e0912f" '+
         'data-id="'+esc(o.orderId)+'" onclick="ckPO(this)">PO</button>';
     if (!dok) return '';
-    var nama = { dp: 'Invoice DP', lunas: 'Invoice Pelunasan', kwt: 'Cash Receipt' }[dok] || dok;
+    var nama = { dp: 'Invoice DP', lunas: 'Invoice Pelunasan', kwt: 'Cash Receipt', quo: 'Quotation' }[dok] || dok;
     return '<button class="cbtn" style="border-color:#b5762e;color:#e0a256" data-id="'+esc(o.orderId)+'" '+
       'data-t="'+dok+'" onclick="ckDok(this)">'+nama+'</button>';
   }
