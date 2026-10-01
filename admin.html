@@ -482,6 +482,19 @@
       border-radius: 6px; padding: 4px 7px; font-size: 11.5px; font-family: inherit; resize: vertical; min-height: 30px; }
     .rk-tgl:focus, .rk-ket:focus { outline: none; border-color: #e0912f; }
     /* ── Chip pengisi draft ── */
+    /* ── Checklist order ── */
+    .ck-baris { display: flex; align-items: center; gap: 9px; padding: 5px 0; border-top: 1px solid #22221b; }
+    .ck-baris:first-child { border-top: none; }
+    .ck-baris input[type=checkbox] { width: 15px; height: 15px; accent-color: #16a34a; cursor: pointer; flex: 0 0 auto; }
+    .ck-nama { font-size: 12px; color: #d6d6c9; flex: 1; min-width: 0; }
+    .ck-baris.sudah .ck-nama { color: #74b98e; }
+    .ck-waktu { font-size: 10.5px; color: #8a8a80; white-space: nowrap; }
+    .ck-tombol { flex: 0 0 auto; }
+    .as-box { background: #15210f; border: 1px solid #2c6b3f; border-radius: 12px; padding: 12px 14px; margin: 14px 0 4px; }
+    .as-h { color: #6ee7a0; font-weight: 800; font-size: 13px; margin-bottom: 7px; }
+    .as-baris { display: flex; align-items: center; gap: 9px; padding: 6px 0; border-top: 1px solid #1f3a28; font-size: 12px; }
+    .as-baris:first-of-type { border-top: none; }
+    .as-lama { color: #8a8a80; font-size: 11px; }
     .chip-panel { background: #15150f; border: 1px solid #2a2a22; border-radius: 9px;
       padding: 8px 10px; margin-bottom: 9px; max-height: 190px; overflow: auto; }
     .chip-baris { display: flex; gap: 6px; align-items: flex-start; padding: 3px 0; flex-wrap: wrap; }
@@ -968,6 +981,11 @@
     document.getElementById('content').innerHTML = html;
     labelTables();
     filterInquiry();
+    // Checklist dipakai dua tempat: panel order dan kotak after sales.
+    muatCek(function(){
+      var box = document.getElementById('kotakAfterSales');
+      if (box) box.innerHTML = afterSales(DATA);
+    });
     renderPipeline();
     var bel=(d.inquiries||[]).filter(function(q){ return inqGrup(q.status)==='aktif'; }).length;
     var bd=document.getElementById('inqBadge');
@@ -990,6 +1008,141 @@
     if(n===6) loadMarket();
     if(n===7) bukaRekap();
     if(n===8) bukaMaster();
+  }
+
+  /* ── Checklist order ──
+
+     Satu order melewati urutan yang sama tiap kali, dan yang sudah dikirim
+     selama ini cuma diingat. Sekarang dicentang - dengan tombol dokumennya
+     berdiri tepat di sebelah langkahnya, bukan menumpuk di baris terpisah:
+     yang mencentang dan yang menerbitkan dokumennya orang yang sama, di
+     detik yang sama. */
+  var CEK = { item: [], isi: {}, muat: false };
+
+  function muatCek(lanjut){
+    if (CEK.item.length) { if (lanjut) lanjut(); return; }
+    if (CEK.muat) return;
+    CEK.muat = true;
+    jsonp(WEB_APP_URL+'?page=admin&action=cekList&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        CEK.muat = false;
+        if (res && res.ok) { CEK.item = res.item || []; CEK.isi = res.isi || {}; }
+        if (lanjut) lanjut();
+      });
+  }
+
+  function cekTombol_(o, dok){
+    if (dok === 'wa') return o.phone ? '<a class="cbtn" style="text-decoration:none" target="wa" rel="noopener" '+
+        'href="https://web.whatsapp.com/send?phone='+String(o.phone).replace(/[^0-9]/g,'')+'">WA customer</a>' : '';
+    if (dok === 'foto') return '<button class="cbtn" style="border-color:#3b82f6;color:#7cb3ff" '+
+        'data-id="'+esc(o.orderId)+'" onclick="ckFoto(this)">📷 Foto</button>';
+    if (!dok) return '';
+    var nama = { dp: 'Invoice DP', lunas: 'Invoice Pelunasan', kwt: 'Cash Receipt' }[dok] || dok;
+    return '<button class="cbtn" style="border-color:#b5762e;color:#e0a256" data-id="'+esc(o.orderId)+'" '+
+      'data-t="'+dok+'" onclick="ckDok(this)">'+nama+'</button>';
+  }
+  function ckFoto(b){ pickOrderPhoto(b.getAttribute('data-id')); }
+  function ckSheet(b){ openSheet(b.getAttribute('data-id')); }
+  function ckPO(b){ openPO(b.getAttribute('data-id')); }
+  function ckDok(b){ openInvoice(b.getAttribute('data-id'), b.getAttribute('data-t')); }
+
+  function isiChecklist(o){
+    if (!CEK.item.length) return '<div class="kkosong">Memuat checklist…</div>';
+    var punya = CEK.isi[o.orderId] || {};
+    return CEK.item.map(function(it){
+      var waktu = punya[it.k] || '';
+      // Baris revisi cuma muncul kalau memang pernah direvisi; baris after sales
+      // cuma untuk order yang sudah dikirim. Keduanya tetap tampil kalau sudah
+      // dicentang - menyembunyikan yang sudah dikerjakan malah membingungkan.
+      var sembunyi = (it.revisi && !waktu) || (it.kirim && !o.selesai && !waktu);
+      return '<div class="ck-baris'+(waktu?' sudah':'')+'" id="ck_'+esc(o.orderId)+'_'+it.k+'"'+
+          (sembunyi ? ' style="display:none"' : '')+'>'+
+        '<input type="checkbox"'+(waktu?' checked':'')+' data-id="'+esc(o.orderId)+'" data-k="'+it.k+'" onchange="cekUbah(this)">'+
+        '<span class="ck-nama">'+esc(it.j)+'</span>'+
+        '<span class="ck-waktu">'+esc(waktu)+'</span>'+
+        '<span class="ck-tombol">'+cekTombol_(o, it.dok)+'</span>'+
+      '</div>';
+    }).join('');
+  }
+
+  function cekUbah(el){
+    var id = el.getAttribute('data-id'), k = el.getAttribute('data-k'), pasang = el.checked ? 1 : 0;
+    var baris = el.parentNode;
+    el.disabled = true;
+    jsonp(WEB_APP_URL+'?page=admin&action=cekSimpan&id='+encodeURIComponent(id)+'&item='+encodeURIComponent(k)+
+          '&nilai='+pasang+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        el.disabled = false;
+        if (!res || !res.ok) { el.checked = !pasang; alert((res&&res.error)||'Gagal menyimpan.'); return; }
+        (CEK.isi[id] || (CEK.isi[id] = {}))[k] = res.waktu || '';
+        if (!res.waktu) delete CEK.isi[id][k];
+        baris.classList.toggle('sudah', !!res.waktu);
+        var w = baris.querySelector('.ck-waktu'); if (w) w.textContent = res.waktu || '';
+        var box = document.getElementById('kotakAfterSales'); if (box) box.innerHTML = afterSales(DATA);
+      });
+  }
+
+  // Baris "kirim preview ulang" baru muncul kalau kartunya memang pernah mundur.
+  function cekRevisi(orderId){
+    jsonp(WEB_APP_URL+'?page=admin&action=cekRevisi&id='+encodeURIComponent(orderId)+
+          '&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if (!res || !res.ok || !res.revisi) return;
+        var b = document.getElementById('ck_'+orderId+'_previewUlang');
+        if (b) {
+          b.style.display = '';
+          var n = b.querySelector('.ck-nama');
+          if (n) n.textContent = 'Kirim preview ulang (revisi ke-' + res.revisi + ')';
+        }
+      });
+  }
+
+  /* ── Pengingat after sales ──
+
+     Sebulan sesudah barangnya dikirim, customer ditanya hasilnya. Tanpa
+     pengingat, yang ditanya cuma yang kebetulan teringat. */
+  var AS_HARI = 30;
+
+  function afterSales(d){
+    if (!d || !CEK.item.length) return '';
+    var kini = Date.now(), perlu = [];
+    (d.completed || []).forEach(function(o){
+      if (!o.shippedMs) return;
+      var umur = Math.floor((kini - o.shippedMs) / 86400000);
+      if (umur < AS_HARI) return;
+      if ((CEK.isi[o.orderId] || {}).afterSales) return;
+      perlu.push({ o: o, umur: umur });
+    });
+    if (!perlu.length) return '';
+    perlu.sort(function(a, b){ return b.umur - a.umur; });
+    return '<div class="as-box"><div class="as-h">📞 '+perlu.length+' order perlu ditanya reviewnya</div>'+
+      '<div class="osub" style="margin:-3px 0 7px">Sudah lewat sebulan sejak dikirim. Tanyakan hasilnya ke customer, '+
+        'lalu centang "Tanya review" di kartunya.</div>'+
+      perlu.slice(0, 12).map(function(x){
+        var ph = String(x.o.phone||'').replace(/[^0-9]/g,'');
+        return '<div class="as-baris"><b>'+esc(x.o.orderId)+'</b> '+esc(x.o.customer||'-')+
+          ' — '+esc(x.o.product||'-')+
+          ' <span class="as-lama">dikirim '+esc(x.o.shipped||'-')+' · '+x.umur+' hari lalu</span>'+
+          '<span style="margin-left:auto;display:flex;gap:6px">'+
+            (ph ? '<a class="cbtn" style="text-decoration:none" target="wa" rel="noopener" href="https://web.whatsapp.com/send?phone='+ph+'">WA</a>' : '')+
+            '<button class="cbtn" data-id="'+esc(x.o.orderId)+'" onclick="asSudah(this)">Sudah ditanya</button>'+
+          '</span></div>';
+      }).join('')+
+      (perlu.length > 12 ? '<div class="osub" style="margin-top:6px">+'+(perlu.length-12)+' lagi</div>' : '')+
+    '</div>';
+  }
+
+  function asSudah(b){
+    var id = b.getAttribute('data-id');
+    b.disabled = true; b.textContent = '…';
+    jsonp(WEB_APP_URL+'?page=admin&action=cekSimpan&id='+encodeURIComponent(id)+'&item=afterSales&nilai=1'+
+          '&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if (!res || !res.ok) { b.disabled = false; b.textContent = 'Sudah ditanya'; alert((res&&res.error)||'Gagal.'); return; }
+        (CEK.isi[id] || (CEK.isi[id] = {})).afterSales = res.waktu || '1';
+        var box = document.getElementById('kotakAfterSales');
+        if (box) box.innerHTML = afterSales(DATA);
+      });
   }
 
   /* ── Chip pengisi draft ──
@@ -5362,6 +5515,7 @@
 
     return '<div class="kpis">' + kpis + '</div>' +
       '<div id="ordAlert"></div>' +
+      '<div id="kotakAfterSales">' + afterSales(d) + '</div>' +
       warnBanner(d.orders) +
       sec('Order Aktif (' + d.orders.length + ')', ordersBody, true);
   }
@@ -5429,6 +5583,10 @@
     document.getElementById('kartuJudul').innerHTML =
       esc(o.orderId)+' <span style="color:#888;font-weight:400">· '+esc(o.customer||'-')+'</span>';
     document.getElementById('kartuBody').innerHTML = isiKartu(o);
+    muatCek(function(){
+      var el = document.getElementById('kartuCek');
+      if (el && KARTU_ID === o.orderId) { el.innerHTML = isiChecklist(o); cekRevisi(o.orderId); }
+    });
     document.getElementById('kartuModal').classList.add('show');
     muatDokKartu(orderId);
   }
@@ -5517,15 +5675,20 @@
          cuma tidak bernomor, jadi warnanya dibedakan supaya kelompoknya masih
          terbaca sekilas. Tindakan tinggal berisi yang benar-benar tindakan:
          menghubungi, mengunggah foto, membuka riwayat dan tautan. */
-      '<div class="kh" style="margin-top:16px">Terbitkan dokumen</div>'+
+      '<div class="kh" style="margin-top:16px">Checklist order</div>'+
+      '<div id="kartuCek">'+ isiChecklist(o) +'</div>'+
+
+      /* Yang tersisa di sini dokumen yang tidak terikat satu langkah:
+         penawaran dikirim sebelum ordernya jadi, sheet dan PO menyusul
+         kebutuhan. Invoice dan kwitansi sudah berdiri di checklist. */
+      '<div class="kh" style="margin-top:16px">Dokumen lain</div>'+
       '<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">'+
-        DOK_MENU.map(function(m){
-          return '<button class="cbtn" style="border-color:#b5762e;color:#e0a256" '+
-                 'onclick="openInvoice(\''+esc(o.orderId)+'\',\''+m.t+'\')">'+m.n+'</button>';
-        }).join('')+
+        '<button class="cbtn" style="border-color:#b5762e;color:#e0a256" data-id="'+esc(o.orderId)+'" '+
+          'data-t="quo" onclick="ckDok(this)">Quotation</button>'+
         '<span class="kpisah"></span>'+
-        '<button class="cbtn" onclick="openSheet(\''+esc(o.orderId)+'\')">Sheet</button>'+
-        '<button class="cbtn" style="border-color:#e0912f;color:#e0912f" onclick="openPO(\''+esc(o.orderId)+'\')">PO</button>'+
+        '<button class="cbtn" data-id="'+esc(o.orderId)+'" onclick="ckSheet(this)">Sheet</button>'+
+        '<button class="cbtn" style="border-color:#e0912f;color:#e0912f" data-id="'+esc(o.orderId)+'" '+
+          'onclick="ckPO(this)">PO</button>'+
       '</div>'+
 
       '<div class="kh" style="margin-top:16px">Tindakan</div>'+
@@ -6575,12 +6738,6 @@
   }
 
   // ── Menu Pembayaran: empat dokumen dari satu tombol ──
-  var DOK_MENU = [
-    { t:'dp',    n:'DP' },
-    { t:'lunas', n:'Pelunasan' },
-    { t:'quo',   n:'Quotation' },
-    { t:'kwt',   n:'Cash Receipt' }
-  ];
 
   /* Kwitansi di sini lazim mencantumkan nilai dalam huruf. Gunanya bukan
      hiasan: angka gampang diubah sepihak, tulisan tidak. */
