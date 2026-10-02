@@ -1410,7 +1410,11 @@
       CHIP.bagian.map(function(b){
         var isi = CHIP.isi[b.k] || [];
         return '<div class="mc-bagian">'+
-          '<div class="mc-judul">'+esc(b.j)+' <span class="chip-kosong">· '+isi.length+' chip</span></div>'+
+          '<div class="mc-judul">'+esc(b.j)+' <span class="chip-kosong">· '+isi.length+' chip</span>'+
+            (b.k === 'aksesoris'
+              ? ' <button class="cbtn" style="margin-left:6px" onclick="mcImpor(this)" '+
+                'title="Ambil nama, bahan, dan warnanya dari katalog aksesoris di tab Katalog">↓ Impor dari katalog</button>'
+              : '')+'</div>'+
           '<div class="mc-cara">Masuk ke "'+esc(b.baris)+'", '+esc(cara[b.cara]||'')+esc(tambah[b.tambahan]||'')+'</div>'+
           '<div class="mc-isi" id="mc_'+esc(b.k)+'">'+
             isi.map(function(x, i){
@@ -1467,6 +1471,27 @@
     if (!isi[i]) return;
     isi[i][m].splice(j, 1);
     mcSimpan(k, isi);
+  }
+
+  /* Isinya sudah ada di katalog aksesoris - tinggal diambil. Chip yang sudah
+     ada tidak ditimpa: bahan dan warnanya digabung. */
+  function mcImpor(b){
+    if (!confirm('Ambil nama, bahan, dan warna aksesoris dari katalog?' + String.fromCharCode(10,10) +
+                 'Chip yang sudah ada tidak dihapus — bahan dan warnanya ditambahkan.')) return;
+    var t = b.textContent; b.disabled = true; b.textContent = 'Mengambil…';
+    jsonp(WEB_APP_URL+'?page=admin&action=chipImpor&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        b.disabled = false; b.textContent = t;
+        if (!res || !res.ok) { alert((res && res.error) || 'Gagal mengambil katalog.'); return; }
+        CHIP.isi.aksesoris = res.nilai || [];
+        gambarMaster();
+        var p = document.getElementById('mcMsg_aksesoris');
+        if (p) {
+          p.textContent = res.baru + ' chip baru, ' + res.gabung + ' dilengkapi';
+          p.style.color = '#16a34a';
+          setTimeout(function(){ p.textContent = ''; }, 2600);
+        }
+      });
   }
 
   function mcSimpan(k, isi){
