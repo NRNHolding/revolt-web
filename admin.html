@@ -1202,11 +1202,17 @@
   }
 
   function chipSisip(bagian, nilai){
-    var ta = document.getElementById('draftText');
-    if (!ta) return false;
     var def = null;
     CHIP.bagian.forEach(function(b){ if (b.k === bagian) def = b; });
-    if (!def) return false;
+    return def ? chipTulis_(def.baris, def.cara, nilai) : false;
+  }
+
+  /* Penulis barisnya dipisah supaya bisa dipakai berkali-kali: satu klik di
+     chip benang mengisi tiga baris sekaligus - jenis, ukuran, dan warnanya. */
+  function chipTulis_(penanda, cara, nilai){
+    var ta = document.getElementById('draftText');
+    if (!ta) return false;
+    var def = { baris: penanda, cara: cara };
 
     var baris = ta.value.split(/\r?\n/);
     var i = chipCariBaris_(baris, def.baris);
@@ -1301,7 +1307,7 @@
      memunculkannya satu per satu membuat jendelanya lompat tiga kali. Jadi
      ketiganya berdiri di satu jendela, tinggal ditunjuk lalu Tambahkan.
      Baris yang masternya kosong tidak ikut muncul. */
-  function chipPopGrup(b, bagian, nilai, grup){
+  function chipPopGrup(b, bagian, nilai, grup, mode){
     chipTutupPop();
     var pilih = {};
     var pop = document.createElement('div');
@@ -1319,6 +1325,17 @@
     pop.addEventListener('click', function(e){
       var t = e.target;
       if (t.classList.contains('tambahkan')) {
+        if (mode === 'benang') {
+          /* Tiga baris kartu diisi sekaligus; yang tidak dipilih dibiarkan apa
+             adanya, bukan dikosongkan - bisa saja sudah diisi tangan. */
+          var def = null;
+          CHIP.bagian.forEach(function(x){ if (x.k === bagian) def = x; });
+          chipTulis_(def.baris, 'ganti', nilai);
+          if (pilih.ukuran && def.barisUk) chipTulis_(def.barisUk, 'ganti', pilih.ukuran);
+          if (pilih.warna && def.barisWarna) chipTulis_(def.barisWarna, 'ganti', pilih.warna);
+          chipSelesai_(b);
+          return;
+        }
         var bagianTeks = [nilai];
         grup.forEach(function(g){
           var v = pilih[g.k];
@@ -1358,6 +1375,13 @@
       grup.push({ k: 'jumlah', j: 'Jumlah', opsi: CHIP_JUMLAH, bebas: true });
       return chipPopGrup(b, bagian, nilai, grup);
     }
+    if (tambahan === 'benang') {
+      var gb = [];
+      if (bahan.length) gb.push({ k: 'ukuran', j: 'Ukuran', opsi: bahan });
+      if (warna.length) gb.push({ k: 'warna', j: 'Kode / warna', opsi: warna });
+      if (!gb.length) { if (chipSisip(bagian, nilai)) chipSelesai_(b); return; }
+      return chipPopGrup(b, bagian, nilai, gb, 'benang');
+    }
     if (chipSisip(bagian, nilai)) chipSelesai_(b);
   }
 
@@ -1372,7 +1396,9 @@
     el.innerHTML = isi.map(function(b){
       return '<div class="chip-baris"><div class="chip-judul">'+esc(b.j)+'</div>'+
         (CHIP.isi[b.k]||[]).map(function(x){
-          var punya = (b.tambahan === 'aksesoris') || (b.tambahan === 'warna' && (x.opsi||[]).length);
+          var punya = (b.tambahan === 'aksesoris') ||
+                      (b.tambahan === 'benang' && ((x.opsi||[]).length || (x.bahan||[]).length)) ||
+                      (b.tambahan === 'warna' && (x.opsi||[]).length);
           return '<button class="chip'+(punya?' punya':'')+'" data-k="'+esc(b.k)+'" data-v="'+esc(x.v)+'" '+
             'data-t="'+esc(b.tambahan||'')+'" data-o="'+esc((x.opsi||[]).join('|'))+'" '+
             'data-b="'+esc((x.bahan||[]).join('|'))+'" onclick="chipKlik(this)">'+esc(x.v)+'</button>';
@@ -1402,7 +1428,8 @@
     var el = document.getElementById('mcBody'); if (!el) return;
     var cara = { ganti: 'mengisi baris itu', nomor: 'jadi butir bernomor', titik: 'jadi butir bertanda minus' };
     var tambah = { warna: ' · tiap pilihan bisa diberi daftar warna',
-                   aksesoris: ' · tiap pilihan bisa diberi bahan dan warna; jumlahnya ditanya waktu diklik' };
+                   aksesoris: ' · tiap pilihan bisa diberi bahan dan warna; jumlahnya ditanya waktu diklik',
+                   benang: ' · tiap merek diberi ukuran dan kode warnanya sendiri; sekali klik mengisi tiga baris benang' };
     el.innerHTML =
       '<div class="section-title">Master chip pengisi draft</div>'+
       '<div class="osub" style="margin:-4px 0 12px">Isi pilihan yang sering dipakai. Di jendela Draft, chip ini '+
@@ -1423,6 +1450,9 @@
                 (b.tambahan === 'warna' ? mcSubChip_(b.k, i, 'opsi', x.opsi, 'Warna') : '')+
                 (b.tambahan === 'aksesoris'
                   ? mcSubChip_(b.k, i, 'bahan', x.bahan, 'Bahan') + mcSubChip_(b.k, i, 'opsi', x.opsi, 'Warna')
+                  : '')+
+                (b.tambahan === 'benang'
+                  ? mcSubChip_(b.k, i, 'bahan', x.bahan, 'Ukuran') + mcSubChip_(b.k, i, 'opsi', x.opsi, 'Kode / warna')
                   : '')+
               '</span>';
             }).join('')+
