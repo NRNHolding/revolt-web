@@ -733,6 +733,33 @@
       font-family: inherit; }
     .kt-galat { color: #d97a7a; font-size: 12px; margin-top: 10px; }
     .kt-baca { white-space: pre-wrap; word-break: break-word; }
+      /* ── Tab AIS ── */
+    .ais-atas{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+    .ais-lihat{display:flex;gap:4px;background:#17170f;border:1px solid #2a2a22;border-radius:7px;padding:3px}
+    .ais-tab{background:none;border:0;color:#9a9a8c;font:inherit;font-size:11.5px;padding:5px 11px;
+      border-radius:5px;cursor:pointer}
+    .ais-tab:hover{color:#d8d8c8}
+    .ais-tab.on{background:#2a2a1c;color:#e8e4d0}
+    .ais-saring,.ais-cari{background:#17170f;border:1px solid #2a2a22;color:#d8d8c8;border-radius:6px;
+      padding:5px 8px;font:inherit;font-size:11.5px}
+    .ais-cari{min-width:190px}
+    .ais-ket{margin:0 0 8px;line-height:1.5}
+    .ais-salin{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11.5px;color:#8a8a80;margin:0 0 10px}
+    .ais-tab-wrap{overflow:auto}
+    table.ais-tab th{white-space:nowrap;vertical-align:bottom}
+    table.ais-tab th .ais-x{display:block;font-size:9.5px;color:#6f6f62;font-weight:400;letter-spacing:.4px}
+    table.ais-tab td{vertical-align:middle}
+    .ais-cek{width:26px;text-align:center}
+    .ais-id{white-space:nowrap;font-weight:600}
+    .ais-ro{color:#8f8f82}
+    tr.ais-sudah{opacity:.55}
+    .ais-in{width:100%;box-sizing:border-box;background:#14140e;border:1px solid #2a2a22;color:#e2e2d2;
+      border-radius:5px;padding:4px 6px;font:inherit;font-size:11.5px;transition:border-color .25s}
+    .ais-in:focus{outline:none;border-color:#6b6b55}
+    .ais-in.num{text-align:right}
+    /* Isian yang masih usulan hub, belum pernah diketik orang. */
+    .ais-in.usul{color:#8a8a7a;font-style:italic}
+    .mini-x{padding:2px 7px;line-height:1.2}
   </style>
   <link rel="icon" type="image/png" sizes="32x32" href="https://nrnholding.github.io/revolt-web/favicon-32.png">
   <link rel="apple-touch-icon" href="https://nrnholding.github.io/revolt-web/apple-touch-icon.png">
@@ -950,9 +977,11 @@
           '<button class="stab" onclick="admTab(6,this)">Marketplace</button>' +
           '<button class="stab" onclick="admTab(7,this)">Update Vendor</button>' +
           '<button class="stab" onclick="admTab(8,this)">Master Chip</button>' +
+          '<button class="stab" onclick="admTab(9,this)">AIS</button>' +
         '</div>' +
         '<div id="adm7" style="display:none"><div id="rkBody"><div class="loading">Memuat…</div></div></div>' +
         '<div id="adm8" style="display:none"><div id="mcBody"><div class="loading">Memuat…</div></div></div>' +
+        '<div id="adm9" style="display:none"><div id="aisBody"><div class="loading">Memuat…</div></div></div>' +
         '<div id="adm1">' + buildLaporan(d) + '</div>' +
         '<div id="adm2" style="display:none">' + buildCustomerDB(d) + '</div>' +
         '<div id="adm6" style="display:none">' +
@@ -1015,7 +1044,7 @@
 
   // Sub-tab Administrasi
   function admTab(n, btn){
-    for(var i=1;i<=8;i++){ var el=document.getElementById('adm'+i); if(el) el.style.display=(i===n?'':'none'); }
+    for(var i=1;i<=9;i++){ var el=document.getElementById('adm'+i); if(el) el.style.display=(i===n?'':'none'); }
     document.querySelectorAll('#page2 > .subtabs .stab').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
     if(n===1){ renderEval(); filterReport(); }
@@ -1025,6 +1054,7 @@
     if(n===6) loadMarket();
     if(n===7) bukaRekap();
     if(n===8) bukaMaster();
+    if(n===9) aisBukaTab();
   }
 
   /* ── Checklist order ──
@@ -1540,6 +1570,302 @@
         var p = document.getElementById('mcMsg_'+k);
         if (p) { p.textContent = 'tersimpan ✓'; p.style.color = '#16a34a'; setTimeout(function(){ p.textContent=''; }, 1400); }
       });
+  }
+
+  /* ── Tab AIS ──
+
+     AIS Revolt Industry itu berkas Excel di laptop, bukan di sini - hub tidak
+     bisa menulisinya. Yang disiapkan di tab ini barisnya: persis urutan kolom
+     AIS, lengkap huruf kolomnya, siap ditempel.
+
+     Satu order custom menyentuh tiga sheet di sana, dan tiap sheet punya
+     kolom rumus di tengah-tengah yang tidak boleh ketimpa. Makanya salinannya
+     dipecah per blok kolom yang bersebelahan - satu tombol satu blok, tempel
+     di huruf kolom yang tertulis di tombolnya. Kolom rumus dilewati sendiri.
+
+     Sheet keempat, CB, tidak diisi: baris mutasi banknya sudah ada di sana
+     hasil impor rekening. Yang kurang cuma tandanya - akun mana dan order
+     mana. Itu yang didaftar di tab CB. */
+  var AIS = { baris: [], muat: false, galat: '', lihat: 'copo', saring: 'belum', cari: '' };
+
+  var AIS_JENIS_CO = ['Custom Order', 'Wholesale', 'Pre Order', 'Other Sales'];
+  var AIS_PIC = ['Timo', 'Ephen', 'Reza', 'Gary'];
+  var AIS_VENDOR_AIS = ['Radja Leather Custom & PO', 'Radja Leather Massal', 'CV. Harmonis', 'Others'];
+
+  /* t: txt isian biasa · sel pilihan · ro ikut order, tidak diketik
+     x: huruf kolom di Excel · b: nomor blok salin · p: isi bayangan */
+  var AIS_KOL = {
+    copo: [
+      { k:'noOrder',   j:'No. Order',        x:'B',  b:1, t:'txt', w:62 },
+      { k:'jenisCo',   j:'CO/Other/PO',      x:'C',  b:1, t:'sel', o:AIS_JENIS_CO, w:112 },
+      { k:'sumber',    j:'Sales Source',     x:'D',  b:1, t:'txt', w:86 },
+      { k:'invoice',   j:'Invoice No',       x:'G',  b:2, t:'txt', w:94 },
+      { k:'tglTransaksi', j:'Tgl Transaksi', x:'H',  b:2, t:'txt', w:84 },
+      { k:'tglKirim',  j:'Tgl Pengiriman',   x:'I',  b:2, t:'txt', w:84 },
+      { k:'customer',  j:'Customer',         x:'J',  b:2, t:'txt', w:110 },
+      { k:'pic',       j:'PIC',              x:'K',  b:2, t:'sel', o:AIS_PIC, w:78 },
+      { k:'ket',       j:'Keterangan',       x:'L',  b:2, t:'txt', w:110, p:'id' },
+      { k:'sku',       j:'SKU',              x:'M',  b:2, t:'txt', w:150, p:'usulSku' },
+      { k:'qty',       j:'Qty',              x:'S',  b:3, t:'txt', w:48, n:1 },
+      { k:'serviceFee',j:'Total Service Fee',x:'T',  b:3, t:'txt', w:84, n:1 },
+      { k:'disc',      j:'Discount per Unit',x:'U',  b:3, t:'txt', w:84, n:1 },
+      { k:'bankAdmin', j:'Bank Admin',       x:'V',  b:3, t:'txt', w:72, n:1 },
+      { k:'ongkir',    j:'Delivery Exp.',    x:'W',  b:3, t:'txt', w:76, n:1 },
+      { k:'kurir',     j:'Nama Kurir',       x:'X',  b:3, t:'txt', w:84 },
+      { k:'ongkirBalik',j:'Delivery Reimb.', x:'Y',  b:3, t:'txt', w:80, n:1 },
+      { k:'feeEcom',   j:'Service Fee eCom', x:'Z',  b:3, t:'txt', w:80, n:1 },
+      { k:'bayar',     j:'Cust. Payment',    x:'AB', b:4, t:'txt', w:92, n:1 }
+    ],
+    s: [
+      { k:'sku',         j:'SKU',          x:'B', b:1, t:'txt', w:150, p:'usulSku' },
+      { k:'kategori',    j:'Category',     x:'C', b:1, t:'txt', w:110 },
+      { k:'produk',      j:'Product Name', x:'D', b:1, t:'txt', w:150 },
+      { k:'warna',       j:'Color',        x:'E', b:1, t:'txt', w:92 },
+      { k:'ukuran',      j:'Size',         x:'F', b:1, t:'txt', w:64 },
+      { k:'hargaSatuan', j:'Selling Price',x:'G', b:1, t:'ro',  w:96, n:1 }
+    ],
+    po: [
+      { k:'noPo',      j:'No. PO',           x:'B', b:1, t:'txt', w:62 },
+      { k:'tglTransaksi', j:'Order Date',    x:'C', b:1, t:'ro',  w:84 },
+      { k:'sku',       j:'SKU',              x:'D', b:1, t:'txt', w:150, p:'usulSku' },
+      { k:'vendorAis', j:'Vendor Name',      x:'E', b:1, t:'sel', o:AIS_VENDOR_AIS, w:170 },
+      { k:'hppSatuan', j:'Order Price/Unit', x:'J', b:2, t:'ro',  w:104, n:1 },
+      { k:'qty',       j:'Qty',              x:'K', b:2, t:'ro',  w:48, n:1 },
+      { k:'hppLain',   j:'HPP Lainnya',      x:'L', b:2, t:'txt', w:88, n:1 },
+      { k:'statusPo',  j:'Status PO',        x:'O', b:3, t:'ro',  w:120 }
+    ]
+  };
+
+  function aisBukaTab(){ if(!AIS.baris.length && !AIS.muat) muatAis(); else gambarAis(); }
+
+  function muatAis(){
+    AIS.muat = true; AIS.galat = ''; gambarAis();
+    jsonp(WEB_APP_URL+'?page=admin&action=aisList&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        AIS.muat = false;
+        if(!res || !res.ok){ AIS.galat=(res&&res.error)||'Server tidak menjawab.'; AIS.baris=[]; gambarAis(); return; }
+        AIS.baris = res.baris || []; gambarAis();
+      });
+  }
+
+  function aisLihat(v){ AIS.lihat = v; gambarAis(); }
+  function aisSaring(v){ AIS.saring = v; gambarAis(); }
+  function aisCari(el){ AIS.cari = el.value.toLowerCase(); gambarAis(); }
+
+  function aisTampil_(){
+    return AIS.baris.filter(function(b){
+      if(AIS.saring === 'belum' && b.status === 'masuk') return false;
+      if(AIS.saring === 'masuk' && b.status !== 'masuk') return false;
+      if(AIS.cari){
+        var t = [b.id, b.customer, b.produk, b.sku, b.invoice].join(' ').toLowerCase();
+        if(t.indexOf(AIS.cari) < 0) return false;
+      }
+      return true;
+    });
+  }
+
+  // Yang dipakai kalau kolomnya belum diketik: usul SKU, atau penanda order di Keterangan.
+  function aisNilai_(b, kol){
+    var v = b[kol.k];
+    if(v !== '' && v !== undefined && v !== null) return String(v);
+    if(kol.p) return String(b[kol.p] || '');
+    return '';
+  }
+
+  function gambarAis(){
+    var el = document.getElementById('aisBody'); if(!el) return;
+    var baris = aisTampil_();
+    var jum = { belum:0, masuk:0 };
+    AIS.baris.forEach(function(b){ jum[b.status==='masuk'?'masuk':'belum']++; });
+
+    var h = '<div class="ais-atas">'+
+      '<div class="ais-lihat">'+
+        [['copo','CO PO'],['s','S · Stock'],['po','PO'],['cb','CB · tanda bayar']].map(function(v){
+          return '<button class="ais-tab'+(AIS.lihat===v[0]?' on':'')+'" data-v="'+v[0]+'" onclick="aisLihat(this.getAttribute(\'data-v\'))">'+v[1]+'</button>';
+        }).join('')+
+      '</div>'+
+      '<select class="ais-saring" onchange="aisSaring(this.value)">'+
+        ['<option value="belum"'+(AIS.saring==='belum'?' selected':'')+'>Belum masuk AIS ('+jum.belum+')</option>',
+         '<option value="masuk"'+(AIS.saring==='masuk'?' selected':'')+'>Sudah masuk ('+jum.masuk+')</option>',
+         '<option value="semua"'+(AIS.saring==='semua'?' selected':'')+'>Semua</option>'].join('')+
+      '</select>'+
+      '<input class="ais-cari" placeholder="cari order / client / SKU" value="'+esc(AIS.cari)+'" oninput="aisCari(this)">'+
+      '<button class="cbtn" onclick="muatAis()" title="Tarik ulang dari sheet">↻</button>'+
+      '<button class="cbtn" onclick="aisManualBaru(this)">+ Penjualan manual</button>'+
+      '<span class="kt-info">'+(AIS.muat ? 'memuat…' : (AIS.galat
+        ? '<span style="color:#d97a7a">'+esc(AIS.galat)+'</span>'
+        : baris.length+' baris'))+'</span>'+
+    '</div>';
+
+    if(AIS.lihat === 'cb'){ el.innerHTML = h + aisGambarCb_(baris); return; }
+
+    var kol = AIS_KOL[AIS.lihat];
+    var blok = [];
+    kol.forEach(function(k){ if(blok.indexOf(k.b) < 0) blok.push(k.b); });
+
+    h += '<div class="osub ais-ket">'+aisKet_()+'</div>'+
+      '<div class="ais-salin">Salin per blok, lalu tempel di kolom yang tertulis: '+
+        blok.map(function(n){
+          var pk = kol.filter(function(k){ return k.b===n; });
+          var ttl = pk[0].x + (pk.length>1 ? '–'+pk[pk.length-1].x : '');
+          return '<button class="cbtn" data-b="'+n+'" onclick="aisSalin(this)">⧉ '+ttl+'</button>';
+        }).join('')+
+      '</div>';
+
+    if(!AIS.muat && !baris.length){
+      el.innerHTML = h + '<div class="kt-kosong">Tidak ada baris di saringan ini.</div>';
+      return;
+    }
+
+    h += '<div class="table-scroll"><table class="mini ais-tab"><thead><tr>'+
+        '<th class="ais-cek" title="sudah masuk AIS">✓</th><th>Order</th>'+
+        kol.map(function(k){
+          return '<th style="min-width:'+k.w+'px"><span class="ais-x">'+k.x+'</span>'+esc(k.j)+'</th>';
+        }).join('')+
+        '<th>Hapus</th>'+
+      '</tr></thead><tbody>'+
+      baris.map(function(b){
+        return '<tr'+(b.status==='masuk'?' class="ais-sudah"':'')+'>'+
+          '<td class="ais-cek"><input type="checkbox" data-id="'+esc(b.id)+'"'+(b.status==='masuk'?' checked':'')+
+            ' onchange="aisTandai(this)" title="'+(b.tglMasuk?'ditandai '+esc(b.tglMasuk):'tandai kalau sudah diketik di AIS')+'"></td>'+
+          '<td class="ais-id">'+esc(b.id)+(b.jenis==='manual'?' <span class="ksub">manual</span>':'')+'</td>'+
+          kol.map(function(k){
+            var v = aisNilai_(b, k);
+            var ro = k.t === 'ro' || (k.k === 'qty' && b.jenis !== 'manual');
+            if(ro) return '<td class="ais-ro'+(k.n?' num':'')+'">'+esc(v || '-')+'</td>';
+            if(k.t === 'sel'){
+              return '<td><select class="ais-in" data-id="'+esc(b.id)+'" data-k="'+k.k+'" onchange="aisUbah(this)">'+
+                '<option value=""></option>'+
+                k.o.map(function(o){ return '<option'+(o===v?' selected':'')+'>'+esc(o)+'</option>'; }).join('')+
+              '</select></td>';
+            }
+            var kosong = (b[k.k] === '' || b[k.k] === undefined || b[k.k] === null) && k.p;
+            return '<td><input class="ais-in'+(k.n?' num':'')+(kosong?' usul':'')+'" data-id="'+esc(b.id)+'" data-k="'+k.k+'" '+
+              'value="'+esc(v)+'" onchange="aisUbah(this)"></td>';
+          }).join('')+
+          '<td>'+(b.jenis==='manual'
+            ? '<button class="cbtn mini-x" data-id="'+esc(b.id)+'" onclick="aisHapus(this)">×</button>'
+            : '<span class="ksub">—</span>')+'</td>'+
+        '</tr>';
+      }).join('')+'</tbody></table></div>';
+    el.innerHTML = h;
+  }
+
+  function aisKet_(){
+    if(AIS.lihat === 'copo') return 'Sheet <b>CO PO</b>. Kolom E–F, N–R, AA dan AC ke kanan rumus — dilewati. '+
+      'Keterangan dan SKU yang masih redup itu usulan, belum diketik: tempel juga ikut.';
+    if(AIS.lihat === 's') return 'Sheet <b>S</b>. Tiap SKU baru harus ada barisnya di sini dulu, '+
+      'kalau tidak Category, Product, Color, Size dan harga di CO PO ikut kosong. Selling Price sudah per satuan.';
+    return 'Sheet <b>PO</b>. Ini yang memberi COGS ke CO PO — tanpa baris PO, COGS order itu nol. '+
+      'Order Price/Unit sudah per satuan. Kolom F–I, M–N dan P rumus.';
+  }
+
+  /* CB tidak dibuatkan baris: mutasi banknya sudah ada di sana hasil impor
+     rekening. Yang didaftar di sini cuma pembayaran yang hub tahu, supaya
+     tahu baris tanggal berapa yang perlu diberi akun dan nomor order. */
+  function aisGambarCb_(baris){
+    var isi = [];
+    baris.forEach(function(b){
+      (b.cicil || []).forEach(function(c){
+        isi.push({ id:b.id, tgl:c.tgl, jenis:c.jenis, jumlah:c.jumlah, akun:b.akun,
+                   noOrder:b.noOrder, customer:b.customer, status:b.status });
+      });
+    });
+    var h = '<div class="osub ais-ket">Sheet <b>CB</b>. Baris mutasinya sudah ada dari impor rekening — '+
+      'yang kurang cuma tandanya. Cari baris tanggal dan jumlah ini, lalu isi <b>Akun</b> (kolom Q) dan '+
+      '<b>No. CO PO</b> (kolom U). Nomor order diambil dari yang kamu ketik di tab CO PO.</div>';
+    if(!isi.length) return h + '<div class="kt-kosong">Belum ada pembayaran tercatat di saringan ini.</div>';
+    return h + '<div class="table-scroll"><table class="mini ais-tab"><thead><tr>'+
+        '<th>Order</th><th>Client</th><th>Jenis</th><th>Tanggal <span class="ais-x">C</span></th>'+
+        '<th class="num">Jumlah <span class="ais-x">I bank · J tunai</span></th>'+
+        '<th>Akun <span class="ais-x">Q</span></th>'+
+        '<th>No. CO PO <span class="ais-x">U</span></th>'+
+      '</tr></thead><tbody>'+
+      isi.map(function(c){
+        return '<tr'+(c.status==='masuk'?' class="ais-sudah"':'')+'>'+
+          '<td class="ais-id">'+esc(c.id)+'</td><td>'+esc(c.customer||'-')+'</td>'+
+          '<td>'+esc(c.jenis)+'</td><td>'+esc(c.tgl||'-')+'</td>'+
+          '<td class="num">'+rp(c.jumlah)+'</td><td>'+esc(c.akun||'-')+'</td>'+
+          '<td>'+(c.noOrder ? esc(c.noOrder) : '<span class="ksub">isi dulu di CO PO</span>')+'</td>'+
+        '</tr>';
+      }).join('')+'</tbody></table></div>';
+  }
+
+  function aisUbah(el){
+    var id = el.getAttribute('data-id'), k = el.getAttribute('data-k');
+    var b = null; AIS.baris.forEach(function(x){ if(x.id === id) b = x; });
+    if(!b) return;
+    b[k] = el.value;
+    el.classList.remove('usul');
+    el.style.borderColor = '#e0912f';
+    var kirim = { id: id, jenis: b.jenis };
+    kirim[k] = el.value;
+    postJson('aisSimpan', kirim, function(res){
+      el.style.borderColor = (res && res.ok) ? '#16a34a' : '#d97a7a';
+      setTimeout(function(){ el.style.borderColor = '#2a2a22'; }, 1200);
+      if(res && res.ok && (k === 'qty' || k === 'jenisCo')) muatAis();
+    });
+  }
+
+  function aisTandai(el){
+    var id = el.getAttribute('data-id'), on = el.checked;
+    jsonp(WEB_APP_URL+'?page=admin&action=aisTandai&id='+encodeURIComponent(id)+
+          (on?'':'&batal=1')+'&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(!res || !res.ok){ el.checked = !on; alert((res&&res.error)||'Gagal menandai.'); return; }
+        AIS.baris.forEach(function(b){
+          if(b.id === id){ b.status = on ? 'masuk' : 'belum'; b.tglMasuk = on ? 'baru saja' : ''; }
+        });
+        gambarAis();
+      });
+  }
+
+  /* Penjualan walk-in dan offline tidak pernah jadi kartu Trello, jadi tidak
+     punya order ID. Dibuatkan sendiri di sini - huruf M supaya kelihatan
+     bedanya dari RI-xxx. */
+  function aisManualBaru(btn){
+    var n = new Date();
+    var cap = 'M' + String(n.getFullYear()).slice(2) + ('0'+(n.getMonth()+1)).slice(-2) +
+              ('0'+n.getDate()).slice(-2) + '-' + ('0'+n.getHours()).slice(-2) + ('0'+n.getMinutes()).slice(-2);
+    btn.disabled = true;
+    postJson('aisSimpan', {
+      id: cap, jenis: 'manual', jenisCo: 'Custom Order', sumber: 'Walk-in', qty: '1',
+      tglTransaksi: ('0'+n.getDate()).slice(-2)+'/'+('0'+(n.getMonth()+1)).slice(-2)+'/'+n.getFullYear(),
+      pic: 'Timo'
+    }, function(res){
+      btn.disabled = false;
+      if(!res || !res.ok){ alert((res&&res.error)||'Gagal membuat baris.'); return; }
+      AIS.saring = 'belum'; muatAis();
+    });
+  }
+
+  function aisHapus(btn){
+    var id = btn.getAttribute('data-id');
+    if(!confirm('Hapus baris manual '+id+'?')) return;
+    btn.disabled = true;
+    jsonp(WEB_APP_URL+'?page=admin&action=aisHapus&id='+encodeURIComponent(id)+
+          '&key='+encodeURIComponent(ADMIN_KEY)+'&_='+Date.now(),
+      function(res){
+        if(!res || !res.ok){ btn.disabled=false; alert((res&&res.error)||'Gagal menghapus.'); return; }
+        AIS.baris = AIS.baris.filter(function(b){ return b.id !== id; });
+        gambarAis();
+      });
+  }
+
+  /* Satu tombol satu blok kolom yang bersebelahan di Excel. Tanpa baris judul:
+     yang disalin langsung jadi isi, tempel di sel pertama blok itu. */
+  function aisSalin(btn){
+    var n = Number(btn.getAttribute('data-b'));
+    var kol = AIS_KOL[AIS.lihat].filter(function(k){ return k.b === n; });
+    var tab = String.fromCharCode(9), enter = String.fromCharCode(10);
+    var isi = aisTampil_().map(function(b){
+      return kol.map(function(k){
+        return String(aisNilai_(b, k)).replace(/[\r\n\t]+/g, ' ');
+      }).join(tab);
+    });
+    copyText(isi.join(enter));
+    var t = btn.textContent; btn.textContent = 'tersalin ✓';
+    setTimeout(function(){ btn.textContent = t; }, 1400);
   }
 
   /* ── Update Vendor: rekap bulanan ──
