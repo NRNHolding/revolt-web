@@ -1721,7 +1721,10 @@
           var ttl = pk[0].x + (pk.length>1 ? '–'+pk[pk.length-1].x : '');
           return '<button class="cbtn" data-b="'+n+'" onclick="aisSalin(this)">⧉ '+ttl+'</button>';
         }).join('')+
-      '</div>';
+      '</div>'+
+      '<div class="osub ais-ket">Atau biar diisi sendiri: dobel-klik <b>Isi AIS.cmd</b> di folder '+
+        'Revolt Tracking Order. Yang ikut terisi cuma baris yang <b>SKU-nya sudah diketik</b> di sini — '+
+        'usulan yang masih redup tidak dihitung siap. Berkas AIS dicadangkan dulu tiap kali.</div>';
 
     if(!AIS.muat && !baris.length){
       el.innerHTML = h + '<div class="kt-kosong">Tidak ada baris di saringan ini.</div>';
