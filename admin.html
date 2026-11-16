@@ -1586,7 +1586,7 @@
      Sheet keempat, CB, tidak diisi: baris mutasi banknya sudah ada di sana
      hasil impor rekening. Yang kurang cuma tandanya - akun mana dan order
      mana. Itu yang didaftar di tab CB. */
-  var AIS = { baris: [], muat: false, galat: '', lihat: 'copo', saring: 'belum', cari: '' };
+  var AIS = { baris: [], muat: false, galat: '', lihat: 'copo', saring: 'belum', cari: '', bulan: '' };
 
   var AIS_JENIS_CO = ['Custom Order', 'Wholesale', 'Pre Order', 'Other Sales'];
   var AIS_PIC = ['Timo', 'Ephen', 'Reza', 'Gary'];
@@ -1652,10 +1652,18 @@
   function aisSaring(v){ AIS.saring = v; gambarAis(); }
   function aisCari(el){ AIS.cari = el.value.toLowerCase(); gambarAis(); }
 
+  // "11/2026" dari "13/11/2026" - dipakai saringan bulan dan daftar pilihannya.
+  function aisBulan_(b){
+    var p = String(b.tglTransaksi || '').split('/');
+    if(p.length < 3) return '';
+    return p[1] + '/' + (p[2].length === 2 ? '20' + p[2] : p[2]);
+  }
+
   function aisTampil_(){
     return AIS.baris.filter(function(b){
       if(AIS.saring === 'belum' && b.status === 'masuk') return false;
       if(AIS.saring === 'masuk' && b.status !== 'masuk') return false;
+      if(AIS.bulan && aisBulan_(b) !== AIS.bulan) return false;
       if(AIS.cari){
         var t = [b.id, b.customer, b.produk, b.sku, b.invoice].join(' ').toLowerCase();
         if(t.indexOf(AIS.cari) < 0) return false;
@@ -1689,7 +1697,10 @@
          '<option value="masuk"'+(AIS.saring==='masuk'?' selected':'')+'>Sudah masuk ('+jum.masuk+')</option>',
          '<option value="semua"'+(AIS.saring==='semua'?' selected':'')+'>Semua</option>'].join('')+
       '</select>'+
+      aisPilihBulan_()+
       '<input class="ais-cari" placeholder="cari order / client / SKU" value="'+esc(AIS.cari)+'" oninput="aisCari(this)">'+
+      '<button class="cbtn" onclick="aisTandaiSemua(this)" title="Tandai semua baris yang sedang tampil">'+
+        (AIS.saring==='masuk' ? '☐ Batal tandai tampil' : '✓ Tandai semua tampil')+'</button>'+
       '<button class="cbtn" onclick="muatAis()" title="Tarik ulang dari sheet">↻</button>'+
       '<button class="cbtn" onclick="aisManualBaru(this)">+ Penjualan manual</button>'+
       '<span class="kt-info">'+(AIS.muat ? 'memuat…' : (AIS.galat
@@ -1749,6 +1760,42 @@
         '</tr>';
       }).join('')+'</tbody></table></div>';
     el.innerHTML = h;
+  }
+
+  function aisPilihBulan_(){
+    var ada = {}, urut = [];
+    AIS.baris.forEach(function(b){
+      var m = aisBulan_(b);
+      if(m && !ada[m]){ ada[m] = 1; urut.push(m); }
+    });
+    urut.sort(function(a,b){
+      var x = a.split('/'), y = b.split('/');
+      return (y[1]-x[1]) || (y[0]-x[0]);
+    });
+    return '<select class="ais-saring" onchange="aisUbahBulan(this.value)">'+
+      '<option value="">Semua bulan</option>'+
+      urut.map(function(m){
+        var p = m.split('/');
+        return '<option value="'+m+'"'+(AIS.bulan===m?' selected':'')+'>'+
+          (KT_BULAN[Number(p[0])-1]||'?')+' '+p[1]+'</option>';
+      }).join('')+'</select>';
+  }
+  function aisUbahBulan(v){ AIS.bulan = v; gambarAis(); }
+
+  /* Waktu tab ini pertama dibuka, semua order lama ikut terdaftar sebagai
+     "belum" - padahal yang lama sudah diketik di AIS sejak dulu. Sekali
+     saring lalu sekali tandai, bukan 99 kali centang. */
+  function aisTandaiSemua(btn){
+    var baris = aisTampil_();
+    if(!baris.length) return;
+    var masuk = AIS.saring !== 'masuk';
+    if(!confirm((masuk ? 'Tandai ' : 'Batalkan tanda ')+baris.length+' baris yang sedang tampil?')) return;
+    btn.disabled = true;
+    postJson('aisTandaiBanyak', { ids: baris.map(function(b){ return b.id; }), masuk: masuk }, function(res){
+      btn.disabled = false;
+      if(!res || !res.ok){ alert((res&&res.error)||'Gagal menandai.'); return; }
+      muatAis();
+    });
   }
 
   function aisKet_(){
