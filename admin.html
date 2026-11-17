@@ -1588,7 +1588,9 @@
      mana. Itu yang didaftar di tab CB. */
   var AIS = { baris: [], muat: false, galat: '', lihat: 'copo', saring: 'belum', cari: '', bulan: '' };
 
-  var AIS_JENIS_CO = ['Custom Order', 'Wholesale', 'Pre Order', 'Other Sales'];
+  /* Empat yang pertama nilai AIS; "Stok sendiri" tidak pernah sampai ke sana -
+     penandanya di sini saja, dan barisnya berhenti di PO + RR. */
+  var AIS_JENIS_CO = ['Custom Order', 'Wholesale', 'Pre Order', 'Other Sales', 'Stok sendiri'];
   var AIS_PIC = ['Timo', 'Ephen', 'Reza', 'Gary'];
   var AIS_VENDOR_AIS = ['Radja Leather Custom & PO', 'Radja Leather Massal', 'CV. Harmonis', 'Others'];
 
@@ -1803,7 +1805,9 @@
 
   function aisKet_(){
     if(AIS.lihat === 'copo') return 'Sheet <b>CO PO</b>. Kolom E–F, N–R, AA dan AC ke kanan rumus — dilewati. '+
-      'Keterangan dan SKU yang masih redup itu usulan, belum diketik: tempel juga ikut.';
+      'Keterangan dan SKU yang masih redup itu usulan, belum diketik: tempel juga ikut. '+
+      'Baris <b>Stok sendiri</b> tidak masuk sheet ini sama sekali — itu bukan penjualan, '+
+      'berhenti di PO dan RR.';
     if(AIS.lihat === 's') return 'Sheet <b>S</b>. Tiap SKU baru harus ada barisnya di sini dulu, '+
       'kalau tidak Category, Product, Color, Size dan harga di CO PO ikut kosong. Selling Price sudah per satuan.';
     return 'Sheet <b>PO</b>. Ini yang memberi COGS ke CO PO — tanpa baris PO, COGS order itu nol. '+
@@ -1816,6 +1820,9 @@
   function aisGambarCb_(baris){
     var isi = [];
     baris.forEach(function(b){
+      // Stok sendiri tidak punya pembayaran customer - uangnya mengalir ke
+      // vendor, bukan masuk. Tidak ada yang perlu ditandai di buku kas.
+      if(b.jenisCo === 'Stok sendiri') return;
       (b.cicil || []).forEach(function(c){
         isi.push({ id:b.id, tgl:c.tgl, jenis:c.jenis, jumlah:c.jumlah, akun:b.akun,
                    noOrder:b.noOrder, customer:b.customer, status:b.status });
