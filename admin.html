@@ -760,6 +760,37 @@
     /* Isian yang masih usulan hub, belum pernah diketik orang. */
     .ais-in.usul{color:#8a8a7a;font-style:italic}
     .mini-x{padding:2px 7px;line-height:1.2}
+      /* Tampilan "Isi": satu kartu satu order */
+    .ais-kartu-bungkus{display:flex;flex-direction:column;gap:9px}
+    .ais-kartu{background:#14140e;border:1px solid #2a2a22;border-left:3px solid #3a3a2c;
+      border-radius:8px;padding:11px 13px}
+    .ais-kartu.kurang{border-left-color:#8a6a2a}
+    .ais-kartu.sudah{opacity:.55;border-left-color:#2f5f2f}
+    .ais-kepala{display:flex;align-items:center;gap:9px;margin:0 0 7px}
+    .ais-centang{display:flex;align-items:center}
+    .ais-nama{font-size:12.5px;color:#ddddcc}
+    .ais-lencana{display:flex;gap:5px;margin-left:auto;flex-wrap:wrap}
+    .ais-lencana .lc{font-size:10px;padding:2px 7px;border-radius:9px;letter-spacing:.3px;white-space:nowrap}
+    .lc.siap{background:#1b2a1b;color:#8fc08f}
+    .lc.kurang{background:#2d2514;color:#d9b36a}
+    .lc.masuk{background:#1a1a14;color:#7f7f70}
+    .lc.stok{background:#231a2d;color:#b094c8}
+    .ais-ringkas{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:#8a8a7c;
+      padding:0 0 9px;border-bottom:1px solid #22221a;margin:0 0 9px}
+    .ais-ringkas i{color:#6b6b5e}
+    .ais-isian-baris{display:flex;gap:10px;flex-wrap:wrap}
+    .ais-isian{display:flex;flex-direction:column;gap:3px;min-width:120px;flex:0 1 150px}
+    .ais-isian > span{font-size:10.5px;color:#8a8a7c;letter-spacing:.3px}
+    .ais-isian.wajib > span{color:#d9b36a}
+    .ais-wajib{color:#d9913f}
+    .ais-sku{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:10px 0 0;
+      padding:8px 0 0;border-top:1px solid #22221a}
+    .ais-sku-label{font-size:10.5px;color:#8a8a7c;letter-spacing:1px}
+    .ais-sku code{font-size:12.5px;color:#cfc89f;background:#1b1b12;border:1px solid #2a2a22;
+      border-radius:5px;padding:3px 8px}
+    .ais-sku i{font-size:11.5px;color:#6b6b5e}
+    .ais-sku-ubah{max-width:210px;margin-left:auto}
+    @media (max-width:620px){ .ais-isian{flex:1 1 100%} .ais-sku-ubah{margin-left:0;max-width:none} }
   </style>
   <link rel="icon" type="image/png" sizes="32x32" href="https://nrnholding.github.io/revolt-web/favicon-32.png">
   <link rel="apple-touch-icon" href="https://nrnholding.github.io/revolt-web/apple-touch-icon.png">
@@ -1586,7 +1617,8 @@
      Sheet keempat, CB, tidak diisi: baris mutasi banknya sudah ada di sana
      hasil impor rekening. Yang kurang cuma tandanya - akun mana dan order
      mana. Itu yang didaftar di tab CB. */
-  var AIS = { baris: [], muat: false, galat: '', lihat: 'copo', saring: 'belum', cari: '', bulan: '' };
+  var AIS = { baris: [], muat: false, galat: '', lihat: 'isi', saring: 'belum', cari: '', bulan: '',
+              warnaOpsi: [] };
 
   /* Empat yang pertama nilai AIS; "Stok sendiri" tidak pernah sampai ke sana -
      penandanya di sini saja, dan barisnya berhenti di PO + RR. */
@@ -1638,6 +1670,103 @@
     ]
   };
 
+  /* ── Tampilan "Isi" ──
+
+     Tabel bergaya AIS itu bagus untuk menyalin, bukan untuk mengisi: 19 kolom
+     berhuruf Excel padahal yang betul-betul ditanyakan cuma warna. Sisanya
+     sudah dijawab kartunya sendiri.
+
+     Jadi yang dibuka duluan bukan tabel itu, tapi daftar kartu - satu order
+     satu kartu, isian yang perlu diisi saja, dan SKU-nya tampil begitu
+     warnanya dipilih. Tabel AIS-nya tetap ada di sebelah, untuk yang memang
+     mau menyalin per blok kolom. */
+  function aisSiap_(b){
+    if(b.sku) return true;
+    return !!String(b.warna || '').trim();
+  }
+
+  function aisGambarIsi_(baris){
+    var h = '<div class="osub ais-ket">Yang bertanda <b class="ais-wajib">*</b> perlu kamu isi; '+
+      'sisanya sudah diambil dari kartunya. Begitu warnanya dipilih, SKU-nya terbentuk sendiri — '+
+      'nomor urutnya dipasang waktu barisnya betul-betul ditulis ke AIS.</div>';
+
+    if(!AIS.muat && !baris.length){
+      return h + '<div class="kt-kosong">Tidak ada order di saringan ini.</div>';
+    }
+
+    h += '<datalist id="aisWarnaOpsi">'+
+      (AIS.warnaOpsi || []).map(function(w){ return '<option value="'+esc(w)+'">'; }).join('')+
+      '</datalist><div class="ais-kartu-bungkus">';
+
+    h += baris.map(function(b){
+      var siap = aisSiap_(b);
+      var sudah = b.status === 'masuk';
+      var sku = b.sku || b.usulSku || '';
+      var stok = b.jenisCo === 'Stok sendiri';
+
+      function isian(k, judul, nilai, wajib, daftar){
+        return '<label class="ais-isian'+(wajib?' wajib':'')+'">'+
+          '<span>'+judul+(wajib?' <b class="ais-wajib">*</b>':'')+'</span>'+
+          '<input class="ais-in" data-id="'+esc(b.id)+'" data-k="'+k+'" value="'+esc(nilai||'')+'"'+
+          (daftar?' list="'+daftar+'"':'')+' onchange="aisUbah(this)"></label>';
+      }
+      function pilih(k, judul, nilai, opsi){
+        return '<label class="ais-isian"><span>'+judul+'</span>'+
+          '<select class="ais-in" data-id="'+esc(b.id)+'" data-k="'+k+'" onchange="aisUbah(this)">'+
+            '<option value=""></option>'+
+            opsi.map(function(o){ return '<option'+(o===nilai?' selected':'')+'>'+esc(o)+'</option>'; }).join('')+
+          '</select></label>';
+      }
+
+      return '<div class="ais-kartu'+(sudah?' sudah':'')+(siap?'':' kurang')+'">'+
+        '<div class="ais-kepala">'+
+          '<label class="ais-centang" title="'+(b.tglMasuk?'ditandai '+esc(b.tglMasuk):'centang kalau barisnya sudah ada di AIS')+'">'+
+            '<input type="checkbox" data-id="'+esc(b.id)+'"'+(sudah?' checked':'')+' onchange="aisTandai(this)">'+
+          '</label>'+
+          '<div class="ais-nama"><b>'+esc(b.id)+'</b> · '+esc(b.customer||'tanpa nama')+
+            (b.jenis==='manual'?' <span class="ksub">manual</span>':'')+'</div>'+
+          '<div class="ais-lencana">'+
+            (sudah ? '<span class="lc masuk">sudah di AIS</span>'
+                   : (siap ? '<span class="lc siap">siap diisi</span>'
+                           : '<span class="lc kurang">tinggal pilih warna</span>'))+
+            (stok ? '<span class="lc stok">stok sendiri</span>' : '')+
+          '</div>'+
+          (b.jenis==='manual'
+            ? '<button class="cbtn mini-x" data-id="'+esc(b.id)+'" onclick="aisHapus(this)" title="hapus baris manual">×</button>'
+            : '')+
+        '</div>'+
+
+        '<div class="ais-ringkas">'+
+          '<span>'+esc(b.produk||'-')+'</span>'+
+          '<span>'+esc(b.qty||'?')+' pcs</span>'+
+          '<span>'+(b.hargaSatuan ? rp(b.hargaSatuan)+' /pcs' : '<i>harga belum ada</i>')+'</span>'+
+          '<span>'+esc(b.vendorAis||'-')+'</span>'+
+          '<span>order '+esc(b.tglTransaksi||'-')+'</span>'+
+          '<span>'+(b.tglKirim ? 'kirim '+esc(b.tglKirim) : '<i>belum terkirim</i>')+'</span>'+
+        '</div>'+
+
+        '<div class="ais-isian-baris">'+
+          isian('warna', 'Warna', b.warna, true, 'aisWarnaOpsi')+
+          isian('ukuran', 'Ukuran', b.ukuran)+
+          pilih('jenisCo', 'Jenis', b.jenisCo, AIS_JENIS_CO)+
+          (stok ? '' : isian('invoice', 'No. invoice', b.invoice))+
+          (stok ? '' : pilih('pic', 'PIC', b.pic, AIS_PIC))+
+        '</div>'+
+
+        '<div class="ais-sku">'+
+          '<span class="ais-sku-label">SKU</span>'+
+          (sku ? '<code>'+esc(sku)+'</code>' : '<i>pilih warnanya dulu</i>')+
+          (sku && !b.sku && !stok ? '<span class="ksub">+ nomor urut dari AIS</span>' : '')+
+          (b.sku ? '<span class="ksub">diketik sendiri</span>' : '')+
+          '<input class="ais-in ais-sku-ubah" data-id="'+esc(b.id)+'" data-k="sku" '+
+            'value="'+esc(b.sku||'')+'" placeholder="ketik sendiri kalau mau beda" onchange="aisUbah(this)">'+
+        '</div>'+
+      '</div>';
+    }).join('');
+
+    return h + '</div>';
+  }
+
   function aisBukaTab(){ if(!AIS.baris.length && !AIS.muat) muatAis(); else gambarAis(); }
 
   function muatAis(){
@@ -1646,7 +1775,9 @@
       function(res){
         AIS.muat = false;
         if(!res || !res.ok){ AIS.galat=(res&&res.error)||'Server tidak menjawab.'; AIS.baris=[]; gambarAis(); return; }
-        AIS.baris = res.baris || []; gambarAis();
+        AIS.baris = res.baris || [];
+        if(res.warnaOpsi && res.warnaOpsi.length) AIS.warnaOpsi = res.warnaOpsi;
+        gambarAis();
       });
   }
 
@@ -1690,7 +1821,7 @@
 
     var h = '<div class="ais-atas">'+
       '<div class="ais-lihat">'+
-        [['copo','CO PO'],['s','S · Stock'],['po','PO'],['cb','CB · tanda bayar']].map(function(v){
+        [['isi','Isi'],['copo','CO PO'],['s','S · Stock'],['po','PO'],['cb','CB · tanda bayar']].map(function(v){
           return '<button class="ais-tab'+(AIS.lihat===v[0]?' on':'')+'" data-v="'+v[0]+'" onclick="aisLihat(this.getAttribute(\'data-v\'))">'+v[1]+'</button>';
         }).join('')+
       '</div>'+
@@ -1710,6 +1841,7 @@
         : baris.length+' baris'))+'</span>'+
     '</div>';
 
+    if(AIS.lihat === 'isi'){ el.innerHTML = h + aisGambarIsi_(baris); return; }
     if(AIS.lihat === 'cb'){ el.innerHTML = h + aisGambarCb_(baris); return; }
 
     var kol = AIS_KOL[AIS.lihat];
@@ -1725,8 +1857,8 @@
         }).join('')+
       '</div>'+
       '<div class="osub ais-ket">Atau biar diisi sendiri: dobel-klik <b>Isi AIS.cmd</b> di folder '+
-        'Revolt Tracking Order. Yang ikut terisi cuma baris yang <b>SKU-nya sudah diketik</b> di sini — '+
-        'usulan yang masih redup tidak dihitung siap. Berkas AIS dicadangkan dulu tiap kali.</div>';
+        'Revolt Tracking Order. Yang ikut terisi cuma baris yang sudah <b>siap</b> — lihat tab Isi. '+
+        'Berkas AIS dicadangkan dulu tiap kali.</div>';
 
     if(!AIS.muat && !baris.length){
       el.innerHTML = h + '<div class="kt-kosong">Tidak ada baris di saringan ini.</div>';
@@ -1860,7 +1992,7 @@
     postJson('aisSimpan', kirim, function(res){
       el.style.borderColor = (res && res.ok) ? '#16a34a' : '#d97a7a';
       setTimeout(function(){ el.style.borderColor = '#2a2a22'; }, 1200);
-      if(res && res.ok && (k === 'qty' || k === 'jenisCo')) muatAis();
+      if(res && res.ok && (k === 'qty' || k === 'jenisCo' || k === 'warna' || k === 'ukuran')) muatAis();
     });
   }
 
