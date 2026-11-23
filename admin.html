@@ -804,6 +804,7 @@
     .ais-lain > summary:hover{color:#c9c9b4}
     .ais-lain .ais-isian-baris{margin:9px 0 2px}
     .ais-ada{font-size:10px;background:#2d2514;color:#d9b36a;border-radius:9px;padding:1px 7px}
+      .lc.belum{background:#1f1d15;color:#a09375}
   </style>
   <link rel="icon" type="image/png" sizes="32x32" href="https://nrnholding.github.io/revolt-web/favicon-32.png">
   <link rel="apple-touch-icon" href="https://nrnholding.github.io/revolt-web/apple-touch-icon.png">
@@ -1699,15 +1700,31 @@
       .some(function(k){ return String(b[k] || '').trim() !== ''; });
   }
 
+  /* Isian yang tidak menahan tapi sebaiknya ada. Ukuran sengaja tidak dihitung:
+     banyak barang memang tidak berukuran, dan mengingatkannya tiap kali cuma
+     jadi kebisingan. */
+  function aisKurang_(b){
+    var kurang = [];
+    if(!String(b.invoice || '').trim()) kurang.push('invoice');
+    if(!String(b.pic || '').trim()) kurang.push('PIC');
+    if(!kurang.length) return '';
+    return '<span class="lc belum" title="Tidak menahan — barisnya tetap bisa masuk AIS">'+
+      kurang.join(' &amp; ')+' belum diisi</span>';
+  }
+
   function aisSiap_(b){
     if(b.sku) return true;
     return !!String(b.warna || '').trim();
   }
 
   function aisGambarIsi_(baris){
-    var h = '<div class="osub ais-ket">Yang bertanda <b class="ais-wajib">*</b> perlu diisi di sini; '+
-      'sisanya sudah diambil dari kartunya. Begitu warnanya dipilih, SKU-nya terbentuk sendiri — '+
-      'nomor urutnya dipasang belakangan, waktu barisnya betul-betul ditulis ke AIS.</div>'+
+    var h = '<div class="osub ais-ket">Satu kartu satu order. Yang sudah ada di kartu Trello — '+
+      'pelanggan, produk, jumlah, harga, vendor, tanggal — terisi sendiri di sini. '+
+      'Yang perlu dijawab cuma yang tidak tercatat di mana pun: <b>warna</b> (bertanda '+
+      '<b class="ais-wajib">*</b>, dan satu-satunya yang menahan, karena SKU dibangun dari situ), '+
+      'lalu ukuran, nomor invoice, PIC, serta ongkir dan potongan kalau ada. '+
+      'SKU-nya terbentuk sendiri begitu warnanya masuk; nomor urutnya dipasang belakangan, '+
+      'waktu barisnya betul-betul ditulis ke AIS.</div>'+
       '<div class="ais-peran">Berkas AIS-nya ada di laptop Timo, bukan di sini. '+
       'Tugas dari layar ini cuma <b>mengisi</b>; yang memindahkannya ke Excel dikerjakan dari sana. '+
       'Kotak centang di kiri kartu dan tombol <b>Tandai semua tampil</b> juga bagian laptop itu — '+
@@ -1750,8 +1767,11 @@
             (b.jenis==='manual'?' <span class="ksub">manual</span>':'')+'</div>'+
           '<div class="ais-lencana">'+
             (sudah ? '<span class="lc masuk">sudah di AIS</span>'
-                   : (siap ? '<span class="lc siap">siap diisi</span>'
-                           : '<span class="lc kurang">tinggal pilih warna</span>'))+
+                   : (siap ? '<span class="lc siap">siap ke AIS</span>'
+                           : '<span class="lc kurang">warna belum diisi</span>'))+
+            // Yang hijau pun masih bisa kurang lengkap. Itu tidak menahan, tapi
+            // tetap disebut - daripada ketahuan kosong sesudah masuk Excel.
+            (sudah || !siap ? '' : aisKurang_(b))+
             (stok ? '<span class="lc stok">stok sendiri</span>' : '')+
           '</div>'+
           (b.jenis==='manual'
