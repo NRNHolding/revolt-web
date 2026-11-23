@@ -791,6 +791,10 @@
     .ais-sku i{font-size:11.5px;color:#6b6b5e}
     .ais-sku-ubah{max-width:210px;margin-left:auto}
     @media (max-width:620px){ .ais-isian{flex:1 1 100%} .ais-sku-ubah{margin-left:0;max-width:none} }
+      /* Siapa mengerjakan apa - hub dibuka dari dua laptop */
+    .ais-peran{background:#17170f;border:1px solid #2a2a22;border-left:3px solid #4a4332;
+      border-radius:7px;padding:9px 12px;margin:0 0 11px;font-size:11.5px;line-height:1.6;color:#9a9a88}
+    .ais-peran b{color:#cfc89f}
   </style>
   <link rel="icon" type="image/png" sizes="32x32" href="https://nrnholding.github.io/revolt-web/favicon-32.png">
   <link rel="apple-touch-icon" href="https://nrnholding.github.io/revolt-web/apple-touch-icon.png">
@@ -1686,9 +1690,13 @@
   }
 
   function aisGambarIsi_(baris){
-    var h = '<div class="osub ais-ket">Yang bertanda <b class="ais-wajib">*</b> perlu kamu isi; '+
+    var h = '<div class="osub ais-ket">Yang bertanda <b class="ais-wajib">*</b> perlu diisi di sini; '+
       'sisanya sudah diambil dari kartunya. Begitu warnanya dipilih, SKU-nya terbentuk sendiri — '+
-      'nomor urutnya dipasang waktu barisnya betul-betul ditulis ke AIS.</div>';
+      'nomor urutnya dipasang belakangan, waktu barisnya betul-betul ditulis ke AIS.</div>'+
+      '<div class="ais-peran">Berkas AIS-nya ada di laptop Timo, bukan di sini. '+
+      'Tugas dari layar ini cuma <b>mengisi</b>; yang memindahkannya ke Excel dikerjakan dari sana. '+
+      'Kotak centang di kiri kartu dan tombol <b>Tandai semua tampil</b> juga bagian laptop itu — '+
+      'biarkan saja.</div>';
 
     if(!AIS.muat && !baris.length){
       return h + '<div class="kt-kosong">Tidak ada order di saringan ini.</div>';
@@ -1720,7 +1728,7 @@
 
       return '<div class="ais-kartu'+(sudah?' sudah':'')+(siap?'':' kurang')+'">'+
         '<div class="ais-kepala">'+
-          '<label class="ais-centang" title="'+(b.tglMasuk?'ditandai '+esc(b.tglMasuk):'centang kalau barisnya sudah ada di AIS')+'">'+
+          '<label class="ais-centang" title="'+(b.tglMasuk?'ditandai '+esc(b.tglMasuk):'sudah masuk AIS — dicentang dari laptop yang punya berkas AIS')+'">'+
             '<input type="checkbox" data-id="'+esc(b.id)+'"'+(sudah?' checked':'')+' onchange="aisTandai(this)">'+
           '</label>'+
           '<div class="ais-nama"><b>'+esc(b.id)+'</b> · '+esc(b.customer||'tanpa nama')+
@@ -1856,9 +1864,9 @@
           return '<button class="cbtn" data-b="'+n+'" onclick="aisSalin(this)">⧉ '+ttl+'</button>';
         }).join('')+
       '</div>'+
-      '<div class="osub ais-ket">Atau biar diisi sendiri: dobel-klik <b>Isi AIS.cmd</b> di folder '+
-        'Revolt Tracking Order. Yang ikut terisi cuma baris yang sudah <b>siap</b> — lihat tab Isi. '+
-        'Berkas AIS dicadangkan dulu tiap kali.</div>';
+      '<div class="ais-peran">Tiga tab ini untuk yang memegang berkas AIS — dari laptop itu '+
+        'barisnya disalin per blok kolom, atau dibiarkan diisi sendiri oleh <b>Isi AIS.cmd</b>. '+
+        'Kalau kamu yang mengisi hub, cukup tab <b>Isi</b>.</div>';
 
     if(!AIS.muat && !baris.length){
       el.innerHTML = h + '<div class="kt-kosong">Tidak ada baris di saringan ini.</div>';
@@ -1926,7 +1934,12 @@
     var baris = aisTampil_();
     if(!baris.length) return;
     var masuk = AIS.saring !== 'masuk';
-    if(!confirm((masuk ? 'Tandai ' : 'Batalkan tanda ')+baris.length+' baris yang sedang tampil?')) return;
+    var pesan = masuk
+      ? 'Tandai '+baris.length+' baris ini sudah masuk AIS?' + String.fromCharCode(10,10) +
+        'Pakai ini hanya kalau kamu sudah melihat sendiri barisnya ada di berkas AIS. ' +
+        'Yang ditandai tidak akan ditawarkan lagi ke pengisi.'
+      : 'Batalkan tanda pada '+baris.length+' baris yang sedang tampil?';
+    if(!confirm(pesan)) return;
     btn.disabled = true;
     postJson('aisTandaiBanyak', { ids: baris.map(function(b){ return b.id; }), masuk: masuk }, function(res){
       btn.disabled = false;
